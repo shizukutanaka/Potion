@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package>
+  <Metadata>
+    <Id>Potion.Service.Advanced</Id>
+    <Version>2.0.0</Version>
+    <Title>Potion Service Advanced Features</Title>
+    <Authors>Potion Service Team</Authors>
+    <Description>Advanced features for Potion Self-Healing Service including machine learning, blockchain audit trails, chaos engineering, and multi-language support.</Description>
+    <PackageProjectUrl>https://github.com/yourusername/Potion</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yourusername/Potion.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>monitoring;self-healing;security;observability;machine-learning;blockchain;chaos-engineering;microservices;kubernetes</PackageTags>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <Copyright>Copyright © 2024 Potion Service Team</Copyright>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </Metadata>
+
+  <ItemGroup>
+    <!-- Core dependencies -->
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning" Version="5.1.0" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning.ApiExplorer" Version="5.1.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="6.5.0" />
+    <PackageReference Include="Swashbuckle.AspNetCore.Annotations" Version="6.5.0" />
+
+    <!-- Reactive programming -->
+    <PackageReference Include="System.Reactive" Version="6.0.1" />
+
+    <!-- Machine learning -->
+    <PackageReference Include="Microsoft.ML" Version="3.0.1" />
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+
+    <!-- Cryptography and security -->
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
+    <PackageReference Include="BouncyCastle" Version="2.2.1" />
+
+    <!-- Kubernetes integration -->
+    <PackageReference Include="KubernetesClient" Version="13.0.0" />
+    <PackageReference Include="YamlDotNet" Version="13.7.1" />
+
+    <!-- Testing and quality -->
+    <PackageReference Include="xunit" Version="2.6.0" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.5.3" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+
+    <!-- Performance and monitoring -->
+    <PackageReference Include="BenchmarkDotNet" Version="0.13.10" />
+    <PackageReference Include="OpenTelemetry" Version="1.7.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.7.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.7.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.7.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.7.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.7.0" />
+
+    <!-- Logging and observability -->
+    <PackageReference Include="Serilog" Version="3.1.1" />
+    <PackageReference Include="Serilog.AspNetCore" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="Serilog.Enrichers.Environment" Version="2.3.0" />
+    <PackageReference Include="Serilog.Enrichers.Thread" Version="3.1.0" />
+
+    <!-- HTTP clients and resilience -->
+    <PackageReference Include="System.Net.Http" Version="4.3.4" />
+    <PackageReference Include="Microsoft.Extensions.Http" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="8.0.0" />
+
+    <!-- Configuration and feature flags -->
+    <PackageReference Include="Microsoft.FeatureManagement" Version="3.3.0" />
+    <PackageReference Include="Microsoft.FeatureManagement.AspNetCore" Version="3.3.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="8.0.0" />
+
+    <!-- Dependency injection -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="8.0.0" />
+
+    <!-- Options and configuration -->
+    <PackageReference Include="Microsoft.Extensions.Options" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="8.0.0" />
+
+    <!-- Health checks -->
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.Abstractions" Version="8.0.0" />
+
+    <!-- Metrics and monitoring -->
+    <PackageReference Include="System.Diagnostics.DiagnosticSource" Version="8.0.0" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="8.0.0" />
+
+    <!-- Collections and data structures -->
+    <PackageReference Include="System.Collections.Immutable" Version="8.0.0" />
+    <PackageReference Include="System.Linq.Async" Version="6.0.1" />
+
+    <!-- Task and async support -->
+    <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
+    <PackageReference Include="System.Threading.Tasks.Dataflow" Version="8.0.0" />
+
+    <!-- JSON and serialization -->
+    <PackageReference Include="System.Text.Json" Version="8.0.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+
+    <!-- Internationalization -->
+    <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Localization.Abstractions" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="Resources\*.resx" Pack="true" PackagePath="lib/$(TargetFramework)/Resources/" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
+    <PackageOutputPath>./nupkg</PackageOutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <Optimize>true</Optimize>
+    <DebugType>portable</DebugType>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <PublishTrimmed>true</PublishTrimmed>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+    <PackageReference Include="MinVer" Version="5.0.0" PrivateAssets="All" />
+  </ItemGroup>
+</Package>

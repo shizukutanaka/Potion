@@ -1,0 +1,31 @@
+apiVersion: v2
+name: potion-service
+description: A Helm chart for Potion Self-Healing Service
+type: application
+version: 2.0.0
+appVersion: "2.0.0"
+keywords:
+  - monitoring
+  - self-healing
+  - security
+  - observability
+home: https://github.com/yourusername/Potion
+sources:
+  - https://github.com/yourusername/Potion
+maintainers:
+  - name: Potion Service Team
+    email: potion-service@example.com
+
+dependencies:
+  - name: ingress-nginx
+    version: "4.8.0"
+    repository: https://kubernetes.github.io/ingress-nginx
+    condition: ingress-nginx.enabled
+  - name: cert-manager
+    version: "1.13.0"
+    repository: https://charts.jetstack.io
+    condition: cert-manager.enabled
+  - name: prometheus
+    version: "15.18.0"
+    repository: https://prometheus-community.github.io/helm-charts
+    condition: prometheus.enabled

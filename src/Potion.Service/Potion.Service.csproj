@@ -1,0 +1,111 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <RootNamespace>Potion.Service</RootNamespace>
+    <AssemblyName>Potion.Service</AssemblyName>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>Exe</OutputType>
+    <UseWindowsService>true</UseWindowsService>
+    <PublishSingleFile>false</PublishSingleFile>
+    <!-- セキュリティとパフォーマンスの最適化 -->
+    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>link</TrimMode>
+    <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+    <!-- 高度な最適化 -->
+    <Optimize>true</Optimize>
+    <DebugType>portable</DebugType>
+    <TieredCompilation>true</TieredCompilation>
+    <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+    <PublishReadyToRun>true</PublishReadyToRun>
+    <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <!-- セキュリティ設定 -->
+    <EnablePreviewFeatures>false</EnablePreviewFeatures>
+    <WarningsAsErrors>CS8600;CS8602;CS8603</WarningsAsErrors>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <!-- パッケージ検証 -->
+    <EnablePackageValidation>true</EnablePackageValidation>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+    <!-- バージョン情報 -->
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+    <InformationalVersion>2.0.0-dev</InformationalVersion>
+  </PropertyGroup>
+
+  <!-- 条件付きコンパイル設定 -->
+  <PropertyGroup Condition="'$(Configuration)'=='Release'">
+    <DebugSymbols>false</DebugSymbols>
+    <DebugType>portable</DebugType>
+    <Optimize>true</Optimize>
+    <PathMap>$(MSBuildProjectDirectory)=/</PathMap>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)'=='Debug'">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Logging -->
+    <PackageReference Include="Serilog" Version="3.1.1" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
+
+    <!-- Core Infrastructure -->
+    <PackageReference Include="System.Management" Version="8.0.0" />
+    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
+    <PackageReference Include="System.Security.Principal.Windows" Version="5.0.0" />
+    <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
+    <PackageReference Include="System.Reactive" Version="6.0.1" />
+
+    <!-- Analysis Libraries -->
+    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
+
+    <!-- Static Analysis -->
+    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0" PrivateAssets="All" />
+
+    <!-- Developer Tools -->
+    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="appsettings*.json" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="README.md" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <!-- ソースリンク設定 -->
+  <PropertyGroup>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
+  </PropertyGroup>
+
+  <!-- 静的解析設定 -->
+  <PropertyGroup>
+    <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
+    <RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
+    <AnalysisLevel>latest</AnalysisLevel>
+  </PropertyGroup>
+
+  <!-- NuGetパッケージ設定 -->
+  <PropertyGroup>
+    <PackageId>Potion.Service</PackageId>
+    <Description>Production-grade Windows system automation service with autonomous remediation, monitoring, and security controls</Description>
+    <PackageTags>windows-service;self-healing;remediation;monitoring;system-automation;security</PackageTags>
+    <PackageProjectUrl>https://github.com/irosa/Potion</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/irosa/Potion.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <Authors>Potion Contributors</Authors>
+    <Company>Open Source</Company>
+  </PropertyGroup>
+
+</Project>

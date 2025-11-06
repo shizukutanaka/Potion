@@ -1,0 +1,219 @@
+# Default values for potion-service
+replicaCount: 3
+
+image:
+  registry: docker.io
+  repository: potion-service
+  tag: "2.0.0"
+  pullPolicy: Always
+
+imagePullSecrets: []
+
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  # Specifies whether a service account should be created
+  create: true
+  # Annotations to add to the service account
+  annotations: {}
+  # The name of the service account to use.
+  # If not set and create is true, a name is generated using the fullname template
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+  # fsGroup: 2000
+
+securityContext: {}
+  # capabilities:
+  #   drop:
+  #   - ALL
+  # readOnlyRootFilesystem: true
+  # runAsNonRoot: true
+  # runAsUser: 1000
+
+service:
+  type: ClusterIP
+  port: 80
+  httpsPort: 443
+  annotations: {}
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: potion-service.local
+      paths:
+        - path: /api
+          pathType: Prefix
+        - path: /health
+          pathType: Prefix
+        - path: /metrics
+          pathType: Prefix
+  tls:
+    - secretName: potion-service-tls
+      hosts:
+        - potion-service.local
+
+resources:
+  requests:
+    memory: "256Mi"
+    cpu: "250m"
+  limits:
+    memory: "512Mi"
+    cpu: "500m"
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+    - weight: 100
+      podAffinityTerm:
+        labelSelector:
+          matchExpressions:
+          - key: app
+            operator: In
+            values:
+            - potion-service
+        topologyKey: kubernetes.io/hostname
+
+# Application configuration
+config:
+  # Environment settings
+  environment: "Production"
+  logLevel: "Information"
+
+  # Service settings
+  serviceName: "Potion Self-Healing Service"
+  version: "2.0.0"
+
+  # Health check configuration
+  healthCheck:
+    intervalSeconds: 30
+    timeoutSeconds: 10
+
+  # Security configuration
+  security:
+    auditIntervalHours: 12
+    maxLogRetentionDays: 90
+    enableBlockchainAudit: true
+    enableAnomalyDetection: true
+
+  # Performance configuration
+  performance:
+    maxConcurrency: 8
+    memoryLimitMB: 512
+    enableCircuitBreaker: true
+    cacheExpirationMinutes: 60
+
+  # Monitoring configuration
+  monitoring:
+    enablePrometheus: true
+    enableDistributedTracing: true
+    metricsIntervalSeconds: 30
+
+  # Feature flags
+  features:
+    chaosEngineering: false
+    advancedTesting: false
+    gitOps: false
+    machineLearning: true
+
+# External dependencies
+dependencies:
+  ingress-nginx:
+    enabled: true
+    controller:
+      replicaCount: 2
+      resources:
+        requests:
+          cpu: 100m
+          memory: 90Mi
+
+  cert-manager:
+    enabled: true
+    installCRDs: true
+
+  prometheus:
+    enabled: true
+    alertmanager:
+      enabled: true
+    kube-state-metrics:
+      enabled: true
+    prometheus-pushgateway:
+      enabled: true
+
+# Security policies
+networkPolicies:
+  enabled: true
+  allowExternal: false
+
+# Resource quotas
+resourceQuota:
+  enabled: true
+  hard:
+    requests.cpu: "2"
+    requests.memory: "2Gi"
+    limits.cpu: "4"
+    limits.memory: "4Gi"
+
+# Pod disruption budget
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 2
+
+# Service monitor for Prometheus
+serviceMonitor:
+  enabled: true
+  interval: 30s
+  scrapeTimeout: 10s
+  path: /api/health/metrics/custom
+
+# TLS configuration
+tls:
+  enabled: true
+  autoCert: true
+  clusterIssuer: "letsencrypt-prod"
+
+# Backup configuration
+backup:
+  enabled: true
+  schedule: "0 2 * * *"
+  retention: "30d"
+  storageClass: "standard"
+
+# Logging configuration
+logging:
+  level: "Information"
+  structured: true
+  retentionDays: 90
+  compression: true
+
+# Monitoring alerts
+alerts:
+  enabled: true
+  slackWebhook: ""
+  emailRecipients: []
+
+# Development configuration
+development:
+  enabled: false
+  debugMode: false
+  hotReload: false

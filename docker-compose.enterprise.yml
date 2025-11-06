@@ -1,0 +1,201 @@
+version: '3.8'
+
+services:
+  # メインのPotionエンタープライズサービス
+  potion-enterprise:
+    image: potion/enterprise:latest
+    container_name: potion-enterprise
+    restart: unless-stopped
+    environment:
+      - POTION_ENVIRONMENT=production
+      - POTION_LOG_LEVEL=warning
+      - POTION_SECURITY_LEVEL=enterprise
+      - POTION_TARGET_UPTIME=99.9
+      - POTION_AUTO_SCALING=false
+      - POTION_CLUSTER_MODE=false
+    volumes:
+      - ./data:/data/potion
+      - ./logs:/var/log/potion
+      - ./certs:/etc/potion/certs:ro
+      - ./config:/etc/potion/config:ro
+    networks:
+      - potion-network
+    depends_on:
+      - redis
+      - postgres
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "potion", "health-check", "--detailed"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '1.0'
+          memory: 2G
+
+  # Redisキャッシュサーバー
+  redis:
+    image: redis:7.2-alpine
+    container_name: potion-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:?REDIS_PASSWORD must be set}
+    volumes:
+      - ./redis-data:/data
+    networks:
+      - potion-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # PostgreSQLデータベース
+  postgres:
+    image: postgres:15-alpine
+    container_name: potion-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=potion_enterprise
+      - POSTGRES_USER=potion_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
+    volumes:
+      - ./postgres-data:/var/lib/postgresql/data
+      - ./init-scripts:/docker-entrypoint-initdb.d
+    networks:
+      - potion-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U potion_user -d potion_enterprise"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Elasticsearch検索エンジン
+  elasticsearch:
+    image: elasticsearch:8.11.0
+    container_name: potion-elasticsearch
+    restart: unless-stopped
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+    volumes:
+      - ./elasticsearch-data:/usr/share/elasticsearch/data
+    networks:
+      - potion-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginxロードバランサー
+  nginx:
+    image: nginx:1.25-alpine
+    container_name: potion-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+      - ./logs/nginx:/var/log/nginx
+    networks:
+      - potion-network
+    depends_on:
+      - potion-enterprise
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Prometheus監視
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: potion-prometheus
+    restart: unless-stopped
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-data:/prometheus
+    networks:
+      - potion-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/-/healthy"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Grafanaダッシュボード
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: potion-grafana
+    restart: unless-stopped
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:?GRAFANA_PASSWORD must be set}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - ./grafana-data:/var/lib/grafana
+      - ./grafana-dashboards:/etc/grafana/provisioning/dashboards
+      - ./grafana-datasources:/etc/grafana/provisioning/datasources
+    networks:
+      - potion-network
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Fluentdログ収集
+  fluentd:
+    image: fluent/fluentd:v1.16-1
+    container_name: potion-fluentd
+    restart: unless-stopped
+    volumes:
+      - ./fluentd.conf:/fluentd/etc/fluent.conf:ro
+      - ./logs:/var/log/potion:ro
+    networks:
+      - potion-network
+    depends_on:
+      - elasticsearch
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9880/api/plugins.json"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  potion-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres-data:
+    driver: local
+  redis-data:
+    driver: local
+  elasticsearch-data:
+    driver: local
+  grafana-data:
+    driver: local
+  prometheus-data:
+    driver: local

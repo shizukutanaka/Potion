@@ -1,0 +1,957 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Potion Service Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="dashboard-layout">
+        <nav class="side-navigation">
+            <div class="side-nav-header">
+                <div class="logo-section">
+                    <i class="fas fa-shield-alt logo-icon"></i>
+                    <h1>Potion Service</h1>
+                </div>
+            </div>
+            <div class="side-nav-content">
+                <div class="side-nav-section">
+                    <ul class="side-nav-menu">
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link active" onclick="showSection('overview'); return false;">
+                                <i class="fas fa-chart-line side-nav-icon"></i>
+                                <span class="side-nav-text">Overview</span>
+                            </a>
+                        </li>
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link" onclick="showSection('security'); return false;">
+                                <i class="fas fa-shield-alt side-nav-icon"></i>
+                                <span class="side-nav-text">Security</span>
+                            </a>
+                        </li>
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link" onclick="showSection('performance'); return false;">
+                                <i class="fas fa-tachometer-alt side-nav-icon"></i>
+                                <span class="side-nav-text">Performance</span>
+                            </a>
+                        </li>
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link" onclick="showSection('alerts'); return false;">
+                                <i class="fas fa-exclamation-triangle side-nav-icon"></i>
+                                <span class="side-nav-text">Alerts</span>
+                                <span class="side-nav-badge" id="alerts-count-side">0</span>
+                            </a>
+                        </li>
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link" onclick="showSection('logs'); return false;">
+                                <i class="fas fa-list-alt side-nav-icon"></i>
+                                <span class="side-nav-text">Event Logs</span>
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+        <div class="main-content-area">
+
+    <!-- Advanced Navigation with Page Actions -->
+    <nav class="page-header">
+        <div class="page-header-content">
+            <nav class="breadcrumb-nav" id="breadcrumb-nav">
+                <div class="breadcrumb">
+                    <span class="breadcrumb-item active">Dashboard</span>
+                    <span class="breadcrumb-separator">/</span>
+                    <span class="breadcrumb-item" id="current-section">Overview</span>
+                </div>
+            </nav>
+
+            <div class="page-actions">
+                <div class="action-group">
+                    <button class="btn btn-secondary tooltip" onclick="showHelp()">
+                        <i class="fas fa-question-circle"></i>
+                        <span class="tooltip-content">Help & Documentation</span>
+                    </button>
+                    <button class="btn btn-secondary tooltip" onclick="showKeyboardShortcuts()">
+                        <i class="fas fa-keyboard"></i>
+                        <span class="tooltip-content">Keyboard Shortcuts</span>
+                    </button>
+                </div>
+                <div class="action-group">
+                    <div class="status-indicator-advanced healthy pulse">
+                        <div class="status-dot healthy"></div>
+                        <span class="status-text">System Healthy</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="dashboard-content">
+
+        <!-- Overview Section -->
+        <section id="overview-section" class="content-section active">
+            <div class="section-header">
+                <h2>System Overview</h2>
+                <div class="time-range">
+                    <span>Last updated: <span id="last-updated">Loading...</span></span>
+                </div>
+            </div>
+
+            <div class="metrics-grid">
+                <!-- System Health Card -->
+                <div class="metric-card health-card">
+                    <div class="card-header">
+                        <h3>System Health</h3>
+                        <div class="status-badge" id="overall-status">Loading...</div>
+                    </div>
+                    <div class="card-content">
+                        <div class="health-score">
+                            <div class="score-circle">
+                                <span id="health-score">0</span>
+                                <span class="score-label">Score</span>
+                            </div>
+                        </div>
+                        <div class="health-indicators">
+                            <div class="indicator">
+                                <span class="indicator-label">CPU</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="cpu-usage" style="width: 0%"></div>
+                                </div>
+                                <span class="indicator-value" id="cpu-value">0%</span>
+                            </div>
+                            <div class="indicator">
+                                <span class="indicator-label">Memory</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="memory-usage" style="width: 0%"></div>
+                                </div>
+                                <span class="indicator-value" id="memory-value">0%</span>
+                            </div>
+                            <div class="indicator">
+                                <span class="indicator-label">Disk</span>
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="disk-usage" style="width: 0%"></div>
+                                </div>
+                                <span class="indicator-value" id="disk-value">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Services Card -->
+                <div class="metric-card services-card">
+                    <div class="card-header">
+                        <h3>Services</h3>
+                        <i class="fas fa-server card-icon"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="service-stats">
+                            <div class="stat-item">
+                                <span class="stat-value" id="total-services">0</span>
+                                <span class="stat-label">Total</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value running" id="running-services">0</span>
+                                <span class="stat-label">Running</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value stopped" id="stopped-services">0</span>
+                                <span class="stat-label">Stopped</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-value failed" id="failed-services">0</span>
+                                <span class="stat-label">Failed</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Security Card -->
+                <div class="metric-card security-card">
+                    <div class="card-header">
+                        <h3>Security Status</h3>
+                        <i class="fas fa-lock card-icon"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="security-items">
+                            <div class="security-item">
+                                <i class="fas fa-shield-alt"></i>
+                                <span>Defender</span>
+                                <div class="status-indicator" id="defender-status">Unknown</div>
+                            </div>
+                            <div class="security-item">
+                                <i class="fas fa-firewall"></i>
+                                <span>Firewall</span>
+                                <div class="status-indicator" id="firewall-status">Unknown</div>
+                            </div>
+                            <div class="security-item">
+                                <i class="fas fa-clock"></i>
+                                <span>Last Scan</span>
+                                <div class="status-text" id="last-scan">Never</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Events Card -->
+                <div class="metric-card events-card">
+                    <div class="card-header">
+                        <h3>Event Log</h3>
+                        <i class="fas fa-list-alt card-icon"></i>
+                    </div>
+                    <div class="card-content">
+                        <div class="event-counts">
+                            <div class="event-count error">
+                                <span class="count" id="error-events">0</span>
+                                <span class="label">Errors</span>
+                            </div>
+                            <div class="event-count warning">
+                                <span class="count" id="warning-events">0</span>
+                                <span class="label">Warnings</span>
+                            </div>
+                            <div class="event-count critical">
+                                <span class="count" id="critical-events">0</span>
+                                <span class="label">Critical</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Tabs for Security Section -->
+        <section id="security-section" class="content-section">
+            <div class="section-header">
+                <h2>Security Dashboard</h2>
+                <div class="security-score">
+                    <div class="score-display">
+                        <span class="score-number" id="security-score">0</span>
+                        <span class="score-label">Security Score</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="tabs">
+                <button class="tab active" onclick="switchTab('components')">Components</button>
+                <button class="tab" onclick="switchTab('events')">Events</button>
+                <button class="tab" onclick="switchTab('policies')">Policies</button>
+            </div>
+
+            <div id="components-tab" class="tab-content active">
+                <div class="security-card card-collapsible">
+                    <div class="card-header collapsible">
+                        <h3>Security Components</h3>
+                        <button class="card-toggle" onclick="toggleCard(this)">
+                            <i class="fas fa-chevron-up"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="component-list" id="security-components">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="events-tab" class="tab-content">
+                <div class="security-card card-collapsible">
+                    <div class="card-header collapsible">
+                        <h3>Recent Security Events</h3>
+                        <span class="status-lozenge info">Live</span>
+                        <button class="card-toggle" onclick="toggleCard(this)">
+                            <i class="fas fa-chevron-up"></i>
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="events-timeline" id="security-events">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="policies-tab" class="tab-content">
+                <div class="security-card">
+                    <h3>Security Policies</h3>
+                    <div class="policies-grid" id="security-policies">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Performance Section -->
+        <section id="performance-section" class="content-section">
+            <div class="section-header">
+                <h2>Performance Metrics</h2>
+            </div>
+
+                <div class="performance-card">
+                    <div class="card-header">
+                        <h3>Resource Usage Trends</h3>
+                        <div class="chart-controls">
+                            <select id="chart-time-range" onchange="updateChartRange(this.value)">
+                                <option value="1h">Last Hour</option>
+                                <option value="24h" selected>Last 24 Hours</option>
+                                <option value="7d">Last 7 Days</option>
+                                <option value="30d">Last 30 Days</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="card-content">
+                        <canvas id="resource-trends-chart" width="600" height="300"></canvas>
+                    </div>
+                </div>
+
+                <div class="performance-card">
+                    <div class="card-header">
+                        <h3>System Performance</h3>
+                        <button class="btn btn-ghost tooltip" onclick="openPerformanceDrawer()">
+                            <i class="fas fa-chart-line"></i>
+                            <span class="tooltip-content">View detailed performance metrics</span>
+                        </button>
+                    </div>
+                    <div class="card-content">
+                        <div class="performance-metrics" id="performance-metrics">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                </div>
+        </section>
+
+        <!-- Alerts Section -->
+        <section id="alerts-section" class="content-section">
+            <div class="section-header">
+                <h2>System Alerts</h2>
+                <div class="alerts-toolbar">
+                    <div class="search-container">
+                        <i class="fas fa-search search-icon"></i>
+                        <input type="text" class="search-input" id="alerts-search" placeholder="Search alerts..." onkeyup="searchAlerts(this.value)">
+                    </div>
+                    <div class="bulk-actions" id="bulk-actions" style="display: none;">
+                        <span id="selected-count">0 selected</span>
+                        <button class="btn btn-secondary" onclick="clearAlertSelection()">Clear</button>
+                        <button class="btn btn-primary" onclick="bulkAcknowledge()">Acknowledge</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alerts-filters">
+                <div class="alert-filters">
+                    <button class="filter-btn active" onclick="filterAlerts('all')">All</button>
+                    <button class="filter-btn" onclick="filterAlerts('critical')">Critical</button>
+                    <button class="filter-btn" onclick="filterAlerts('warning')">Warning</button>
+                    <button class="filter-btn" onclick="filterAlerts('info')">Info</button>
+                </div>
+                <div class="alert-actions">
+                    <button class="btn btn-ghost" onclick="toggleSelectAll()">
+                        <i class="fas fa-check-square"></i> Select All
+                    </button>
+                    <button class="btn btn-ghost" onclick="exportAlerts()">
+                        <i class="fas fa-download"></i> Export
+                    </button>
+                </div>
+            </div>
+
+            <div class="alerts-container" id="alerts-container">
+                <!-- Populated by JavaScript -->
+            </div>
+        </section>
+
+        <!-- Event Logs Section -->
+        <section id="logs-section" class="content-section">
+            <div class="section-header">
+                <h2>Event Logs</h2>
+                <div class="logs-controls">
+                    <select class="form-input" id="log-type-select" onchange="changeLogType(this.value)">
+                        <option value="system">System Logs</option>
+                        <option value="security">Security Logs</option>
+                        <option value="application">Application Logs</option>
+                    </select>
+                    <div class="time-filter">
+                        <button class="btn btn-secondary" onclick="setTimeFilter('1h')">1H</button>
+                        <button class="btn btn-secondary active" onclick="setTimeFilter('24h')">24H</button>
+                        <button class="btn btn-secondary" onclick="setTimeFilter('7d')">7D</button>
+                    </div>
+                    <button class="btn btn-ghost tooltip" onclick="toggleAdvancedSearch()">
+                        <i class="fas fa-filter"></i>
+                        <span class="tooltip-content">Advanced search and filters</span>
+                    </button>
+                </div>
+            </div>
+
+            <div class="logs-container">
+                <div class="logs-table-container">
+                    <table class="logs-table" id="logs-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Level</th>
+                                <th>Source</th>
+                                <th>Event ID</th>
+                                <th>Message</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logs-table-body">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+                <div class="logs-pagination" id="logs-pagination">
+                    <!-- Pagination controls will be added here -->
+                    <!-- Advanced Modal Variations -->
+        <!-- Help Modal -->
+        <div class="modal-overlay" id="help-modal">
+            <div class="modal-content help-modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="fas fa-question-circle"></i>
+                        Help & Documentation
+                    </h3>
+                    <button class="modal-close" onclick="closeHelpModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="help-content">
+                        <div class="help-section">
+                            <h4>Getting Started</h4>
+                            <div class="help-item">
+                                <div class="help-icon"><i class="fas fa-chart-line"></i></div>
+                                <div class="help-text">
+                                    <strong>Overview Dashboard</strong>
+                                    <p>Monitor system health, resource usage, and key metrics at a glance.</p>
+                                </div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-icon"><i class="fas fa-shield-alt"></i></div>
+                                <div class="help-text">
+                                    <strong>Security Monitoring</strong>
+                                    <p>Track security events, policy compliance, and threat indicators.</p>
+                                </div>
+                            </div>
+                            <div class="help-item">
+                                <div class="help-icon"><i class="fas fa-tachometer-alt"></i></div>
+                                <div class="help-text">
+                                    <strong>Performance Analytics</strong>
+                                    <p>Analyze system performance, bottlenecks, and optimization opportunities.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="help-section">
+                            <h4>Keyboard Shortcuts</h4>
+                            <div class="keyboard-shortcuts">
+                                <div class="shortcut-item">
+                                    <kbd>1-5</kbd>
+                                    <span>Switch between dashboard sections</span>
+                                </div>
+                                <div class="shortcut-item">
+                                    <kbd>Ctrl+R</kbd>
+                                    <span>Refresh all data</span>
+                                </div>
+                                <div class="shortcut-item">
+                                    <kbd>Escape</kbd>
+                                    <span>Close modals and panels</span>
+                                </div>
+                                <div class="shortcut-item">
+                                    <kbd>Ctrl+/</kbd>
+                                    <span>Show this help</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="help-section">
+                            <h4>Troubleshooting</h4>
+                            <div class="troubleshooting-tips">
+                                <div class="tip-item">
+                                    <div class="tip-icon warning"><i class="fas fa-exclamation-triangle"></i></div>
+                                    <div class="tip-content">
+                                        <strong>Connection Issues</strong>
+                                        <p>If data isn't loading, check your internet connection and refresh the page.</p>
+                                    </div>
+                                </div>
+                                <div class="tip-item">
+                                    <div class="tip-icon info"><i class="fas fa-info-circle"></i></div>
+                                    <div class="tip-content">
+                                        <strong>Performance Tips</strong>
+                                        <p>Use the time range filters to focus on specific time periods for better performance.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <div class="modal-footer-left">
+                        <button class="btn btn-ghost" onclick="showTutorial()">
+                            <i class="fas fa-play-circle"></i> Start Tutorial
+                        </button>
+                    </div>
+                    <div class="modal-footer-right">
+                        <button class="btn btn-primary" onclick="closeHelpModal()">Got it!</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Keyboard Shortcuts Modal -->
+        <div class="modal-overlay" id="shortcuts-modal">
+            <div class="modal-content shortcuts-modal">
+                <div class="modal-header">
+                    <h3 class="modal-title">
+                        <i class="fas fa-keyboard"></i>
+                        Keyboard Shortcuts
+                    </h3>
+                    <button class="modal-close" onclick="closeShortcutsModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <div class="shortcuts-grid">
+                        <div class="shortcut-category">
+                            <h4>Navigation</h4>
+                            <div class="shortcut-list">
+                                <div class="shortcut-row">
+                                    <div class="shortcut-keys">
+                                        <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> <kbd>4</kbd> <kbd>5</kbd>
+                                    </div>
+                                    <span>Switch to Overview/Security/Performance/Alerts/Logs</span>
+                                </div>
+                                <div class="shortcut-row">
+                                    <div class="shortcut-keys"><kbd>Tab</kbd></div>
+                                    <span>Navigate between interactive elements</span>
+                                </div>
+                                <div class="shortcut-row">
+                                    <div class="shortcut-keys"><kbd>Enter</kbd></div>
+                                    <span>Activate button or confirm action</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="shortcut-category">
+                            <h4>Actions</h4>
+                            <div class="shortcut-list">
+                                <div class="shortcut-row">
+                                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>R</kbd></div>
+                                    <span>Refresh all dashboard data</span>
+                                </div>
+                                <div class="shortcut-row">
+                                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>/</kbd></div>
+                                    <span>Show help documentation</span>
+                                </div>
+                                <div class="shortcut-row">
+                                    <div class="shortcut-keys"><kbd>Ctrl</kbd> + <kbd>K</kbd></div>
+                                    <span>Focus search input</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="shortcut-category">
+                            <h4>Editing</h4>
+                            <div class="shortcut-list">
+                                <div class="shortcut-row">
+                                    <div class="shortcut-keys"><kbd>Enter</kbd></div>
+                                    <span>Save inline edit</span>
+                                </div>
+                                <div class="shortcut-row">
+                                    <div class="shortcut-keys"><kbd>Escape</kbd></div>
+                                    <span>Cancel edit or close modal</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Advanced Search with Autocomplete -->
+        <div class="advanced-search-overlay" id="advanced-search-overlay" style="display: none;">
+            <div class="advanced-search-container">
+                <div class="search-input-wrapper">
+                    <i class="fas fa-search search-icon"></i>
+                    <input type="text" class="advanced-search-input" id="advanced-search-input" placeholder="Search dashboards, alerts, logs..." autocomplete="off">
+                    <button class="search-clear" onclick="clearAdvancedSearch()" style="display: none;">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+                <div class="search-results" id="search-results" style="display: none;">
+                    <div class="search-categories">
+                        <div class="search-category active" data-category="all">All Results</div>
+                        <div class="search-category" data-category="alerts">Alerts</div>
+                        <div class="search-category" data-category="logs">Logs</div>
+                        <div class="search-category" data-category="metrics">Metrics</div>
+                    </div>
+                    <div class="search-results-content" id="search-results-content">
+                        <!-- Search results will be populated here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    <!-- Side Drawer for Advanced Details -->
+    <aside class="side-drawer" id="performance-drawer">
+        <div class="drawer-header">
+            <h3>Detailed Performance Metrics</h3>
+            <button class="drawer-close" onclick="closePerformanceDrawer()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="drawer-content">
+            <div class="drawer-section">
+                <h4>CPU Performance</h4>
+                <div class="metric-detail-grid">
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Usage</span>
+                        <span class="metric-value" id="cpu-usage-detail">0%</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Load Avg (1m)</span>
+                        <span class="metric-value" id="cpu-load-1m">0.0</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Load Avg (5m)</span>
+                        <span class="metric-value" id="cpu-load-5m">0.0</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Load Avg (15m)</span>
+                        <span class="metric-value" id="cpu-load-15m">0.0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="drawer-section">
+                <h4>Memory Analysis</h4>
+                <div class="metric-detail-grid">
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Total</span>
+                        <span class="metric-value" id="memory-total">0 GB</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Available</span>
+                        <span class="metric-value" id="memory-available">0 GB</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Used</span>
+                        <span class="metric-value" id="memory-used">0 GB</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Usage %</span>
+                        <span class="metric-value" id="memory-usage-percent">0%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="drawer-section">
+                <h4>Disk I/O Performance</h4>
+                <div class="metric-detail-grid">
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Read Rate</span>
+                        <span class="metric-value" id="disk-read-rate">0 MB/s</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Write Rate</span>
+                        <span class="metric-value" id="disk-write-rate">0 MB/s</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Queue Length</span>
+                        <span class="metric-value" id="disk-queue-length">0</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Total Size</span>
+                        <span class="metric-value" id="disk-total-size">0 GB</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="drawer-section">
+                <h4>Network Statistics</h4>
+                <div class="metric-detail-grid">
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Bytes Sent/sec</span>
+                        <span class="metric-value" id="network-sent">0 B/s</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Bytes Received/sec</span>
+                        <span class="metric-value" id="network-received">0 B/s</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Active Connections</span>
+                        <span class="metric-value" id="network-connections">0</span>
+                    </div>
+                    <div class="metric-detail-item">
+                        <span class="metric-label">Utilization</span>
+                        <span class="metric-value" id="network-utilization">0%</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- Advanced Search Panel -->
+    <div class="search-panel" id="advanced-search-panel" style="display: none;">
+        <div class="search-panel-header">
+            <h4>Advanced Search</h4>
+            <button class="btn btn-ghost" onclick="toggleAdvancedSearch()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="search-panel-content">
+            <div class="search-filters">
+                <div class="filter-group">
+                    <label class="filter-label">Severity</label>
+                    <div class="filter-options">
+                        <label><input type="checkbox" name="severity" value="critical" checked> Critical</label>
+                        <label><input type="checkbox" name="severity" value="error" checked> Error</label>
+                        <label><input type="checkbox" name="severity" value="warning" checked> Warning</label>
+                        <label><input type="checkbox" name="severity" value="info" checked> Info</label>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Time Range</label>
+                    <div class="filter-options">
+                        <label><input type="radio" name="timeRange" value="1h"> Last Hour</label>
+                        <label><input type="radio" name="timeRange" value="24h" checked> Last 24 Hours</label>
+                        <label><input type="radio" name="timeRange" value="7d"> Last 7 Days</label>
+                        <label><input type="radio" name="timeRange" value="30d"> Last 30 Days</label>
+                    </div>
+                </div>
+
+                <div class="filter-group">
+                    <label class="filter-label">Components</label>
+                    <div class="filter-options">
+                        <label><input type="checkbox" name="component" value="CPU" checked> CPU</label>
+                        <label><input type="checkbox" name="component" value="Memory" checked> Memory</label>
+                        <label><input type="checkbox" name="component" value="Disk" checked> Disk</label>
+                        <label><input type="checkbox" name="component" value="Network" checked> Network</label>
+                        <label><input type="checkbox" name="component" value="Security" checked> Security</label>
+                    </div>
+                </div>
+            </div>
+
+            <div class="search-actions">
+                <button class="btn btn-secondary" onclick="clearAdvancedFilters()">Clear All</button>
+                <button class="btn btn-primary" onclick="applyAdvancedFilters()">Apply Filters</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Advanced Settings Modal -->
+    <div class="modal-overlay" id="advanced-settings-modal">
+        <div class="modal-content large-modal">
+            <div class="modal-header">
+                <h3 class="modal-title">Advanced Dashboard Settings</h3>
+                <button class="modal-close" onclick="closeAdvancedSettingsModal()">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="advanced-settings-form" class="advanced-form">
+                    <div class="form-section">
+                        <h4 class="form-section-title">General Settings</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Dashboard Theme</label>
+                                <select class="form-input" id="theme-select-advanced" name="theme">
+                                    <option value="light">Light</option>
+                                    <option value="dark">Dark</option>
+                                    <option value="auto">Auto (System)</option>
+                                    <option value="high-contrast">High Contrast</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Language</label>
+                                <select class="form-input" id="language-select" name="language">
+                                    <option value="en">English</option>
+                                    <option value="ja">日本語</option>
+                                    <option value="zh">中文</option>
+                                    <option value="ko">한국어</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h4 class="form-section-title">Performance Settings</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Refresh Interval (seconds)</label>
+                                <input type="number" class="form-input" id="refresh-interval-advanced" name="refreshInterval" min="5" max="300" value="30">
+                                <div class="form-help">How often to refresh dashboard data</div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Data Retention (days)</label>
+                                <input type="number" class="form-input" id="retention-days" name="retentionDays" min="1" max="365" value="30">
+                                <div class="form-help">How long to keep historical data</div>
+                            </div>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="auto-refresh-advanced" name="autoRefresh" checked>
+                                <span class="checkmark"></span>
+                                Enable automatic refresh
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="sound-notifications" name="soundNotifications">
+                                <span class="checkmark"></span>
+                                Enable sound notifications for critical alerts
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h4 class="form-section-title">Display Preferences</h4>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label class="form-label">Items per page</label>
+                                <select class="form-input" id="items-per-page" name="itemsPerPage">
+                                    <option value="25">25</option>
+                                    <option value="50" selected>50</option>
+                                    <option value="100">100</option>
+                                    <option value="200">200</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Date Format</label>
+                                <select class="form-input" id="date-format" name="dateFormat">
+                                    <option value="YYYY-MM-DD">YYYY-MM-DD</option>
+                                    <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+                                    <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+                                    <option value="relative">Relative (2 hours ago)</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="compact-mode" name="compactMode">
+                                <span class="checkmark"></span>
+                                Enable compact mode for denser information display
+                            </label>
+                        </div>
+                        <div class="form-group checkbox-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="show-tooltips" name="showTooltips" checked>
+                                <span class="checkmark"></span>
+                                Show contextual tooltips and help text
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="form-section">
+                        <h4 class="form-section-title">Notification Settings</h4>
+                        <div class="notification-preferences">
+                            <div class="notification-type">
+                                <h5>Critical Alerts</h5>
+                                <div class="notification-options">
+                                    <label class="radio-label">
+                                        <input type="radio" name="criticalAlerts" value="none" checked>
+                                        <span class="radio-mark"></span>
+                                        No notifications
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="criticalAlerts" value="browser">
+                                        <span class="radio-mark"></span>
+                                        Browser notifications
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="criticalAlerts" value="email">
+                                        <span class="radio-mark"></span>
+                                        Email notifications
+                                    </label>
+                                </div>
+                            </div>
+
+                            <div class="notification-type">
+                                <h5>Warning Alerts</h5>
+                                <div class="notification-options">
+                                    <label class="radio-label">
+                                        <input type="radio" name="warningAlerts" value="none">
+                                        <span class="radio-mark"></span>
+                                        No notifications
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="warningAlerts" value="browser" checked>
+                                        <span class="radio-mark"></span>
+                                        Browser notifications
+                                    </label>
+                                    <label class="radio-label">
+                                        <input type="radio" name="warningAlerts" value="dashboard">
+                                        <span class="radio-mark"></span>
+                                        Dashboard only
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-left">
+                    <button class="btn btn-ghost" onclick="resetToDefaults()">Reset to Defaults</button>
+                </div>
+                <div class="modal-footer-right">
+                    <button class="btn btn-secondary" onclick="closeAdvancedSettingsModal()">Cancel</button>
+                    <button class="btn btn-primary" onclick="saveAdvancedSettings()">Save Settings</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drag and Drop Zone for File Upload -->
+    <div class="drag-drop-zone" id="file-upload-zone" style="display: none;">
+        <div class="drag-drop-content">
+            <div class="drag-drop-icon">
+                <i class="fas fa-cloud-upload-alt"></i>
+            </div>
+            <h3>Drop files here to upload</h3>
+            <p>or <button class="btn btn-link" onclick="triggerFileSelect()">browse files</button></p>
+            <input type="file" id="file-input" multiple style="display: none;" onchange="handleFileUpload(this.files)">
+        </div>
+        <div class="drag-drop-overlay" id="drag-overlay"></div>
+    </div>
+
+    <!-- Advanced Progress Modal -->
+    <div class="modal-overlay" id="progress-modal">
+        <div class="modal-content progress-modal">
+            <div class="modal-header">
+                <h3 class="modal-title" id="progress-title">Processing...</h3>
+            </div>
+            <div class="modal-body">
+                <div class="progress-tracker" id="operation-progress">
+                    <div class="progress-stage">
+                        <div class="progress-dot completed" data-step="1">
+                            <span class="progress-label">1</span>
+                        </div>
+                        <span class="progress-stage-name">Initializing</span>
+                    </div>
+                    <div class="progress-stage">
+                        <div class="progress-dot active" data-step="2">
+                            <span class="progress-label">2</span>
+                        </div>
+                        <span class="progress-stage-name">Processing</span>
+                    </div>
+                    <div class="progress-stage">
+                        <div class="progress-dot" data-step="3">
+                            <span class="progress-label">3</span>
+                        </div>
+                        <span class="progress-stage-name">Completing</span>
+                    </div>
+                </div>
+                <div class="progress-details">
+                    <div class="progress-bar-container">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progress-fill" style="width: 45%"></div>
+                        </div>
+                        <span class="progress-percentage" id="progress-percentage">45%</span>
+                    </div>
+                    <div class="progress-message" id="progress-message">Processing system diagnostics...</div>
+                </div>
+            </div>
+        </div>
+    </div>

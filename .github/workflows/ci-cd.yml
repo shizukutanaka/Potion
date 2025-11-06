@@ -1,0 +1,359 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    # 毎日午前2時にセキュリティスキャンを実行
+    - cron: '0 2 * * *'
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  BUILD_CONFIGURATION: 'Release'
+  SOLUTION_PATH: 'Potion.sln'
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  # 初期検証
+  validate:
+    name: Validate
+    runs-on: windows-latest
+    outputs:
+      should-deploy: ${{ steps.check.outputs.should-deploy }}
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Check if deployment should proceed
+      id: check
+      run: |
+        if ($env:GITHUB_REF -eq 'refs/heads/main') {
+          echo "should-deploy=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "should-deploy=false" >> $env:GITHUB_OUTPUT
+        }
+
+  # セキュリティスキャン
+  security-scan:
+    name: Security Scan
+    runs-on: windows-latest
+    needs: validate
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Run NuGet Audit
+      run: dotnet list package --vulnerable --format json | Out-File -FilePath nuget-audit.json
+      continue-on-error: true
+
+    - name: Upload NuGet Audit results
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: nuget-audit.json
+      if: always()
+
+    - name: Run CodeQL Analysis
+      uses: github/codeql-action/init@v3
+      with:
+        languages: csharp
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@v3
+
+    - name: Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v3
+
+  # コード品質チェック
+  code-quality:
+    name: Code Quality
+    runs-on: windows-latest
+    needs: validate
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Install SonarCloud scanner
+      run: |
+        dotnet tool install --global dotnet-sonarscanner
+        dotnet tool install --global dotnet-coverage
+
+    - name: Run SonarCloud analysis
+      run: |
+        dotnet sonarscanner begin `
+          /k:"Potion-Service" `
+          /d:sonar.host.url="https://sonarcloud.io" `
+          /d:sonar.token="${{ secrets.SONAR_TOKEN }}" `
+          /d:sonar.cs.opencover.reportsPaths="coverage.xml" `
+          /d:sonar.coverage.exclusions="**Tests*.cs,**/*.Tests.cs" `
+          /d:sonar.exclusions="**/Migrations/**,**/bin/**,**/obj/**" `
+          /d:sonar.coverageReportPaths="coverage.xml"
+
+        dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }}
+
+        dotnet-coverage collect "dotnet test ${{ env.SOLUTION_PATH }} --configuration ${{ env.BUILD_CONFIGURATION }} --no-build" -o coverage.xml
+
+        dotnet sonarscanner end /d:sonar.token="${{ secrets.SONAR_TOKEN }}"
+      env:
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      if: env.SONAR_TOKEN != ''
+
+  # ビルドとテスト
+  build-and-test:
+    name: Build and Test
+    runs-on: windows-latest
+    needs: [validate, security-scan, code-quality]
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Cache NuGet packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_PATH }}
+
+    - name: Build solution
+      run: dotnet build ${{ env.SOLUTION_PATH }} --configuration ${{ matrix.configuration }} --no-restore
+
+    - name: Run tests
+      run: dotnet test ${{ env.SOLUTION_PATH }} --configuration ${{ matrix.configuration }} --no-build --verbosity normal --collect:"XPlat Code Coverage"
+
+    - name: Run benchmarks
+      run: |
+        if (Test-Path "tests/Potion.Service.Benchmarks") {
+          dotnet run --project tests/Potion.Service.Benchmarks --configuration ${{ matrix.configuration }}
+        }
+      continue-on-error: true
+
+    - name: Upload coverage reports
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.cobertura.xml
+        flags: unittests
+        name: codecov-umbrella
+      if: matrix.configuration == 'Release'
+
+  # 統合テスト
+  integration-tests:
+    name: Integration Tests
+    runs-on: windows-latest
+    needs: build-and-test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Run integration tests
+      run: dotnet test tests/Potion.Service.IntegrationTests --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal
+
+    - name: Run end-to-end tests
+      run: |
+        # Start service in background
+        Start-Process -FilePath "dotnet" -ArgumentList "run --project src/Potion.Service --configuration ${{ env.BUILD_CONFIGURATION }}" -NoNewWindow
+        Start-Sleep -Seconds 30
+
+        # Test comprehensive health
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health/system/comprehensive" -Method GET | Out-Null
+
+        # Test observability
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health/observability/tracing" -Method GET | Out-Null
+
+        # Test security
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health/security/audit" -Method GET | Out-Null
+
+        # Test reactive events
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health/events/stream" -Method GET | Out-Null
+
+        # Test functional programming
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health/functional/health" -Method GET | Out-Null
+
+        # Stop service
+        Stop-Process -Name "dotnet" -Force
+
+  # 高度テスト
+  advanced-tests:
+    name: Advanced Tests
+    runs-on: windows-latest
+    needs: integration-tests
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Run property-based tests
+      run: |
+        if (Test-Path "tests/Potion.Service.PropertyTests") {
+          dotnet test tests/Potion.Service.PropertyTests --configuration ${{ env.BUILD_CONFIGURATION }} --no-build
+        }
+
+    - name: Run mutation tests
+      run: |
+        if (Test-Path "tests/Potion.Service.MutationTests") {
+          dotnet test tests/Potion.Service.MutationTests --configuration ${{ env.BUILD_CONFIGURATION }} --no-build
+        }
+
+    - name: Run chaos tests
+      run: |
+        # Start service
+        Start-Process -FilePath "dotnet" -ArgumentList "run --project src/Potion.Service --configuration ${{ env.BUILD_CONFIGURATION }}" -NoNewWindow
+        Start-Sleep -Seconds 30
+
+        # Run chaos experiment
+        $chaosDefinition = @{
+            Name = "CIBuildChaos"
+            Description = "CI/CD chaos test"
+            FaultType = 1
+            Duration = "00:01:00"
+            Intensity = 0.2
+        } | ConvertTo-Json
+
+        try {
+            Invoke-WebRequest -Uri "http://localhost:5000/api/health/chaos/experiment" `
+                -Method POST `
+                -Body $chaosDefinition `
+                -ContentType "application/json" | Out-Null
+        }
+        catch {
+            Write-Warning "Chaos experiment failed (expected in CI)"
+        }
+
+        # Stop service
+        Stop-Process -Name "dotnet" -Force
+
+  # デプロイ
+  deploy:
+    name: Deploy
+    runs-on: windows-latest
+    needs: [build-and-test, performance-test, integration-tests, advanced-tests]
+    if: needs.validate.outputs.should-deploy == 'true'
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Publish application
+      run: |
+        dotnet publish src/Potion.Service/Potion.Service.csproj `
+          --configuration ${{ env.BUILD_CONFIGURATION }} `
+          --output ./publish `
+          --self-contained false `
+          --runtime win-x64
+
+    - name: Create release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: v${{ github.run_number }}
+        release_name: Release v${{ github.run_number }}
+        body: |
+          ## Changes
+          - Automated release v${{ github.run_number }}
+          - Built from commit ${{ github.sha }}
+          - Performance optimized build
+          - Security hardened configuration
+
+    - name: Upload release assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./publish/Potion.Service.exe
+        asset_name: Potion.Service.exe
+        asset_content_type: application/octet-stream
+
+    - name: Upload additional assets
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./publish/appsettings.json
+        asset_name: appsettings.json
+        asset_content_type: application/json
+
+  # 通知
+  notification:
+    name: Notification
+    runs-on: windows-latest
+    needs: [security-scan, code-quality, build-and-test, integration-tests, advanced-tests, deploy]
+    if: always() && (needs.security-scan.result != 'success' || needs.code-quality.result != 'success' || needs.build-and-test.result != 'success' || needs.integration-tests.result != 'success' || needs.advanced-tests.result != 'success')
+
+    steps:
+    - name: Notify on failure
+      run: |
+        echo "Build failed - check logs for details"
+      if: failure()
+
+    - name: Create issue on security vulnerability
+      uses: actions/github-script@v7
+      with:
+        script: |
+          github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: 'Security Vulnerability Detected in CI/CD',
+            body: 'Security scan detected vulnerabilities. Please review the security scan results.',
+            labels: ['security', 'urgent']
+          })
+      if: needs.security-scan.result != 'success'

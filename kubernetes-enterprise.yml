@@ -1,0 +1,439 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: potion-enterprise
+  labels:
+    name: potion-enterprise
+    tier: enterprise
+---
+# ConfigMap for configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: potion-config
+  namespace: potion-enterprise
+data:
+  POTION_ENVIRONMENT: "production"
+  POTION_LOG_LEVEL: "warning"
+  POTION_SECURITY_LEVEL: "enterprise"
+  POTION_TARGET_UPTIME: "99.9"
+  POTION_AUTO_SCALING: "false"
+  POTION_CLUSTER_MODE: "false"
+---
+# Secret for sensitive data
+apiVersion: v1
+kind: Secret
+metadata:
+  name: potion-secrets
+  namespace: potion-enterprise
+type: Opaque
+data:
+  # SECURITY WARNING: Replace these with actual secrets in production
+  # Use: echo -n 'your-password' | base64
+  database-password: REPLACE_WITH_ACTUAL_SECRET
+  redis-password: REPLACE_WITH_ACTUAL_SECRET
+  jwt-secret: REPLACE_WITH_ACTUAL_SECRET
+---
+# PersistentVolumeClaim for data persistence
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: potion-data-pvc
+  namespace: potion-enterprise
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Gi
+  storageClassName: fast-ssd
+---
+# StatefulSet for Potion Enterprise
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: potion-enterprise
+  namespace: potion-enterprise
+spec:
+  serviceName: potion-enterprise
+  replicas: 3
+  selector:
+    matchLabels:
+      app: potion-enterprise
+  template:
+    metadata:
+      labels:
+        app: potion-enterprise
+        version: "3.0.0"
+    spec:
+      containers:
+      - name: potion-enterprise
+        image: potion/enterprise:latest
+        ports:
+        - containerPort: 5000
+          name: http
+        - containerPort: 5001
+          name: https
+        envFrom:
+        - configMapRef:
+            name: potion-config
+        - secretRef:
+            name: potion-secrets
+        env:
+        - name: POD_NAME
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.name
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+        volumeMounts:
+        - name: data
+          mountPath: /data/potion
+        - name: logs
+          mountPath: /var/log/potion
+        - name: certs
+          mountPath: /etc/potion/certs
+          readOnly: true
+        resources:
+          requests:
+            memory: "2Gi"
+            cpu: "1000m"
+          limits:
+            memory: "4Gi"
+            cpu: "2000m"
+        livenessProbe:
+          httpGet:
+            path: /health/live
+            port: 5000
+          initialDelaySeconds: 60
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health/ready
+            port: 5000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        startupProbe:
+          httpGet:
+            path: /health/startup
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 30
+      volumes:
+      - name: certs
+        secret:
+          secretName: potion-tls
+      - name: logs
+        emptyDir: {}
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 50Gi
+      storageClassName: fast-ssd
+---
+# Service for Potion Enterprise
+apiVersion: v1
+kind: Service
+metadata:
+  name: potion-enterprise-service
+  namespace: potion-enterprise
+spec:
+  selector:
+    app: potion-enterprise
+  ports:
+  - name: http
+    port: 80
+    targetPort: 5000
+  - name: https
+    port: 443
+    targetPort: 5001
+  type: ClusterIP
+---
+# Ingress for external access
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: potion-enterprise-ingress
+  namespace: potion-enterprise
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+    nginx.ingress.kubernetes.io/rate-limit: "1000"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  tls:
+  - hosts:
+    - potion-enterprise.company.com
+    secretName: potion-enterprise-tls
+  rules:
+  - host: potion-enterprise.company.com
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: potion-enterprise-service
+            port:
+              number: 80
+---
+# Redis deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: potion-redis
+  namespace: potion-enterprise
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: potion-redis
+  template:
+    metadata:
+      labels:
+        app: potion-redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7.2-alpine
+        command: ["redis-server", "--appendonly", "yes", "--requirepass", "$(REDIS_PASSWORD)"]
+        ports:
+        - containerPort: 6379
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: potion-secrets
+              key: redis-password
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+---
+# Redis service
+apiVersion: v1
+kind: Service
+metadata:
+  name: potion-redis-service
+  namespace: potion-enterprise
+spec:
+  selector:
+    app: potion-redis
+  ports:
+  - port: 6379
+    targetPort: 6379
+  type: ClusterIP
+---
+# PostgreSQL StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: potion-postgres
+  namespace: potion-enterprise
+spec:
+  serviceName: potion-postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: potion-postgres
+  template:
+    metadata:
+      labels:
+        app: potion-postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+        env:
+        - name: POSTGRES_DB
+          value: "potion_enterprise"
+        - name: POSTGRES_USER
+          value: "potion_user"
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: potion-secrets
+              key: database-password
+        volumeMounts:
+        - name: data
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "1Gi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+  volumeClaimTemplates:
+  - metadata:
+      name: data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 100Gi
+      storageClassName: fast-ssd
+---
+# PostgreSQL service
+apiVersion: v1
+kind: Service
+metadata:
+  name: potion-postgres-service
+  namespace: potion-enterprise
+spec:
+  selector:
+    app: potion-postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+  type: ClusterIP
+---
+# HorizontalPodAutoscaler for Potion Enterprise
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: potion-enterprise-hpa
+  namespace: potion-enterprise
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: potion-enterprise
+  minReplicas: 3
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+      - type: Percent
+        value: 10
+        periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 120
+      policies:
+      - type: Percent
+        value: 50
+        periodSeconds: 60
+---
+# PodDisruptionBudget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: potion-enterprise-pdb
+  namespace: potion-enterprise
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: potion-enterprise
+---
+# NetworkPolicy for security
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: potion-enterprise-netpol
+  namespace: potion-enterprise
+spec:
+  podSelector:
+    matchLabels:
+      app: potion-enterprise
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: potion-enterprise
+    - podSelector:
+        matchLabels:
+          app: nginx-ingress
+  egress:
+  - to: []
+    ports:
+    - protocol: TCP
+      port: 5432
+    - protocol: TCP
+      port: 6379
+    - protocol: TCP
+      port: 9200
+    - protocol: UDP
+      port: 53
+    - protocol: TCP
+      port: 443
+---
+# ServiceMonitor for Prometheus monitoring
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: potion-enterprise-monitor
+  namespace: potion-enterprise
+spec:
+  selector:
+    matchLabels:
+      app: potion-enterprise
+  endpoints:
+  - port: http
+    path: /metrics
+    interval: 15s
+    scrapeTimeout: 10s
+---
+# PrometheusRule for alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: potion-enterprise-alerts
+  namespace: potion-enterprise
+spec:
+  groups:
+  - name: potion-enterprise
+    rules:
+    - alert: PotionEnterpriseDown
+      expr: up{job="potion-enterprise"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "Potion Enterprise is down"
+        description: "Potion Enterprise has been down for more than 5 minutes."
+    - alert: HighErrorRate
+      expr: rate(http_requests_total{status!~"2.."}[5m]) / rate(http_requests_total[5m]) > 0.05
+      for: 10m
+      labels:
+        severity: warning
+      annotations:
+        summary: "High error rate detected"
+        description: "Error rate is above 5% for more than 10 minutes."
