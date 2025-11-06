@@ -18,8 +18,12 @@
     <DebugType>portable</DebugType>
     <TieredCompilation>true</TieredCompilation>
     <TieredCompilationQuickJit>true</TieredCompilationQuickJit>
+    <TieredPGO>true</TieredPGO>
     <PublishReadyToRun>true</PublishReadyToRun>
     <UseSystemResourceKeys>true</UseSystemResourceKeys>
+    <!-- Native AOT対応 (Phase 2で有効化予定) -->
+    <PublishAot>false</PublishAot>
+    <InvariantGlobalization>false</InvariantGlobalization>
     <!-- セキュリティ設定 -->
     <EnablePreviewFeatures>false</EnablePreviewFeatures>
     <WarningsAsErrors>CS8600;CS8602;CS8603</WarningsAsErrors>
@@ -57,12 +61,31 @@
     <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
     <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
 
+    <!-- OpenTelemetry - Observability (Phase 1) -->
+    <PackageReference Include="OpenTelemetry" Version="1.9.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.9.0" />
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.9.0" />
+
+    <!-- Polly - Resilience Patterns (Phase 1) -->
+    <PackageReference Include="Polly" Version="9.0.0" />
+    <PackageReference Include="Polly.Extensions" Version="9.0.0" />
+    <PackageReference Include="Polly.Testing" Version="9.0.0" />
+
+    <!-- ML.NET - Predictive Maintenance (Phase 3) -->
+    <PackageReference Include="Microsoft.ML" Version="3.0.0" />
+    <PackageReference Include="Microsoft.ML.TimeSeries" Version="3.0.0" />
+
     <!-- Core Infrastructure -->
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
     <PackageReference Include="System.Security.Principal.Windows" Version="5.0.0" />
     <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
     <PackageReference Include="System.Reactive" Version="6.0.1" />
+    <PackageReference Include="System.Diagnostics.TraceSource" Version="4.3.0" />
+    <PackageReference Include="Microsoft.Diagnostics.Tracing.EventSource" Version="2.0.5" />
 
     <!-- Analysis Libraries -->
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />

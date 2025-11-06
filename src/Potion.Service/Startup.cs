@@ -1,4 +1,6 @@
 using Microsoft.Extensions.Caching.Memory;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Trace;
 
 namespace Potion.Service;
 
@@ -15,6 +17,53 @@ public class Startup
     {
         services.AddControllers();
         services.AddEndpointsApiExplorer();
+
+        // OpenTelemetry observability (Phase 1 enhancement)
+        services.AddOpenTelemetry()
+            .WithMetrics(metrics =>
+            {
+                metrics
+                    .AddMeter("Potion.Service")
+                    .AddRuntimeInstrumentation()
+                    .AddProcessInstrumentation()
+                    .AddPrometheusExporter()
+                    .AddOtlpExporter(options =>
+                    {
+                        options.Endpoint = new Uri(
+                            Configuration["Observability:OtlpEndpoint"] ?? "http://localhost:4317");
+                    });
+            })
+            .WithTracing(tracing =>
+            {
+                tracing
+                    .AddSource("Potion.Service")
+                    .AddAspNetCoreInstrumentation()
+                    .AddHttpClientInstrumentation()
+                    .AddOtlpExporter();
+            });
+
+        // Register activity source for custom tracing
+        services.AddSingleton(PotionActivitySource.Source);
+
+        // Polly resilience pipelines (Phase 1 enhancement)
+        services.AddSingleton<ResiliencePipeline<ProcessResult>>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<Startup>>();
+            return ResiliencePipelines.CreateRemediationPipeline(logger);
+        });
+
+        services.AddSingleton<ResiliencePipeline<bool>>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<Startup>>();
+            return ResiliencePipelines.CreateHealthCheckPipeline(logger);
+        });
+
+        services.AddSingleton<ResiliencePipeline<DiagnosticReport>>(sp =>
+        {
+            var logger = sp.GetRequiredService<ILogger<Startup>>();
+            return ResiliencePipelines.CreateDiagnosticPipeline(logger);
+        });
+
         services.AddSwaggerGen(c =>
         {
             c.SwaggerDoc("v1", new OpenApiInfo
@@ -176,10 +225,15 @@ public class Startup
         app.UseRequestLocalization();
         app.UseRouting();
         app.UseAuthorization();
+
+        // Map Prometheus metrics endpoint (OpenTelemetry export)
         app.UseEndpoints(endpoints =>
         {
             endpoints.MapControllers();
             endpoints.MapHub<CollaborationHub>("/collaboration");
+
+            // Prometheus metrics endpoint for scraping
+            endpoints.MapPrometheusScrapingEndpoint();
         });
     }
 }
