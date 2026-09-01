@@ -352,6 +352,46 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         }
     }
 
+    public async Task<int> CountConsecutiveRepairFailuresAsync(
+        string checkId,
+        DateTimeOffset sinceUtc,
+        CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try
+        {
+            var count = 0;
+            var entries = (await ReadEntriesAsync(ct))
+                .Select((entry, index) => (entry, index))
+                .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(item => item.entry.TimestampUtc)
+                .ThenByDescending(item => item.index);
+            foreach (var (entry, _) in entries)
+            {
+                if (entry.TimestampUtc < sinceUtc)
+                {
+                    break;
+                }
+
+                if (entry.Outcome == HistoryOutcome.Repaired)
+                {
+                    break;
+                }
+
+                if (entry.Outcome == HistoryOutcome.RepairFailed)
+                {
+                    count++;
+                }
+            }
+
+            return count;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
     public async Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct)
     {
         await gate.WaitAsync(ct);

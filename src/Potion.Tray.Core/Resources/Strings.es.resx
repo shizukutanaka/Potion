@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>Se alcanzó el límite diario de reparaciones</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>La reparación automática falló repetidamente y se detuvo</value>
+  </data>
   <data name="Status.Idle">
     <value>Correcto</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>Libere espacio manualmente: vacíe la Papelera de reciclaje, elimine archivos grandes o aplicaciones que no use, o mueva los datos a otra unidad.</value>
+  </data>
+  <data name="Advice.services">
+    <value>Compruebe el servicio en services.msc y revise el Visor de eventos para conocer el motivo de la detención.</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>Ejecute DISM usando el medio de instalación como origen (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;path&gt;) o use las opciones de recuperación.</value>
+  </data>
+  <data name="Advice.network">
+    <value>Reinicie el enrutador, compruebe el adaptador de red y el controlador, o póngase en contacto con el administrador de red.</value>
   </data>
 </root>

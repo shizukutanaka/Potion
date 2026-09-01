@@ -336,6 +336,7 @@ public interface IHistoryStore
     Task<IReadOnlyList<HistoryEntry>> ReadRecentAsync(int max, CancellationToken ct);
     Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct);
     Task<int> CountRepairAttemptsSinceAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct);
+    Task<int> CountConsecutiveRepairFailuresAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct);
 }
 
 public interface ICheckStateStore

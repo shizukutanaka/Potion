@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>Tägliches Reparaturlimit erreicht</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>Die automatische Reparatur ist wiederholt fehlgeschlagen und wurde beendet</value>
+  </data>
   <data name="Status.Idle">
     <value>Gesund</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>Geben Sie manuell Speicherplatz frei: Leeren Sie den Papierkorb, entfernen Sie große Dateien oder nicht verwendete Anwendungen oder verschieben Sie Daten auf ein anderes Laufwerk.</value>
+  </data>
+  <data name="Advice.services">
+    <value>Prüfen Sie den Dienst in services.msc und sehen Sie in der Ereignisanzeige nach, warum er beendet wird.</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>Führen Sie DISM mit dem Installationsmedium als Quelle aus (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;path&gt;) oder verwenden Sie die Wiederherstellungsoptionen.</value>
+  </data>
+  <data name="Advice.network">
+    <value>Starten Sie den Router neu, überprüfen Sie den Netzwerkadapter und -treiber oder wenden Sie sich an Ihren Netzwerkadministrator.</value>
   </data>
 </root>

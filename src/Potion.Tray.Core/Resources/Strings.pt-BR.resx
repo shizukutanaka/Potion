@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>O limite diário de tentativas de reparo foi atingido</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>O reparo automático falhou repetidamente e foi interrompido</value>
+  </data>
   <data name="Status.Idle">
     <value>Normal</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>Libere espaço manualmente: esvazie a Lixeira, remova arquivos grandes ou aplicativos não utilizados ou mova os dados para outra unidade.</value>
+  </data>
+  <data name="Advice.services">
+    <value>Verifique o serviço em services.msc e consulte o Visualizador de Eventos para saber por que ele para.</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>Execute o DISM usando a mídia de instalação como origem (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;path&gt;) ou use as opções de recuperação.</value>
+  </data>
+  <data name="Advice.network">
+    <value>Reinicie o roteador, verifique o adaptador de rede e o driver ou entre em contato com o administrador de rede.</value>
   </data>
 </root>

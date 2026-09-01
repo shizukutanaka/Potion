@@ -7,6 +7,7 @@ namespace Potion.Tray.Core;
 
 public sealed class SelfHealingEngine
 {
+    private static readonly TimeSpan ConsecutiveFailureWindow = TimeSpan.FromDays(7);
     private readonly IReadOnlyList<IHealthCheck> checks;
     private readonly IReadOnlyDictionary<string, IRepairAction> repairs;
     private readonly IHistoryStore history;
@@ -110,6 +111,7 @@ public sealed class SelfHealingEngine
                 var started = Stopwatch.GetTimestamp();
                 RepairOutcome? repairOutcome = null;
                 string? skipReason = null;
+                var detail = finding.Detail;
                 HistoryOutcome outcome;
                 OperationCanceledException? repairCancellation = null;
                 if (!repairs.TryGetValue(finding.CheckId, out var repair))
@@ -133,67 +135,84 @@ public sealed class SelfHealingEngine
                 }
                 else
                 {
-                    var since = clock.UtcNow.AddHours(-24);
-                    var historyAttempts = await history.CountRepairAttemptsSinceAsync(finding.CheckId, since, ct);
-                    var memoryAttempts = CountRecentRepairAttempts(finding.CheckId, since);
-                    if (Math.Max(historyAttempts, memoryAttempts) >= settings.MaxRepairAttemptsPerDay)
+                    var consecutiveFailures = await history.CountConsecutiveRepairFailuresAsync(
+                        finding.CheckId,
+                        clock.UtcNow - ConsecutiveFailureWindow,
+                        ct);
+                    if (consecutiveFailures >= settings.MaxRepairAttemptsPerDay)
                     {
-                        outcome = HistoryOutcome.Skipped;
-                        skipReason = localizer.Get("Skip.DailyLimit");
+                        outcome = HistoryOutcome.ManualActionRequired;
+                        skipReason = localizer.Get("Skip.RepairIneffective");
+                        var adviceKey = AdviceKeyFor(finding.CheckId);
+                        if (adviceKey is not null)
+                        {
+                            detail = $"{detail}{Environment.NewLine}{localizer.Get(adviceKey)}";
+                        }
                     }
                     else
                     {
-                        SetState(EngineState.Repairing);
-                        try
+                        var since = clock.UtcNow.AddHours(-24);
+                        var historyAttempts = await history.CountRepairAttemptsSinceAsync(finding.CheckId, since, ct);
+                        var memoryAttempts = CountRecentRepairAttempts(finding.CheckId, since);
+                        if (Math.Max(historyAttempts, memoryAttempts) >= settings.MaxRepairAttemptsPerDay)
                         {
+                            outcome = HistoryOutcome.Skipped;
+                            skipReason = localizer.Get("Skip.DailyLimit");
+                        }
+                        else
+                        {
+                            SetState(EngineState.Repairing);
                             try
-                            {
-                                repairOutcome = await repair.RepairAsync(finding, settings, ct);
-                            }
-                            catch (OperationCanceledException ex)
-                            {
-                                repairCancellation = ex;
-                                repairOutcome = new RepairOutcome(
-                                    false,
-                                    localizer.Get("Repair.Aborted"),
-                                    Array.Empty<CommandExecution>());
-                            }
-                            finally
-                            {
-                                RecordRepairAttempt(finding.CheckId, clock.UtcNow);
-                            }
-
-                            outcome = repairCancellation is not null
-                                ? HistoryOutcome.RepairFailed
-                                : repairOutcome.Success
-                                    ? HistoryOutcome.Repaired
-                                    : HistoryOutcome.RepairFailed;
-                            if (repairCancellation is null && repairOutcome.Success)
                             {
                                 try
                                 {
-                                    var verification = await check.InspectAsync(settings, ct);
-                                    if (verification is not null &&
-                                        verification.Status is HealthStatus.Warning or HealthStatus.Critical)
+                                    repairOutcome = await repair.RepairAsync(finding, settings, ct);
+                                }
+                                catch (OperationCanceledException ex)
+                                {
+                                    repairCancellation = ex;
+                                    repairOutcome = new RepairOutcome(
+                                        false,
+                                        localizer.Get("Repair.Aborted"),
+                                        Array.Empty<CommandExecution>());
+                                }
+                                finally
+                                {
+                                    RecordRepairAttempt(finding.CheckId, clock.UtcNow);
+                                }
+
+                                outcome = repairCancellation is not null
+                                    ? HistoryOutcome.RepairFailed
+                                    : repairOutcome.Success
+                                        ? HistoryOutcome.Repaired
+                                        : HistoryOutcome.RepairFailed;
+                                if (repairCancellation is null && repairOutcome.Success)
+                                {
+                                    try
                                     {
-                                        repairOutcome = repairOutcome with
+                                        var verification = await check.InspectAsync(settings, ct);
+                                        if (verification is not null &&
+                                            verification.Status is HealthStatus.Warning or HealthStatus.Critical)
                                         {
-                                            Summary = $"{repairOutcome.Summary}\n{localizer.Format("Repair.Unverified", verification.Detail)}"
-                                        };
-                                        outcome = HistoryOutcome.RepairFailed;
+                                            repairOutcome = repairOutcome with
+                                            {
+                                                Summary = $"{repairOutcome.Summary}\n{localizer.Format("Repair.Unverified", verification.Detail)}"
+                                            };
+                                            outcome = HistoryOutcome.RepairFailed;
+                                        }
+                                    }
+                                    catch (Exception ex) when (ex is not OperationCanceledException)
+                                    {
+                                        log.Warn($"Unable to verify repair action {repair.DisplayName}; treating it as repaired.", ex);
                                     }
                                 }
-                                catch (Exception ex) when (ex is not OperationCanceledException)
-                                {
-                                    log.Warn($"Unable to verify repair action {repair.DisplayName}; treating it as repaired.", ex);
-                                }
                             }
-                        }
-                        catch (Exception ex) when (ex is not OperationCanceledException)
-                        {
-                            log.Error($"Repair action {repair.DisplayName} failed with an exception.", ex);
-                            repairOutcome = new RepairOutcome(false, ex.Message, Array.Empty<CommandExecution>());
-                            outcome = HistoryOutcome.RepairFailed;
+                            catch (Exception ex) when (ex is not OperationCanceledException)
+                            {
+                                log.Error($"Repair action {repair.DisplayName} failed with an exception.", ex);
+                                repairOutcome = new RepairOutcome(false, ex.Message, Array.Empty<CommandExecution>());
+                                outcome = HistoryOutcome.RepairFailed;
+                            }
                         }
                     }
                 }
@@ -205,7 +224,7 @@ public sealed class SelfHealingEngine
                     finding.Title,
                     finding.Status,
                     outcome,
-                    finding.Detail,
+                    detail,
                     repairOutcome?.Summary,
                     skipReason,
                     Stopwatch.GetElapsedTime(started),
@@ -363,6 +382,16 @@ public sealed class SelfHealingEngine
 
         attempts.Add(timestamp);
     }
+
+    private static string? AdviceKeyFor(string checkId) =>
+        checkId.ToLowerInvariant() switch
+        {
+            "disk-space" => "Advice.disk-space",
+            "critical-services" => "Advice.services",
+            "component-store" => "Advice.component-store",
+            "network" => "Advice.network",
+            _ => null
+        };
 
     private bool IsWithinInterval(string checkId, TraySettings settings)
     {

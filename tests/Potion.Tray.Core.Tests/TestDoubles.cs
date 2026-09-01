@@ -125,6 +125,16 @@ internal sealed class FakeHistoryStore : IHistoryStore
 
     public Task<int> CountRepairAttemptsSinceAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct) =>
         Task.FromResult(Attempts);
+
+    public Task<int> CountConsecutiveRepairFailuresAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct) =>
+        Task.FromResult(Entries
+            .Select((entry, index) => (entry, index))
+            .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(item => item.entry.TimestampUtc)
+            .ThenByDescending(item => item.index)
+            .TakeWhile(item => item.entry.TimestampUtc >= sinceUtc)
+            .TakeWhile(item => item.entry.Outcome != HistoryOutcome.Repaired)
+            .Count(item => item.entry.Outcome == HistoryOutcome.RepairFailed));
 }
 
 internal sealed class FakeCheckStateStore : ICheckStateStore

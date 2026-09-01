@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>일일 복구 시도 한도에 도달했습니다</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>자동 복구가 반복적으로 실패하여 중지되었습니다</value>
+  </data>
   <data name="Status.Idle">
     <value>정상</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>수동으로 공간을 확보하세요: 휴지통을 비우고, 큰 파일이나 사용하지 않는 앱을 삭제하거나, 데이터를 다른 드라이브로 이동하세요.</value>
+  </data>
+  <data name="Advice.services">
+    <value>services.msc에서 서비스를 확인하고 중지 원인은 이벤트 뷰어에서 검토하세요.</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>설치 미디어를 원본으로 지정하여 DISM을 실행하거나 (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;path&gt;) 복구 옵션을 사용하세요.</value>
+  </data>
+  <data name="Advice.network">
+    <value>라우터를 다시 시작하고 네트워크 어댑터와 드라이버를 확인하거나 네트워크 관리자에게 문의하세요.</value>
   </data>
 </root>

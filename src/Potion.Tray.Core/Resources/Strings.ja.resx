@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>本日の修復試行上限に達しました</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>自動修復が繰り返し失敗したため、試行を停止しました</value>
+  </data>
   <data name="Status.Idle">
     <value>正常</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>手動で空き容量を確保してください: ごみ箱を空にする、大きなファイルや不要なアプリを削除する、別のドライブへ移動する。</value>
+  </data>
+  <data name="Advice.services">
+    <value>services.msc でサービスの状態と依存関係を確認し、イベントビューアーで停止理由を確認してください。</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>インストールメディアをソースに指定して DISM を実行 (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;パス&gt;) するか、回復オプションを使用してください。</value>
+  </data>
+  <data name="Advice.network">
+    <value>ルーターの再起動、ネットワークアダプターとドライバーの確認、またはネットワーク管理者への相談を行ってください。</value>
   </data>
 </root>

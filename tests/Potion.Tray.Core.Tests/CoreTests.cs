@@ -421,6 +421,9 @@ public class EngineTests
         ICheckStateStore? checkState = null) =>
         new(new[] { check }, repairs ?? Array.Empty<IRepairAction>(), history, settings, notifier, system, clock, log ?? new FakeLog(), checkState: checkState);
 
+    private static HistoryEntry History(string id, string checkId, HistoryOutcome outcome, DateTimeOffset timestamp) =>
+        new(id, timestamp, checkId, checkId, HealthStatus.Critical, outcome, "old detail", null, null, TimeSpan.Zero, Array.Empty<CommandExecution>());
+
     [Fact]
     public async Task NoFindingProducesNoHistory()
     {
@@ -488,6 +491,102 @@ public class EngineTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => engine.RunCycleAsync(default));
 
         Assert.Empty(notifier.Notifications);
+    }
+
+    [Fact]
+    public async Task IneffectiveRepairStopsAfterConsecutiveFailuresAndAddsAdvice()
+    {
+        var clock = new FakeClock();
+        var history = new FakeHistoryStore();
+        history.Entries.AddRange(new[]
+        {
+            History("old-failure", "disk-space", HistoryOutcome.RepairFailed, clock.UtcNow.AddHours(-1)),
+            History("older-failure", "disk-space", HistoryOutcome.RepairFailed, clock.UtcNow.AddHours(-2))
+        });
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings { MaxRepairAttemptsPerDay = 2 }
+        };
+        var repairCalls = 0;
+        var engine = Engine(
+            new DelegateHealthCheck("disk-space", (_, _) =>
+                Task.FromResult<HealthFinding?>(Finding("disk-space"))),
+            history,
+            settings,
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock,
+            new[] { new DelegateRepair("disk-space", false, (_, _, _) =>
+            {
+                repairCalls++;
+                return Task.FromResult(new RepairOutcome(true, "unused", Array.Empty<CommandExecution>()));
+            }) });
+
+        var entry = (await engine.RunCycleAsync(default)).Entries.Single();
+
+        Assert.Equal(0, repairCalls);
+        Assert.Equal(HistoryOutcome.ManualActionRequired, entry.Outcome);
+        Assert.Equal(new ResourceLocalizer().Get("Skip.RepairIneffective"), entry.SkipReason);
+        Assert.Contains(new ResourceLocalizer().Get("Advice.disk-space"), entry.Detail);
+    }
+
+    [Fact]
+    public async Task RepairedHistoryBreaksConsecutiveFailureCount()
+    {
+        var clock = new FakeClock();
+        var history = new FakeHistoryStore();
+        history.Entries.AddRange(new[]
+        {
+            History("failure", "disk-space", HistoryOutcome.RepairFailed, clock.UtcNow.AddHours(-2)),
+            History("repaired", "disk-space", HistoryOutcome.Repaired, clock.UtcNow.AddHours(-1))
+        });
+        history.Attempts = 2;
+        var repairCalls = 0;
+        var engine = Engine(
+            new SequenceHealthCheck("disk-space", Finding("disk-space"), null),
+            history,
+            new FakeSettingsStore { Settings = new TraySettings { MaxRepairAttemptsPerDay = 3 } },
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock,
+            new[] { new DelegateRepair("disk-space", false, (_, _, _) =>
+            {
+                repairCalls++;
+                return Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()));
+            }) });
+
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(1, repairCalls);
+    }
+
+    [Fact]
+    public async Task FailuresOlderThanSevenDaysDoNotStopRepair()
+    {
+        var clock = new FakeClock();
+        var history = new FakeHistoryStore();
+        history.Entries.AddRange(new[]
+        {
+            History("old-failure", "disk-space", HistoryOutcome.RepairFailed, clock.UtcNow.AddDays(-8)),
+            History("older-failure", "disk-space", HistoryOutcome.RepairFailed, clock.UtcNow.AddDays(-9))
+        });
+        var repairCalls = 0;
+        var engine = Engine(
+            new SequenceHealthCheck("disk-space", Finding("disk-space"), null),
+            history,
+            new FakeSettingsStore { Settings = new TraySettings { MaxRepairAttemptsPerDay = 2 } },
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock,
+            new[] { new DelegateRepair("disk-space", false, (_, _, _) =>
+            {
+                repairCalls++;
+                return Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()));
+            }) });
+
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(1, repairCalls);
     }
 
     [Fact]

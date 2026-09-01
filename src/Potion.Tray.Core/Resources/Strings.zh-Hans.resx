@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>已达到每日修复尝试上限</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>由于自动修复反复失败，已停止修复</value>
+  </data>
   <data name="Status.Idle">
     <value>正常</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>请手动释放空间：清空回收站，删除大文件或未使用的应用，或将数据移至其他驱动器。</value>
+  </data>
+  <data name="Advice.services">
+    <value>在 services.msc 中检查服务，并查看事件查看器以了解其停止原因。</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>使用安装介质作为源运行 DISM (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;path&gt;)，或使用恢复选项。</value>
+  </data>
+  <data name="Advice.network">
+    <value>重启路由器，检查网络适配器和驱动程序，或联系网络管理员。</value>
   </data>
 </root>

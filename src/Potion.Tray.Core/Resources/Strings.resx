@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>Daily repair attempt limit reached</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>Automatic repair failed repeatedly, so it was stopped</value>
+  </data>
   <data name="Status.Idle">
     <value>Healthy</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>Free space manually: empty the Recycle Bin, remove large files or unused applications, or move data to another drive.</value>
+  </data>
+  <data name="Advice.services">
+    <value>Check the service in services.msc and review Event Viewer for the reason it stops.</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>Run DISM with installation media as the source (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;path&gt;) or use recovery options.</value>
+  </data>
+  <data name="Advice.network">
+    <value>Restart the router, check the network adapter and driver, or contact your network administrator.</value>
   </data>
 </root>

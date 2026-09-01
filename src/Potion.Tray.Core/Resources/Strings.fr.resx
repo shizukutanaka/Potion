@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>Limite quotidienne de réparations atteinte</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>La réparation automatique a échoué à plusieurs reprises et a été arrêtée</value>
+  </data>
   <data name="Status.Idle">
     <value>Sain</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>Libérez de l’espace manuellement : videz la Corbeille, supprimez les fichiers volumineux ou les applications inutilisées, ou déplacez les données vers un autre lecteur.</value>
+  </data>
+  <data name="Advice.services">
+    <value>Vérifiez le service dans services.msc et consultez l’Observateur d’événements pour connaître la raison de son arrêt.</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>Exécutez DISM avec le support d’installation comme source (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;path&gt;) ou utilisez les options de récupération.</value>
+  </data>
+  <data name="Advice.network">
+    <value>Redémarrez le routeur, vérifiez l’adaptateur réseau et son pilote, ou contactez votre administrateur réseau.</value>
   </data>
 </root>

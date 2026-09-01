@@ -120,6 +120,9 @@
   <data name="Skip.DailyLimit">
     <value>Достигнут дневной лимит попыток восстановления</value>
   </data>
+  <data name="Skip.RepairIneffective">
+    <value>Автоматическое восстановление неоднократно завершалось ошибкой, поэтому остановлено</value>
+  </data>
   <data name="Status.Idle">
     <value>Норма</value>
   </data>
@@ -425,5 +428,17 @@
   </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
+  </data>
+  <data name="Advice.disk-space">
+    <value>Освободите место вручную: очистите корзину, удалите большие файлы или неиспользуемые приложения либо переместите данные на другой диск.</value>
+  </data>
+  <data name="Advice.services">
+    <value>Проверьте службу в services.msc и просмотрите Просмотр событий, чтобы выяснить причину её остановки.</value>
+  </data>
+  <data name="Advice.component-store">
+    <value>Запустите DISM, указав установочный носитель в качестве источника (DISM /Online /Cleanup-Image /RestoreHealth /Source:&lt;path&gt;), или воспользуйтесь параметрами восстановления.</value>
+  </data>
+  <data name="Advice.network">
+    <value>Перезапустите маршрутизатор, проверьте сетевой адаптер и драйвер либо обратитесь к сетевому администратору.</value>
   </data>
 </root>
