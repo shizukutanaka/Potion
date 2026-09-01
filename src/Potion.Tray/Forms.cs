@@ -207,9 +207,9 @@ internal sealed class HistoryForm : Form
         }
 
         return value.Contains(',') ||
-        value.Contains('"') ||
-        value.Contains('\r') ||
-        value.Contains('\n')
+               value.Contains('"') ||
+               value.Contains('\r') ||
+               value.Contains('\n')
             ? $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\""
             : value;
     }

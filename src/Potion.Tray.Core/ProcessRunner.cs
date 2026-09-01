@@ -91,11 +91,14 @@ public sealed class SystemProcessRunner : IProcessRunner
             TimedOut: false);
     }
 
-    public static string OutputTail(string output, int maxLength = 4000) =>
-        (output = Normalize(output)).Length <= maxLength
-            ? output
-            : output[^maxLength..];
+    public static string OutputTail(string output, int maxLength = 4000)
+    {
+        var normalized = Normalize(output);
+        return normalized.Length <= maxLength ? normalized : normalized[^maxLength..];
+    }
 
     public static string Normalize(string output) =>
-        output.Replace("\0", string.Empty, StringComparison.Ordinal).TrimEnd(' ');
+        string.IsNullOrEmpty(output)
+            ? string.Empty
+            : output.Replace("\0", string.Empty, StringComparison.Ordinal).TrimEnd(' ');
 }

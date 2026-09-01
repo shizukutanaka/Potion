@@ -901,6 +901,13 @@ public class ProcessRunnerTests
         Assert.Equal("sfc\r\n\t", SystemProcessRunner.Normalize(output));
         Assert.Equal("sfc\r\n\t", SystemProcessRunner.OutputTail(output));
     }
+
+    [Fact]
+    public void NormalizeReturnsEmptyForNullOrEmpty()
+    {
+        Assert.Equal(string.Empty, SystemProcessRunner.Normalize(null!));
+        Assert.Equal(string.Empty, SystemProcessRunner.Normalize(string.Empty));
+    }
 }
 
 internal sealed class TempDirectory : IDisposable
