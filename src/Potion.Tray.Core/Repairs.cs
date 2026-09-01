@@ -57,6 +57,22 @@ public sealed class DiskSpaceRepair : IRepairAction
         var summary = actions.Count == 0
             ? localizer.Get("Repair.DiskSpace.NoneSummary")
             : string.Join(localizer.Get("Format.ListSeparator"), actions);
+        try
+        {
+            var consumers = system.GetLargeStorageConsumers();
+            if (consumers.Count > 0)
+            {
+                var details = consumers.Select(consumer =>
+                    $"{localizer.Get(consumer.NameKey)} ({ByteFormatter.Gigabytes(consumer.Bytes, localizer)})");
+                summary += Environment.NewLine + localizer.Format(
+                    "Repair.DiskSpace.LargeConsumers",
+                    string.Join(localizer.Get("Format.ListSeparator"), details));
+            }
+        }
+        catch
+        {
+        }
+
         return new RepairOutcome(
             cleanup.FilesDeleted > 0 || componentCleanup is { ExitCode: 0 },
             summary,

@@ -29,6 +29,8 @@ internal sealed class FakeSystemInfoProvider : ISystemInfoProvider
     public MemorySnapshot Memory { get; set; } = new(100, 100);
     public IReadOnlyList<ProcessMemorySnapshot> TopMemoryProcesses { get; set; } =
         Array.Empty<ProcessMemorySnapshot>();
+    public IReadOnlyList<StorageConsumer> LargeStorageConsumers { get; set; } =
+        Array.Empty<StorageConsumer>();
     public IReadOnlyList<ServiceSnapshot> Services { get; set; } = Array.Empty<ServiceSnapshot>();
     public bool RebootPending { get; set; }
     public bool CanResolveDns { get; set; } = true;
@@ -39,6 +41,7 @@ internal sealed class FakeSystemInfoProvider : ISystemInfoProvider
     public MemorySnapshot GetMemory() => Memory;
     public IReadOnlyList<ProcessMemorySnapshot> GetTopMemoryProcesses(int count) =>
         TopMemoryProcesses.Take(count).ToList();
+    public IReadOnlyList<StorageConsumer> GetLargeStorageConsumers() => LargeStorageConsumers;
     public IReadOnlyList<ServiceSnapshot> GetServices(IReadOnlyList<string> names) => Services;
     public bool IsRebootPending() => RebootPending;
     public Task<bool> CanResolveDnsAsync(string host, CancellationToken ct)

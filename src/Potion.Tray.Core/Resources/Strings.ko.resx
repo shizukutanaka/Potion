@@ -405,4 +405,19 @@
   <data name="Ui.Settings.DnsProbeHost">
     <value>DNS 테스트 호스트</value>
   </data>
+  <data name="Repair.DiskSpace.LargeConsumers">
+    <value>공간을 가장 많이 사용하는 위치: {0}</value>
+  </data>
+  <data name="Storage.RecycleBin">
+    <value>휴지통</value>
+  </data>
+  <data name="Storage.Downloads">
+    <value>다운로드 폴더</value>
+  </data>
+  <data name="Storage.WindowsUpdateCache">
+    <value>Windows Update 캐시</value>
+  </data>
+  <data name="Storage.TempFiles">
+    <value>임시 파일</value>
+  </data>
 </root>

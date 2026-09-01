@@ -71,6 +71,129 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
         }
     }
 
+    public IReadOnlyList<StorageConsumer> GetLargeStorageConsumers()
+    {
+        try
+        {
+            var systemRoot = Path.GetPathRoot(Environment.SystemDirectory);
+            var userProfile = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            var windows = Environment.GetFolderPath(Environment.SpecialFolder.Windows);
+            var roots = new List<(string NameKey, string Path)>();
+            if (systemRoot is { Length: > 0 })
+            {
+                roots.Add(("Storage.RecycleBin", Path.Combine(systemRoot, "$Recycle.Bin")));
+            }
+
+            if (userProfile.Length > 0)
+            {
+                roots.Add(("Storage.Downloads", Path.Combine(userProfile, "Downloads")));
+            }
+
+            if (windows.Length > 0)
+            {
+                roots.Add(("Storage.WindowsUpdateCache", Path.Combine(windows, "SoftwareDistribution", "Download")));
+            }
+
+            roots.Add(("Storage.TempFiles", Path.GetTempPath()));
+            var consumers = new List<StorageConsumer>();
+            foreach (var (nameKey, path) in roots)
+            {
+                if (string.IsNullOrEmpty(path) || !Directory.Exists(path))
+                {
+                    continue;
+                }
+
+                var bytes = SumFiles(path);
+                if (bytes >= 1L * 1024 * 1024 * 1024)
+                {
+                    consumers.Add(new StorageConsumer(nameKey, bytes));
+                }
+            }
+
+            return consumers
+                .OrderByDescending(consumer => consumer.Bytes)
+                .Take(3)
+                .ToList();
+        }
+        catch
+        {
+            return Array.Empty<StorageConsumer>();
+        }
+    }
+
+    private static long SumFiles(string root)
+    {
+        var total = 0L;
+        var scanned = 0;
+        var stopwatch = Stopwatch.StartNew();
+        IEnumerator<string> files;
+        try
+        {
+            files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).GetEnumerator();
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return 0;
+        }
+        catch (DirectoryNotFoundException)
+        {
+            return 0;
+        }
+        catch (IOException)
+        {
+            return 0;
+        }
+
+        using (files)
+        {
+            while (scanned < 20_000 && stopwatch.Elapsed < TimeSpan.FromSeconds(5))
+            {
+                string file;
+                try
+                {
+                    if (!files.MoveNext())
+                    {
+                        break;
+                    }
+
+                    file = files.Current;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                    break;
+                }
+                catch (DirectoryNotFoundException)
+                {
+                    break;
+                }
+                catch (IOException)
+                {
+                    break;
+                }
+
+                scanned++;
+                try
+                {
+                    total += new FileInfo(file).Length;
+                }
+                catch (UnauthorizedAccessException)
+                {
+                }
+                catch (FileNotFoundException)
+                {
+                }
+                catch (DirectoryNotFoundException)
+                {
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
+        return total;
+    }
+
     public IReadOnlyList<ServiceSnapshot> GetServices(IReadOnlyList<string> names)
     {
         return names.Select(name =>

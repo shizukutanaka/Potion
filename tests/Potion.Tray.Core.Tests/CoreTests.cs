@@ -258,6 +258,51 @@ public class RepairTests
     }
 
     [Fact]
+    public async Task DiskSpaceRepairIncludesLargeStorageConsumers()
+    {
+        var system = new FakeSystemInfoProvider
+        {
+            LargeStorageConsumers = new[]
+            {
+                new StorageConsumer("Storage.Downloads", 2L * 1024 * 1024 * 1024)
+            }
+        };
+        var repair = new DiskSpaceRepair(
+            new FakeTempFileCleaner(),
+            new FakeProcessRunner(),
+            system,
+            new ResourceLocalizer());
+
+        var outcome = await repair.RepairAsync(
+            new HealthFinding("disk-space", "disk", HealthStatus.Warning, ""), new TraySettings
+            {
+                AllowComponentCleanup = false
+            }, default);
+
+        Assert.Contains(new ResourceLocalizer().Get("Storage.Downloads"), outcome.Summary);
+        Assert.Contains("2.0", outcome.Summary);
+    }
+
+    [Fact]
+    public async Task DiskSpaceRepairOmitsStorageConsumersWhenNoneAreReported()
+    {
+        var localizer = new ResourceLocalizer();
+        var repair = new DiskSpaceRepair(
+            new FakeTempFileCleaner(),
+            new FakeProcessRunner(),
+            new FakeSystemInfoProvider(),
+            localizer);
+
+        var outcome = await repair.RepairAsync(
+            new HealthFinding("disk-space", "disk", HealthStatus.Warning, ""), new TraySettings
+            {
+                AllowComponentCleanup = false
+            }, default);
+
+        Assert.Equal(localizer.Get("Repair.DiskSpace.NoneSummary"), outcome.Summary);
+    }
+
+    [Fact]
     public async Task DnsFlushRepair_UsesFlushDnsAndChecksAgain()
     {
         var runner = new FakeProcessRunner();

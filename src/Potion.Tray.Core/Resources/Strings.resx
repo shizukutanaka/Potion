@@ -405,4 +405,19 @@
   <data name="Ui.Settings.DnsProbeHost">
     <value>DNS test host</value>
   </data>
+  <data name="Repair.DiskSpace.LargeConsumers">
+    <value>Largest space users: {0}</value>
+  </data>
+  <data name="Storage.RecycleBin">
+    <value>Recycle Bin</value>
+  </data>
+  <data name="Storage.Downloads">
+    <value>Downloads folder</value>
+  </data>
+  <data name="Storage.WindowsUpdateCache">
+    <value>Windows Update cache</value>
+  </data>
+  <data name="Storage.TempFiles">
+    <value>Temporary files</value>
+  </data>
 </root>
