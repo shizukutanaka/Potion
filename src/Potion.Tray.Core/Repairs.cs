@@ -1,0 +1,191 @@
+using Potion.Tray.Core.Resources;
+
+namespace Potion.Tray.Core.Repairs;
+
+public sealed class DiskSpaceRepair : IRepairAction
+{
+    private readonly ITempFileCleaner cleaner;
+    private readonly IProcessRunner processRunner;
+    private readonly ISystemInfoProvider system;
+    private readonly ILocalizer localizer;
+
+    public DiskSpaceRepair(ITempFileCleaner cleaner, IProcessRunner processRunner, ISystemInfoProvider system, ILocalizer localizer)
+    {
+        this.cleaner = cleaner;
+        this.processRunner = processRunner;
+        this.system = system;
+        this.localizer = localizer;
+    }
+    public DiskSpaceRepair(ITempFileCleaner cleaner, IProcessRunner processRunner, ISystemInfoProvider system)
+        : this(cleaner, processRunner, system, new ResourceLocalizer()) { }
+
+    public string CheckId => "disk-space";
+    public string DisplayName => localizer.Get("Repair.DiskSpace.Title");
+    public bool RequiresAdministrator => false;
+
+    public async Task<RepairOutcome> RepairAsync(HealthFinding finding, TraySettings settings, CancellationToken ct)
+    {
+        var cleanup = await cleaner.CleanAsync(ct);
+        ProcessRunResult? componentCleanup = null;
+        if (settings.AllowComponentCleanup && system.IsElevated)
+        {
+            componentCleanup = await processRunner.RunAsync(
+                "DISM.exe",
+                new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup" },
+                TimeSpan.FromMinutes(30),
+                ct);
+        }
+
+        var actions = new List<string>();
+        if (cleanup.FilesDeleted > 0)
+        {
+            actions.Add(localizer.Format("Repair.DiskSpace.FilesSummary", cleanup.FilesDeleted, FormatGb(cleanup.BytesFreed)));
+        }
+
+        if (componentCleanup is { ExitCode: 0 })
+        {
+            actions.Add(localizer.Get("Repair.DiskSpace.ComponentSummary"));
+        }
+
+        var summary = actions.Count == 0
+            ? localizer.Get("Repair.DiskSpace.NoneSummary")
+            : string.Join(", ", actions);
+        return new RepairOutcome(
+            cleanup.FilesDeleted > 0 || componentCleanup is { ExitCode: 0 },
+            summary,
+            componentCleanup is null
+                ? Array.Empty<CommandExecution>()
+                : new[] { ToExecution("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup" }, componentCleanup) });
+    }
+
+    private static string FormatGb(long bytes) => $"{bytes / (1024d * 1024d * 1024d):0.0} GB";
+    private static CommandExecution ToExecution(string fileName, IReadOnlyList<string> args, ProcessRunResult result) =>
+        new(fileName, string.Join(" ", args), result.ExitCode, result.Duration, result.StandardOutput, result.StandardError);
+}
+
+public sealed class ServiceRestartRepair : IRepairAction
+{
+    private readonly IProcessRunner processRunner;
+    private readonly ISystemInfoProvider system;
+    private readonly ILocalizer localizer;
+
+    public ServiceRestartRepair(IProcessRunner processRunner, ISystemInfoProvider system, ILocalizer localizer)
+    {
+        this.processRunner = processRunner;
+        this.system = system;
+        this.localizer = localizer;
+    }
+    public ServiceRestartRepair(IProcessRunner processRunner, ISystemInfoProvider system)
+        : this(processRunner, system, new ResourceLocalizer()) { }
+
+    public string CheckId => "critical-services";
+    public string DisplayName => localizer.Get("Repair.ServiceRestart.Title");
+    public bool RequiresAdministrator => true;
+
+    public async Task<RepairOutcome> RepairAsync(HealthFinding finding, TraySettings settings, CancellationToken ct)
+    {
+        var snapshots = system.GetServices(settings.MonitoredServices)
+            .Where(s => s.Exists && !s.IsRunning)
+            .ToList();
+        var commands = new List<CommandExecution>();
+        var successful = new List<string>();
+        var failed = new List<string>();
+        foreach (var service in snapshots)
+        {
+            var args = new[] { "start", service.Name };
+            var result = await processRunner.RunAsync("sc.exe", args, TimeSpan.FromMinutes(2), ct);
+            commands.Add(ToExecution("sc.exe", args, result));
+            if (result.ExitCode == 0 || result.ExitCode == 1056)
+            {
+                successful.Add(service.Name);
+            }
+            else
+            {
+                failed.Add(service.Name);
+            }
+        }
+
+        var summary = localizer.Format(
+            "Repair.ServiceRestart.Summary",
+            successful.Count == 0 ? localizer.Get("Ui.History.Detail.None") : string.Join(", ", successful),
+            failed.Count == 0 ? localizer.Get("Ui.History.Detail.None") : string.Join(", ", failed));
+        return new RepairOutcome(failed.Count == 0, summary, commands);
+    }
+
+    private static CommandExecution ToExecution(string fileName, IReadOnlyList<string> args, ProcessRunResult result) =>
+        new(fileName, string.Join(" ", args), result.ExitCode, result.Duration, result.StandardOutput, result.StandardError);
+}
+
+public sealed class ComponentStoreRepair : IRepairAction
+{
+    private readonly IProcessRunner processRunner;
+    private readonly ILocalizer localizer;
+
+    public ComponentStoreRepair(IProcessRunner processRunner, ILocalizer localizer)
+    {
+        this.processRunner = processRunner;
+        this.localizer = localizer;
+    }
+    public ComponentStoreRepair(IProcessRunner processRunner) : this(processRunner, new ResourceLocalizer()) { }
+    public string CheckId => "component-store";
+    public string DisplayName => localizer.Get("Repair.ComponentStore.Title");
+    public bool RequiresAdministrator => true;
+
+    public async Task<RepairOutcome> RepairAsync(HealthFinding finding, TraySettings settings, CancellationToken ct)
+    {
+        var commands = new List<CommandExecution>();
+        var restoreArgs = new[] { "/Online", "/Cleanup-Image", "/RestoreHealth" };
+        var restore = await processRunner.RunAsync("DISM.exe", restoreArgs, TimeSpan.FromMinutes(60), ct);
+        commands.Add(ToExecution("DISM.exe", restoreArgs, restore));
+        if (restore.ExitCode != 0)
+        {
+            return new RepairOutcome(false, localizer.Get("Repair.ComponentStore.RestoreFailed"), commands);
+        }
+
+        var sfcArgs = new[] { "/scannow" };
+        var sfc = await processRunner.RunAsync("sfc.exe", sfcArgs, TimeSpan.FromMinutes(60), ct);
+        commands.Add(ToExecution("sfc.exe", sfcArgs, sfc));
+        return new RepairOutcome(
+            sfc.ExitCode == 0,
+            sfc.ExitCode == 0
+                ? localizer.Get("Repair.ComponentStore.Success")
+                : localizer.Get("Repair.ComponentStore.SfcFailed"),
+            commands);
+    }
+
+    private static CommandExecution ToExecution(string fileName, IReadOnlyList<string> args, ProcessRunResult result) =>
+        new(fileName, string.Join(" ", args), result.ExitCode, result.Duration, result.StandardOutput, result.StandardError);
+}
+
+public sealed class DnsFlushRepair : IRepairAction
+{
+    private readonly IProcessRunner processRunner;
+    private readonly ISystemInfoProvider system;
+    private readonly ILocalizer localizer;
+
+    public DnsFlushRepair(IProcessRunner processRunner, ISystemInfoProvider system, ILocalizer localizer)
+    {
+        this.processRunner = processRunner;
+        this.system = system;
+        this.localizer = localizer;
+    }
+    public DnsFlushRepair(IProcessRunner processRunner, ISystemInfoProvider system)
+        : this(processRunner, system, new ResourceLocalizer()) { }
+
+    public string CheckId => "network";
+    public string DisplayName => localizer.Get("Repair.DnsFlush.Title");
+    public bool RequiresAdministrator => false;
+
+    public async Task<RepairOutcome> RepairAsync(HealthFinding finding, TraySettings settings, CancellationToken ct)
+    {
+        var args = new[] { "/flushdns" };
+        var result = await processRunner.RunAsync("ipconfig.exe", args, TimeSpan.FromMinutes(2), ct);
+        var success = result.ExitCode == 0 && await system.CanResolveDnsAsync(settings.DnsProbeHost, ct);
+        return new RepairOutcome(
+            success,
+            success
+                ? localizer.Get("Repair.DnsFlush.Success")
+                : localizer.Get("Repair.DnsFlush.Failed"),
+            new[] { new CommandExecution("ipconfig.exe", "/flushdns", result.ExitCode, result.Duration, result.StandardOutput, result.StandardError) });
+    }
+}

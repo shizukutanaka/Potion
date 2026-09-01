@@ -1,0 +1,279 @@
+using System.Drawing;
+using System.Text;
+using Potion.Tray.Core;
+using Potion.Tray.Core.Resources;
+
+namespace Potion.Tray;
+
+internal sealed class TrayApplicationContext : ApplicationContext
+{
+    private readonly SelfHealingEngine engine;
+    private readonly IHistoryStore history;
+    private readonly ISettingsStore settingsStore;
+    private readonly ISystemInfoProvider system;
+    private readonly ITrayLog log;
+    private readonly ILocalizer localizer;
+    private readonly NotifyIcon notifyIcon;
+    private readonly ToolStripMenuItem statusItem;
+    private readonly ToolStripMenuItem autoRepairItem;
+    private readonly ToolStripMenuItem notificationAllItem;
+    private readonly ToolStripMenuItem notificationRepairsItem;
+    private readonly ToolStripMenuItem notificationFailuresItem;
+    private readonly ToolStripMenuItem notificationNoneItem;
+    private readonly System.Threading.Timer scanTimer;
+    private readonly SynchronizationContext uiContext;
+    private readonly CancellationTokenSource shutdown = new();
+
+    public TrayApplicationContext(
+        SelfHealingEngine engine,
+        IHistoryStore history,
+        ISettingsStore settingsStore,
+        ISystemInfoProvider system,
+        INotifier notifier,
+        ITrayLog log,
+        ILocalizer localizer)
+    {
+        this.engine = engine;
+        this.history = history;
+        this.settingsStore = settingsStore;
+        this.system = system;
+        this.log = log;
+        this.localizer = localizer;
+        uiContext = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
+
+        var settings = settingsStore.Load();
+        statusItem = new ToolStripMenuItem(engine.StatusText) { Enabled = false };
+        autoRepairItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.AutoRepair"))
+        {
+            CheckOnClick = true,
+            Checked = settings.AutoRepairEnabled
+        };
+        autoRepairItem.Click += (_, _) =>
+        {
+            var current = settingsStore.Load();
+            current.AutoRepairEnabled = autoRepairItem.Checked;
+            settingsStore.Save(current);
+        };
+
+        notificationAllItem = NotificationItem("Ui.Menu.AllNotifications", NotificationMode.All);
+        notificationRepairsItem = NotificationItem("Ui.Menu.RepairsOnly", NotificationMode.RepairsOnly);
+        notificationFailuresItem = NotificationItem("Ui.Menu.FailuresOnly", NotificationMode.FailuresOnly);
+        notificationNoneItem = NotificationItem("Ui.Menu.NoNotifications", NotificationMode.None);
+        ApplyNotificationChecks(settings.Notifications);
+
+        var menu = new ContextMenuStrip();
+        menu.Items.Add(statusItem);
+        menu.Items.Add(new ToolStripSeparator());
+        var scanItem = menu.Items.Add(localizer.Get("Ui.Menu.ScanNow"));
+        scanItem.Click += async (_, _) => await RunScanAsync();
+        var historyItem = menu.Items.Add(localizer.Get("Ui.Menu.History"));
+        historyItem.Click += (_, _) => ShowHistory();
+        var settingsItem = menu.Items.Add(localizer.Get("Ui.Menu.Settings"));
+        settingsItem.Click += (_, _) => ShowSettings();
+        menu.Items.Add(new ToolStripSeparator());
+        menu.Items.Add(autoRepairItem);
+        var notificationMenu = new ToolStripMenuItem(localizer.Get("Ui.Menu.Notifications"));
+        notificationMenu.DropDownItems.AddRange(new ToolStripItem[]
+        {
+            notificationAllItem, notificationRepairsItem, notificationFailuresItem, notificationNoneItem
+        });
+        menu.Items.Add(notificationMenu);
+        menu.Items.Add(new ToolStripSeparator());
+        if (!system.IsElevated)
+        {
+            var adminItem = menu.Items.Add(localizer.Get("Ui.Menu.RestartAsAdmin"));
+            adminItem.Click += (_, _) => AdministratorRestart.Restart(log);
+        }
+
+        var exitItem = menu.Items.Add(localizer.Get("Ui.Menu.Exit"));
+        exitItem.Click += (_, _) => ExitThread();
+        notifyIcon = new NotifyIcon
+        {
+            Visible = true,
+            Text = Shorten(engine.StatusText),
+            Icon = IconFactory.Create(EngineState.Idle),
+            ContextMenuStrip = menu
+        };
+        if (notifier is BalloonNotifier balloonNotifier)
+        {
+            balloonNotifier.Attach(notifyIcon);
+        }
+        notifyIcon.DoubleClick += (_, _) => ShowHistory();
+
+        engine.StateChanged += EngineOnStateChanged;
+        scanTimer = new System.Threading.Timer(
+            async _ => await RunScanAsync(),
+            null,
+            TimeSpan.FromSeconds(30),
+            Timeout.InfiniteTimeSpan);
+    }
+
+    protected override void ExitThreadCore()
+    {
+        shutdown.Cancel();
+        scanTimer.Dispose();
+        engine.StateChanged -= EngineOnStateChanged;
+        notifyIcon.Visible = false;
+        notifyIcon.Dispose();
+        shutdown.Dispose();
+        if (history is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+        base.ExitThreadCore();
+    }
+
+    private ToolStripMenuItem NotificationItem(string key, NotificationMode mode)
+    {
+        var item = new ToolStripMenuItem(localizer.Get(key))
+        {
+            CheckOnClick = true,
+            Tag = mode
+        };
+        item.Click += (_, _) =>
+        {
+            var settings = settingsStore.Load();
+            settings.Notifications = mode;
+            settingsStore.Save(settings);
+            ApplyNotificationChecks(mode);
+        };
+        return item;
+    }
+
+    private void ApplyNotificationChecks(NotificationMode mode)
+    {
+        notificationAllItem.Checked = mode == NotificationMode.All;
+        notificationRepairsItem.Checked = mode == NotificationMode.RepairsOnly;
+        notificationFailuresItem.Checked = mode == NotificationMode.FailuresOnly;
+        notificationNoneItem.Checked = mode == NotificationMode.None;
+    }
+
+    private async Task RunScanAsync()
+    {
+        if (shutdown.IsCancellationRequested)
+        {
+            return;
+        }
+
+        try
+        {
+            await engine.RunCycleAsync(shutdown.Token);
+        }
+        catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            log.Error("Periodic scan failed with an unhandled exception.", ex);
+        }
+        finally
+        {
+            if (!shutdown.IsCancellationRequested)
+            {
+                var settings = settingsStore.Load();
+                scanTimer.Change(TimeSpan.FromMinutes(settings.ScanIntervalMinutes), Timeout.InfiniteTimeSpan);
+            }
+        }
+    }
+
+    private void EngineOnStateChanged(object? sender, EventArgs e)
+    {
+        var state = engine.State;
+        uiContext.Post(_ =>
+        {
+            statusItem.Text = engine.StatusText;
+            notifyIcon.Text = Shorten(engine.StatusText);
+            var oldIcon = notifyIcon.Icon;
+            notifyIcon.Icon = IconFactory.Create(state);
+            oldIcon?.Dispose();
+        }, null);
+    }
+
+    private void ShowHistory()
+    {
+        using var form = new HistoryForm(history, settingsStore.Load(), localizer);
+        form.ShowDialog();
+    }
+
+    private void ShowSettings()
+    {
+        using var form = new SettingsForm(settingsStore, log, localizer);
+        if (form.ShowDialog() == DialogResult.OK)
+        {
+            var settings = settingsStore.Load();
+            autoRepairItem.Checked = settings.AutoRepairEnabled;
+            ApplyNotificationChecks(settings.Notifications);
+            scanTimer.Change(TimeSpan.FromMinutes(settings.ScanIntervalMinutes), Timeout.InfiniteTimeSpan);
+        }
+    }
+
+    private static string Shorten(string text) => text.Length <= 63 ? text : text[..60] + "...";
+}
+
+internal static class IconFactory
+{
+    public static Icon Create(EngineState state)
+    {
+        var color = state switch
+        {
+            EngineState.Warning => Color.Orange,
+            EngineState.Critical => Color.Red,
+            EngineState.Scanning or EngineState.Repairing => Color.DodgerBlue,
+            _ => Color.ForestGreen
+        };
+        using var bitmap = new Bitmap(16, 16);
+        using (var graphics = Graphics.FromImage(bitmap))
+        {
+            graphics.Clear(Color.Transparent);
+            using var brush = new SolidBrush(color);
+            graphics.FillEllipse(brush, 1, 1, 14, 14);
+        }
+
+        var handle = bitmap.GetHicon();
+        try
+        {
+            using var temporary = Icon.FromHandle(handle);
+            return (Icon)temporary.Clone();
+        }
+        finally
+        {
+            DestroyIcon(handle);
+        }
+    }
+
+    [System.Runtime.InteropServices.DllImport("user32.dll", SetLastError = true)]
+    [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]
+    private static extern bool DestroyIcon(IntPtr handle);
+}
+
+internal sealed class BalloonNotifier : INotifier
+{
+    private NotifyIcon? notifyIcon;
+    private readonly SynchronizationContext context;
+
+    public BalloonNotifier()
+    {
+        context = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
+    }
+
+    public void Attach(NotifyIcon icon) => notifyIcon = icon;
+
+    public void Notify(Notification notification)
+    {
+        context.Post(_ =>
+        {
+            if (notifyIcon is null)
+            {
+                return;
+            }
+
+            var icon = notification.Severity switch
+            {
+                HealthStatus.Critical => ToolTipIcon.Error,
+                HealthStatus.Warning => ToolTipIcon.Warning,
+                _ => ToolTipIcon.Info
+            };
+            notifyIcon.ShowBalloonTip(10000, notification.Title, notification.Message, icon);
+        }, null);
+    }
+}

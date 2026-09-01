@@ -55,3 +55,8 @@ See CONTRIBUTING.md for guidelines
 ## Support
 
 For issues and questions, please open a GitHub issue
+
+## トレイ常駐アプリ (Potion.Tray)
+
+Windows の状態を定期的に点検し、安全な範囲で自動修復するトレイ常駐アプリです。点検・修復の履歴を保存し、設定に応じて通知します。詳細は [docs/tray-app.md](docs/tray-app.md) を参照してください。
+英語、日本語、中国語、韓国語、スペイン語、フランス語、ドイツ語、ポルトガル語、ロシア語に対応しています。

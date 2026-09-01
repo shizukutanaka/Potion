@@ -1,0 +1,238 @@
+using System.Globalization;
+using Potion.Tray.Core.Resources;
+
+namespace Potion.Tray.Core.Checks;
+
+public sealed class DiskSpaceHealthCheck : IHealthCheck
+{
+    private readonly ISystemInfoProvider system;
+    private readonly ILocalizer localizer;
+
+    public DiskSpaceHealthCheck(ISystemInfoProvider system, ILocalizer localizer)
+    {
+        this.system = system;
+        this.localizer = localizer;
+    }
+    public DiskSpaceHealthCheck(ISystemInfoProvider system) : this(system, new ResourceLocalizer()) { }
+    public string Id => "disk-space";
+    public string DisplayName => localizer.Get("Check.DiskSpace.Title");
+
+    public Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct)
+    {
+        var drives = system.GetFixedDrives();
+        var findings = drives
+            .Where(d => d.TotalBytes > 0)
+            .Select(d =>
+            {
+                var percent = d.FreeBytes * 100d / d.TotalBytes;
+                var status = percent < settings.DiskCriticalPercent
+                    ? HealthStatus.Critical
+                    : percent < settings.DiskWarnPercent
+                        ? HealthStatus.Warning
+                        : HealthStatus.Healthy;
+                return (Drive: d, Percent: percent, Status: status);
+            })
+            .Where(x => x.Status != HealthStatus.Healthy)
+            .ToList();
+        if (findings.Count == 0)
+        {
+            return Task.FromResult<HealthFinding?>(null);
+        }
+
+        var worst = findings.Max(x => x.Status);
+        var details = findings.Select(x =>
+            localizer.Format(
+                "Check.DiskSpace.Detail",
+                x.Drive.Name,
+                FormatGb(x.Drive.FreeBytes),
+                FormatGb(x.Drive.TotalBytes),
+                x.Percent.ToString("0.0", CultureInfo.CurrentUICulture)));
+        var metrics = findings.ToDictionary(
+            x => x.Drive.Name,
+            x => $"{x.Percent.ToString("0.0", CultureInfo.InvariantCulture)}%",
+            StringComparer.OrdinalIgnoreCase);
+        return Task.FromResult<HealthFinding?>(new HealthFinding(
+            Id,
+            DisplayName,
+            worst,
+            string.Join("、", details),
+            metrics));
+    }
+
+    private static string FormatGb(long bytes) =>
+        $"{bytes / (1024d * 1024d * 1024d):0.0} GB";
+}
+
+public sealed class CriticalServiceHealthCheck : IHealthCheck
+{
+    private readonly ISystemInfoProvider system;
+    private readonly ILocalizer localizer;
+
+    public CriticalServiceHealthCheck(ISystemInfoProvider system, ILocalizer localizer)
+    {
+        this.system = system;
+        this.localizer = localizer;
+    }
+    public CriticalServiceHealthCheck(ISystemInfoProvider system) : this(system, new ResourceLocalizer()) { }
+    public string Id => "critical-services";
+    public string DisplayName => localizer.Get("Check.CriticalServices.Title");
+
+    public Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct)
+    {
+        var stopped = system.GetServices(settings.MonitoredServices)
+            .Where(s => s.Exists && !s.IsRunning)
+            .Select(s => s.Name)
+            .ToList();
+        return Task.FromResult<HealthFinding?>(stopped.Count == 0
+            ? null
+            : new HealthFinding(
+                Id,
+                DisplayName,
+                HealthStatus.Critical,
+                localizer.Format("Check.CriticalServices.Detail", string.Join(", ", stopped)),
+                new Dictionary<string, string> { ["services"] = string.Join(", ", stopped) }));
+    }
+}
+
+public sealed class ComponentStoreHealthCheck : IHealthCheck
+{
+    private readonly IProcessRunner processRunner;
+    private readonly ITrayLog log;
+    private readonly ILocalizer localizer;
+
+    public ComponentStoreHealthCheck(IProcessRunner processRunner, ITrayLog log, ILocalizer localizer)
+    {
+        this.processRunner = processRunner;
+        this.log = log;
+        this.localizer = localizer;
+    }
+    public ComponentStoreHealthCheck(IProcessRunner processRunner, ITrayLog log)
+        : this(processRunner, log, new ResourceLocalizer()) { }
+
+    public string Id => "component-store";
+    public string DisplayName => localizer.Get("Check.ComponentStore.Title");
+
+    public async Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct)
+    {
+        ProcessRunResult result;
+        try
+        {
+            result = await processRunner.RunAsync(
+                "DISM.exe",
+                new[] { "/Online", "/Cleanup-Image", "/CheckHealth" },
+                TimeSpan.FromMinutes(5),
+                ct);
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+        {
+            log.Warn("コンポーネントストアの点検を実行できませんでした。", ex);
+            return null;
+        }
+
+        var output = $"{result.StandardOutput}\n{result.StandardError}";
+        if (result.TimedOut)
+        {
+            log.Warn("コンポーネントストアの点検がタイムアウトしました。");
+            return null;
+        }
+
+        if (ContainsRepairable(output))
+        {
+            return new HealthFinding(
+                Id,
+                DisplayName,
+                HealthStatus.Critical,
+                localizer.Get("Check.ComponentStore.Detail"));
+        }
+
+        if (ContainsNoCorruption(output) || result.ExitCode == 0)
+        {
+            return null;
+        }
+
+        log.Warn($"コンポーネントストアの点検結果を判定できませんでした（終了コード: {result.ExitCode}）。");
+        return null;
+    }
+
+    private static bool ContainsRepairable(string output) =>
+        output.Contains("repairable", StringComparison.OrdinalIgnoreCase) ||
+        output.Contains("修復可能", StringComparison.OrdinalIgnoreCase);
+
+    private static bool ContainsNoCorruption(string output) =>
+        output.Contains("no component store corruption", StringComparison.OrdinalIgnoreCase) ||
+        output.Contains("コンポーネント ストアの破損は検出されませんでした", StringComparison.OrdinalIgnoreCase);
+}
+
+public sealed class MemoryPressureHealthCheck : IHealthCheck
+{
+    private readonly ISystemInfoProvider system;
+    private readonly ILocalizer localizer;
+
+    public MemoryPressureHealthCheck(ISystemInfoProvider system, ILocalizer localizer)
+    {
+        this.system = system;
+        this.localizer = localizer;
+    }
+    public MemoryPressureHealthCheck(ISystemInfoProvider system) : this(system, new ResourceLocalizer()) { }
+    public string Id => "memory-pressure";
+    public string DisplayName => localizer.Get("Check.MemoryPressure.Title");
+
+    public Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct)
+    {
+        var memory = system.GetMemory();
+        if (memory.TotalBytes <= 0)
+        {
+            return Task.FromResult<HealthFinding?>(null);
+        }
+
+        var percent = memory.AvailableBytes * 100d / memory.TotalBytes;
+        return Task.FromResult<HealthFinding?>(percent < settings.MemoryWarnPercent
+            ? new HealthFinding(
+                Id,
+                DisplayName,
+                HealthStatus.Warning,
+                localizer.Format("Check.MemoryPressure.Detail", percent.ToString("0.0", CultureInfo.CurrentUICulture)),
+                new Dictionary<string, string> { ["available"] = $"{percent:0.0}%" })
+            : null);
+    }
+}
+
+public sealed class PendingRebootHealthCheck : IHealthCheck
+{
+    private readonly ISystemInfoProvider system;
+    private readonly ILocalizer localizer;
+
+    public PendingRebootHealthCheck(ISystemInfoProvider system, ILocalizer localizer)
+    {
+        this.system = system;
+        this.localizer = localizer;
+    }
+    public PendingRebootHealthCheck(ISystemInfoProvider system) : this(system, new ResourceLocalizer()) { }
+    public string Id => "pending-reboot";
+    public string DisplayName => localizer.Get("Check.PendingReboot.Title");
+
+    public Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct) =>
+        Task.FromResult<HealthFinding?>(system.IsRebootPending()
+            ? new HealthFinding(Id, DisplayName, HealthStatus.Warning, localizer.Get("Check.PendingReboot.Detail"))
+            : null);
+}
+
+public sealed class NetworkHealthCheck : IHealthCheck
+{
+    private readonly ISystemInfoProvider system;
+    private readonly ILocalizer localizer;
+
+    public NetworkHealthCheck(ISystemInfoProvider system, ILocalizer localizer)
+    {
+        this.system = system;
+        this.localizer = localizer;
+    }
+    public NetworkHealthCheck(ISystemInfoProvider system) : this(system, new ResourceLocalizer()) { }
+    public string Id => "network";
+    public string DisplayName => localizer.Get("Check.Network.Title");
+
+    public async Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct) =>
+        await system.CanResolveDnsAsync(settings.DnsProbeHost, ct)
+            ? null
+            : new HealthFinding(Id, DisplayName, HealthStatus.Critical, localizer.Get("Check.Network.Detail"));
+}
