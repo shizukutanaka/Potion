@@ -25,7 +25,10 @@ public sealed class DiskSpaceRepair : IRepairAction
 
     public async Task<RepairOutcome> RepairAsync(HealthFinding finding, TraySettings settings, CancellationToken ct)
     {
-        var cleanup = await cleaner.CleanAsync(ct);
+        var minimumAge = finding.Status == HealthStatus.Critical
+            ? TimeSpan.FromDays(1)
+            : TimeSpan.FromDays(7);
+        var cleanup = await cleaner.CleanAsync(minimumAge, ct);
         ProcessRunResult? componentCleanup = null;
         var cleanupArgs = new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/English" };
         if (settings.AllowComponentCleanup && system.IsElevated)

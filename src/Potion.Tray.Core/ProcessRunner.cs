@@ -6,7 +6,7 @@ public static class CommandAllowList
 {
     private static readonly HashSet<string> Allowed = new(StringComparer.OrdinalIgnoreCase)
     {
-        "sfc.exe", "DISM.exe", "sc.exe", "ipconfig.exe", "cleanmgr.exe"
+        "sfc.exe", "DISM.exe", "sc.exe", "ipconfig.exe"
     };
 
     public static bool IsAllowed(string fileName)
@@ -92,7 +92,10 @@ public sealed class SystemProcessRunner : IProcessRunner
     }
 
     public static string OutputTail(string output, int maxLength = 4000) =>
-        string.IsNullOrEmpty(output) || output.Length <= maxLength
+        (output = Normalize(output)).Length <= maxLength
             ? output
             : output[^maxLength..];
+
+    public static string Normalize(string output) =>
+        output.Replace("\0", string.Empty, StringComparison.Ordinal).TrimEnd(' ');
 }

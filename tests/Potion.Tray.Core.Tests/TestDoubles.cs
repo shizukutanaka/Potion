@@ -58,7 +58,12 @@ internal sealed class RecordingNotifier : INotifier
 internal sealed class FakeTempFileCleaner : ITempFileCleaner
 {
     public TempCleanupResult Result { get; set; } = new(0, 0);
-    public Task<TempCleanupResult> CleanAsync(CancellationToken ct) => Task.FromResult(Result);
+    public TimeSpan? MinimumAge { get; private set; }
+    public Task<TempCleanupResult> CleanAsync(TimeSpan minimumAge, CancellationToken ct)
+    {
+        MinimumAge = minimumAge;
+        return Task.FromResult(Result);
+    }
 }
 
 internal sealed class FakeLog : ITrayLog
@@ -87,9 +92,13 @@ internal sealed class FakeHistoryStore : IHistoryStore
 {
     public List<HistoryEntry> Entries { get; } = new();
     public int Attempts { get; set; }
+    public bool FailAppend { get; set; }
     public Task AppendAsync(HistoryEntry entry, CancellationToken ct)
     {
-        Entries.Add(entry);
+        if (!FailAppend)
+        {
+            Entries.Add(entry);
+        }
         return Task.CompletedTask;
     }
 

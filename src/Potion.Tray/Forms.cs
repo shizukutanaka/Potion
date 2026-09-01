@@ -198,13 +198,21 @@ internal sealed class HistoryForm : Form
         }
     }
 
-    private static string EscapeCsv(string value) =>
-        value.Contains(',') ||
+    private static string EscapeCsv(string value)
+    {
+        if (!string.IsNullOrEmpty(value) &&
+            value[0] is '=' or '+' or '-' or '@' or '\t' or '\r')
+        {
+            value = "'" + value;
+        }
+
+        return value.Contains(',') ||
         value.Contains('"') ||
         value.Contains('\r') ||
         value.Contains('\n')
             ? $"\"{value.Replace("\"", "\"\"", StringComparison.Ordinal)}\""
             : value;
+    }
 
     private string StatusText(HealthStatus status) => status switch
     {

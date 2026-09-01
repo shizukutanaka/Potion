@@ -196,6 +196,36 @@ public class RepairTests
     }
 
     [Fact]
+    public async Task DiskSpaceRepairUsesOneDayAgeForCriticalFindings()
+    {
+        var cleaner = new FakeTempFileCleaner();
+        var repair = new DiskSpaceRepair(
+            cleaner,
+            new FakeProcessRunner(),
+            new FakeSystemInfoProvider(),
+            new ResourceLocalizer());
+
+        await repair.RepairAsync(
+            new HealthFinding("disk-space", "disk", HealthStatus.Critical, ""), new TraySettings(), default);
+        Assert.Equal(TimeSpan.FromDays(1), cleaner.MinimumAge);
+    }
+
+    [Fact]
+    public async Task DiskSpaceRepairUsesSevenDayAgeForWarningFindings()
+    {
+        var cleaner = new FakeTempFileCleaner();
+        var repair = new DiskSpaceRepair(
+            cleaner,
+            new FakeProcessRunner(),
+            new FakeSystemInfoProvider(),
+            new ResourceLocalizer());
+
+        await repair.RepairAsync(
+            new HealthFinding("disk-space", "disk", HealthStatus.Warning, ""), new TraySettings(), default);
+        Assert.Equal(TimeSpan.FromDays(7), cleaner.MinimumAge);
+    }
+
+    [Fact]
     public async Task DnsFlushRepair_UsesFlushDnsAndChecksAgain()
     {
         var runner = new FakeProcessRunner();
@@ -509,6 +539,64 @@ public class EngineTests
     }
 
     [Fact]
+    public async Task InMemoryRepairAttemptLimitStopsWhenHistoryCannotBeWritten()
+    {
+        var clock = new FakeClock();
+        var history = new FakeHistoryStore { FailAppend = true };
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings { MaxRepairAttemptsPerDay = 2 }
+        };
+        var repairCalls = 0;
+        var check = new SequenceHealthCheck(
+            "x",
+            Finding(), null,
+            Finding(), null,
+            Finding());
+        var repair = new DelegateRepair("x", false, (_, _, _) =>
+        {
+            repairCalls++;
+            return Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()));
+        });
+        var engine = Engine(check, history, settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), clock, new[] { repair });
+
+        await engine.RunCycleAsync(default);
+        await engine.RunCycleAsync(default);
+        var limited = await engine.RunCycleAsync(default);
+        Assert.Equal(2, repairCalls);
+        Assert.Equal(HistoryOutcome.Skipped, limited.Entries.Single().Outcome);
+    }
+
+    [Fact]
+    public async Task InMemoryRepairAttemptLimitExpiresAfter24Hours()
+    {
+        var clock = new FakeClock();
+        var history = new FakeHistoryStore { FailAppend = true };
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings { MaxRepairAttemptsPerDay = 1 }
+        };
+        var repairCalls = 0;
+        var check = new SequenceHealthCheck("x", Finding(), null, Finding(), Finding(), null);
+        var repair = new DelegateRepair("x", false, (_, _, _) =>
+        {
+            repairCalls++;
+            return Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()));
+        });
+        var engine = Engine(check, history, settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), clock, new[] { repair });
+
+        await engine.RunCycleAsync(default);
+        await engine.RunCycleAsync(default);
+        Assert.Equal(1, repairCalls);
+        clock.UtcNow = clock.UtcNow.AddHours(24).AddSeconds(1);
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(2, repairCalls);
+    }
+
+    [Fact]
     public async Task InspectionExceptionDoesNotStopNextCheck()
     {
         var first = new DelegateHealthCheck("first", (_, _) => throw new InvalidOperationException("bad"));
@@ -794,6 +882,7 @@ public class ProcessRunnerTests
     [InlineData("powershell.exe")]
     [InlineData("..\\evil.exe")]
     [InlineData("cmd.exe /c ...")]
+    [InlineData("cleanmgr.exe")]
     public void AllowListRejectsUnsafeNames(string name) =>
         Assert.False(CommandAllowList.IsAllowed(name));
 
@@ -802,6 +891,15 @@ public class ProcessRunnerTests
     {
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
             new SystemProcessRunner().RunAsync("powershell.exe", Array.Empty<string>(), TimeSpan.FromSeconds(1), default));
+    }
+
+    [Fact]
+    public void NormalizeRemovesNullCharactersBeforeOutputTail()
+    {
+        var output = "\0s\0f\0c\r\n\t  ";
+
+        Assert.Equal("sfc\r\n\t", SystemProcessRunner.Normalize(output));
+        Assert.Equal("sfc\r\n\t", SystemProcessRunner.OutputTail(output));
     }
 }
 

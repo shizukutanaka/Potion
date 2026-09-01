@@ -111,16 +111,30 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
 
 internal sealed class WindowsTempFileCleaner : ITempFileCleaner
 {
-    public Task<TempCleanupResult> CleanAsync(CancellationToken ct)
+    private readonly ISystemInfoProvider system;
+
+    public WindowsTempFileCleaner(ISystemInfoProvider system)
+    {
+        this.system = system;
+    }
+
+    public Task<TempCleanupResult> CleanAsync(TimeSpan minimumAge, CancellationToken ct)
     {
         var filesDeleted = 0;
         long bytesFreed = 0;
-        var cutoff = DateTime.UtcNow.AddHours(-24);
+        var cutoff = DateTime.UtcNow.Subtract(minimumAge);
         var roots = new[]
         {
             Path.GetTempPath(),
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp")
-        };
+            Environment.GetFolderPath(Environment.SpecialFolder.Windows) is { Length: > 0 } windows
+                ? Path.Combine(windows, "Temp")
+                : null
+        }.Where(path => path is not null).Cast<string>();
+        if (!system.IsElevated)
+        {
+            roots = roots.Take(1);
+        }
+
         foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (!Directory.Exists(root))
@@ -128,36 +142,54 @@ internal sealed class WindowsTempFileCleaner : ITempFileCleaner
                 continue;
             }
 
-            IEnumerable<string> files;
+            var stopwatch = Stopwatch.StartNew();
+            var scanned = 0;
+            IEnumerator<string> files;
             try
             {
-                files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories);
+                files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).GetEnumerator();
             }
             catch
             {
                 continue;
             }
 
-            foreach (var file in files)
+            using (files)
             {
-                if (ct.IsCancellationRequested)
+                while (scanned < 50_000 &&
+                       stopwatch.Elapsed < TimeSpan.FromSeconds(30) &&
+                       !ct.IsCancellationRequested)
                 {
-                    break;
-                }
-
-                try
-                {
-                    var info = new FileInfo(file);
-                    if (info.LastWriteTimeUtc < cutoff)
+                    string file;
+                    try
                     {
-                        var size = info.Length;
-                        info.Delete();
-                        filesDeleted++;
-                        bytesFreed += size;
+                        if (!files.MoveNext())
+                        {
+                            break;
+                        }
+
+                        file = files.Current;
                     }
-                }
-                catch
-                {
+                    catch
+                    {
+                        break;
+                    }
+
+                    scanned++;
+                    try
+                    {
+                        var info = new FileInfo(file);
+                        if (info.LastWriteTimeUtc < cutoff)
+                        {
+                            var size = info.Length;
+                            info.Delete();
+                            filesDeleted++;
+                            bytesFreed += size;
+                        }
+                    }
+                    catch
+                    {
+                    }
                 }
             }
         }

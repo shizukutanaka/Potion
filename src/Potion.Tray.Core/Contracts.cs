@@ -100,7 +100,7 @@ public interface ITrayLog
 
 public interface ITempFileCleaner
 {
-    Task<TempCleanupResult> CleanAsync(CancellationToken ct);
+    Task<TempCleanupResult> CleanAsync(TimeSpan minimumAge, CancellationToken ct);
 }
 
 public sealed record TempCleanupResult(int FilesDeleted, long BytesFreed);

@@ -73,7 +73,7 @@ internal static class Program
         };
         var repairs = new IRepairAction[]
         {
-            new DiskSpaceRepair(new WindowsTempFileCleaner(), processRunner, system, localizer),
+            new DiskSpaceRepair(new WindowsTempFileCleaner(system), processRunner, system, localizer),
             new ServiceRestartRepair(processRunner, system, localizer),
             new ComponentStoreRepair(processRunner, localizer),
             new DnsFlushRepair(processRunner, system, localizer)

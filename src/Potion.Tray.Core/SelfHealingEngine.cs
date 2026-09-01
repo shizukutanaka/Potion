@@ -18,6 +18,7 @@ public sealed class SelfHealingEngine
     private readonly ICheckStateStore? checkState;
     private readonly SemaphoreSlim cycleGate = new(1, 1);
     private readonly Dictionary<string, DateTimeOffset> lastInspections = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, List<DateTimeOffset>> repairAttempts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<(string CheckId, HistoryOutcome Outcome), DateTimeOffset> lastNotifications = new();
     private bool checkStateLoaded;
     private EngineState state = EngineState.Idle;
@@ -127,47 +128,58 @@ public sealed class SelfHealingEngine
                     outcome = HistoryOutcome.Skipped;
                     skipReason = localizer.Get("Skip.AdminRequired");
                 }
-                else if (await history.CountRepairAttemptsSinceAsync(
-                             finding.CheckId,
-                             clock.UtcNow.AddHours(-24),
-                             ct) >= settings.MaxRepairAttemptsPerDay)
-                {
-                    outcome = HistoryOutcome.Skipped;
-                    skipReason = localizer.Get("Skip.DailyLimit");
-                }
                 else
                 {
-                    SetState(EngineState.Repairing);
-                    try
+                    var since = clock.UtcNow.AddHours(-24);
+                    var historyAttempts = await history.CountRepairAttemptsSinceAsync(finding.CheckId, since, ct);
+                    var memoryAttempts = CountRecentRepairAttempts(finding.CheckId, since);
+                    if (Math.Max(historyAttempts, memoryAttempts) >= settings.MaxRepairAttemptsPerDay)
                     {
-                        repairOutcome = await repair.RepairAsync(finding, settings, ct);
-                        outcome = repairOutcome.Success ? HistoryOutcome.Repaired : HistoryOutcome.RepairFailed;
-                        if (repairOutcome.Success)
+                        outcome = HistoryOutcome.Skipped;
+                        skipReason = localizer.Get("Skip.DailyLimit");
+                    }
+                    else
+                    {
+                        SetState(EngineState.Repairing);
+                        try
                         {
                             try
                             {
-                                var verification = await check.InspectAsync(settings, ct);
-                                if (verification is not null &&
-                                    verification.Status is HealthStatus.Warning or HealthStatus.Critical)
+                                repairOutcome = await repair.RepairAsync(finding, settings, ct);
+                            }
+                            finally
+                            {
+                                RecordRepairAttempt(finding.CheckId, clock.UtcNow);
+                            }
+
+                            outcome = repairOutcome.Success ? HistoryOutcome.Repaired : HistoryOutcome.RepairFailed;
+                            if (repairOutcome.Success)
+                            {
+                                try
                                 {
-                                    repairOutcome = repairOutcome with
+                                    var verification = await check.InspectAsync(settings, ct);
+                                    if (verification is not null &&
+                                        verification.Status is HealthStatus.Warning or HealthStatus.Critical)
                                     {
-                                        Summary = $"{repairOutcome.Summary}\n{localizer.Format("Repair.Unverified", verification.Detail)}"
-                                    };
-                                    outcome = HistoryOutcome.RepairFailed;
+                                        repairOutcome = repairOutcome with
+                                        {
+                                            Summary = $"{repairOutcome.Summary}\n{localizer.Format("Repair.Unverified", verification.Detail)}"
+                                        };
+                                        outcome = HistoryOutcome.RepairFailed;
+                                    }
+                                }
+                                catch (Exception ex) when (ex is not OperationCanceledException)
+                                {
+                                    log.Warn($"Unable to verify repair action {repair.DisplayName}; treating it as repaired.", ex);
                                 }
                             }
-                            catch (Exception ex) when (ex is not OperationCanceledException)
-                            {
-                                log.Warn($"Unable to verify repair action {repair.DisplayName}; treating it as repaired.", ex);
-                            }
                         }
-                    }
-                    catch (Exception ex) when (ex is not OperationCanceledException)
-                    {
-                        log.Error($"Repair action {repair.DisplayName} failed with an exception.", ex);
-                        repairOutcome = new RepairOutcome(false, ex.Message, Array.Empty<CommandExecution>());
-                        outcome = HistoryOutcome.RepairFailed;
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            log.Error($"Repair action {repair.DisplayName} failed with an exception.", ex);
+                            repairOutcome = new RepairOutcome(false, ex.Message, Array.Empty<CommandExecution>());
+                            outcome = HistoryOutcome.RepairFailed;
+                        }
                     }
                 }
 
@@ -279,6 +291,28 @@ public sealed class SelfHealingEngine
 
         lastNotifications[key] = clock.UtcNow;
         return true;
+    }
+
+    private int CountRecentRepairAttempts(string checkId, DateTimeOffset sinceUtc)
+    {
+        if (!repairAttempts.TryGetValue(checkId, out var attempts))
+        {
+            return 0;
+        }
+
+        attempts.RemoveAll(timestamp => timestamp < sinceUtc);
+        return attempts.Count;
+    }
+
+    private void RecordRepairAttempt(string checkId, DateTimeOffset timestamp)
+    {
+        if (!repairAttempts.TryGetValue(checkId, out var attempts))
+        {
+            attempts = new List<DateTimeOffset>();
+            repairAttempts[checkId] = attempts;
+        }
+
+        attempts.Add(timestamp);
     }
 
     private bool IsWithinInterval(string checkId, TraySettings settings)

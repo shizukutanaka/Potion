@@ -343,12 +343,15 @@ internal static class IconFactory
             EngineState.Scanning or EngineState.Repairing => Color.DodgerBlue,
             _ => Color.ForestGreen
         };
-        using var bitmap = new Bitmap(16, 16);
+        var iconSize = Math.Clamp(Math.Max(SystemInformation.SmallIconSize.Width, SystemInformation.SmallIconSize.Height), 16, 64);
+        var margin = Math.Max(1, (int)Math.Round(iconSize / 16d));
+        var diameter = iconSize - margin * 2;
+        using var bitmap = new Bitmap(iconSize, iconSize);
         using (var graphics = Graphics.FromImage(bitmap))
         {
             graphics.Clear(Color.Transparent);
             using var brush = new SolidBrush(color);
-            graphics.FillEllipse(brush, 1, 1, 14, 14);
+            graphics.FillEllipse(brush, margin, margin, diameter, diameter);
         }
 
         var handle = bitmap.GetHicon();
