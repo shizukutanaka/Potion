@@ -12,7 +12,7 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
-        using var mutex = new Mutex(true, @"Global\Potion.Tray.SingleInstance", out var created);
+        using var mutex = new Mutex(true, @"Local\Potion.Tray.SingleInstance", out var created);
         if (!created)
         {
             return;
@@ -39,6 +39,7 @@ internal static class Program
             }
         }
         var localizer = new ResourceLocalizer();
+        StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
         var system = new WindowsSystemInfoProvider();
         var processRunner = new SystemProcessRunner();
         var history = new JsonlHistoryStore(

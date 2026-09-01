@@ -156,8 +156,6 @@ internal sealed class WindowsTempFileCleaner : ITempFileCleaner
 
 internal static class StartupRegistration
 {
-    public static void Apply(bool enabled) => Apply(enabled, new FileTrayLog());
-
     public static void Apply(bool enabled, ITrayLog log)
     {
         try
