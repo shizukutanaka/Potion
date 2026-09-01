@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Text;
 using Microsoft.Win32;
@@ -26,6 +27,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem notificationNoneItem;
     private readonly ToolStripMenuItem scanItem;
     private readonly ToolStripMenuItem historyItem;
+    private readonly ToolStripMenuItem openFolderItem;
     private readonly ToolStripMenuItem settingsItem;
     private readonly ToolStripMenuItem notificationMenu;
     private readonly ToolStripMenuItem? adminItem;
@@ -87,6 +89,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
         historyItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.History"));
         menu.Items.Add(historyItem);
         historyItem.Click += (_, _) => ShowHistory();
+        openFolderItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.OpenFolder"));
+        menu.Items.Add(openFolderItem);
+        openFolderItem.Click += (_, _) => OpenDataFolder();
         settingsItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.Settings"));
         menu.Items.Add(settingsItem);
         settingsItem.Click += (_, _) => ShowSettings();
@@ -122,6 +127,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         ShowStartupNotices(settings);
         notifyIcon.DoubleClick += (_, _) => ShowHistory();
+        notifyIcon.BalloonTipClicked += (_, _) => ShowHistory();
 
         engine.StateChanged += EngineOnStateChanged;
         engine.CycleCompleted += EngineOnStateChanged;
@@ -343,6 +349,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         lastScanItem.Text = engine.LastScanText;
         scanItem.Text = localizer.Get("Ui.Menu.ScanNow");
         historyItem.Text = localizer.Get("Ui.Menu.History");
+        openFolderItem.Text = localizer.Get("Ui.Menu.OpenFolder");
         settingsItem.Text = localizer.Get("Ui.Menu.Settings");
         autoRepairItem.Text = localizer.Get("Ui.Menu.AutoRepair");
         notificationMenu.Text = localizer.Get("Ui.Menu.Notifications");
@@ -356,6 +363,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
         }
         exitItem.Text = localizer.Get("Ui.Menu.Exit");
         notifyIcon.Text = Shorten($"{engine.StatusText} / {engine.LastScanText}");
+    }
+
+    private void OpenDataFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(TrayPaths.DataDirectory);
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = TrayPaths.DataDirectory,
+                UseShellExecute = true
+            });
+        }
+        catch (Exception ex)
+        {
+            log.Warn("Unable to open the Potion data folder.", ex);
+        }
     }
 
     private void SystemEventsOnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)

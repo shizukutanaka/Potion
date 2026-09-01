@@ -188,6 +188,7 @@ public sealed class TraySettings
         var originalNotificationCooldownMinutes = NotificationCooldownMinutes;
         var originalMonitoredServices = (MonitoredServices ?? new()).ToList();
         var originalUiCulture = UiCulture;
+        var originalDnsProbeHost = DnsProbeHost;
 
         ScanIntervalMinutes = Math.Clamp(ScanIntervalMinutes, 1, 1440);
         DiskWarnPercent = Math.Clamp(DiskWarnPercent, 1, 90);
@@ -216,6 +217,13 @@ public sealed class TraySettings
         DnsProbeHost = string.IsNullOrWhiteSpace(DnsProbeHost)
             ? "www.msftconnecttest.com"
             : DnsProbeHost.Trim();
+        if (DnsProbeHost.Any(char.IsWhiteSpace) ||
+            DnsProbeHost.Contains('/') ||
+            DnsProbeHost.Contains('\\') ||
+            DnsProbeHost.Contains(':'))
+        {
+            DnsProbeHost = "www.msftconnecttest.com";
+        }
         MonitoredServices = (MonitoredServices ?? new())
             .Where(s => !string.IsNullOrWhiteSpace(s))
             .Select(s => s.Trim())
@@ -277,6 +285,10 @@ public sealed class TraySettings
         if (NotificationCooldownMinutes != originalNotificationCooldownMinutes)
         {
             changes.Add("Ui.Settings.NotificationCooldown");
+        }
+        if (!string.Equals(originalDnsProbeHost, DnsProbeHost, StringComparison.Ordinal))
+        {
+            changes.Add("Ui.Settings.DnsProbeHost");
         }
         if (!originalMonitoredServices.SequenceEqual(MonitoredServices, StringComparer.Ordinal))
         {

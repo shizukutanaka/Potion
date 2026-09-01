@@ -399,4 +399,10 @@
   <data name="Ui.Settings.UnknownServices">
     <value>次のサービスはこの PC に存在しないため無視されます: {0}</value>
   </data>
+  <data name="Ui.Menu.OpenFolder">
+    <value>保存フォルダを開く</value>
+  </data>
+  <data name="Ui.Settings.DnsProbeHost">
+    <value>DNS 疎通確認先</value>
+  </data>
 </root>

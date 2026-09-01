@@ -399,4 +399,10 @@
   <data name="Ui.Settings.UnknownServices">
     <value>Estes serviços não existem neste computador e serão ignorados: {0}</value>
   </data>
+  <data name="Ui.Menu.OpenFolder">
+    <value>Abrir pasta de dados</value>
+  </data>
+  <data name="Ui.Settings.DnsProbeHost">
+    <value>Host de teste DNS</value>
+  </data>
 </root>

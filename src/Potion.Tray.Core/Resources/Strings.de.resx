@@ -399,4 +399,10 @@
   <data name="Ui.Settings.UnknownServices">
     <value>Diese Dienste sind auf diesem PC nicht vorhanden und werden ignoriert: {0}</value>
   </data>
+  <data name="Ui.Menu.OpenFolder">
+    <value>Datenordner öffnen</value>
+  </data>
+  <data name="Ui.Settings.DnsProbeHost">
+    <value>DNS-Testhost</value>
+  </data>
 </root>

@@ -5,6 +5,15 @@ using System.Text.Json.Serialization;
 
 namespace Potion.Tray.Core;
 
+public static class TrayPaths
+{
+    public static string DataDirectory { get; } = Path.Combine(
+        Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+        "Potion");
+
+    public static string LogDirectory { get; } = Path.Combine(DataDirectory, "logs");
+}
+
 public sealed class FileTrayLog : ITrayLog
 {
     private readonly string directory;
@@ -15,8 +24,7 @@ public sealed class FileTrayLog : ITrayLog
 
     public FileTrayLog(string? directory = null, ITrayClock? clock = null, int retentionDays = 30)
     {
-        this.directory = directory ??
-            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Potion", "logs");
+        this.directory = directory ?? TrayPaths.LogDirectory;
         this.clock = clock ?? new SystemTrayClock();
         this.retentionDays = Math.Clamp(retentionDays, 1, 3650);
     }
@@ -95,8 +103,7 @@ public sealed class JsonSettingsStore : ISettingsStore
     public JsonSettingsStore(string? path = null, ITrayLog? log = null, ITrayClock? clock = null)
     {
         this.path = path ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Potion",
+            TrayPaths.DataDirectory,
             "settings.json");
         this.log = log ?? new FileTrayLog();
         this.clock = clock ?? new SystemTrayClock();
@@ -190,8 +197,7 @@ public sealed class JsonCheckStateStore : ICheckStateStore
     public JsonCheckStateStore(string? path = null, ITrayLog? log = null)
     {
         this.path = path ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Potion",
+            TrayPaths.DataDirectory,
             "state.json");
         this.log = log ?? new FileTrayLog();
     }
@@ -260,8 +266,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         ITrayClock? clock = null)
     {
         this.path = path ?? Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
-            "Potion",
+            TrayPaths.DataDirectory,
             "history.jsonl");
         this.log = log ?? new FileTrayLog();
         this.maxEntries = Math.Max(1, maxEntries);

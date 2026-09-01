@@ -830,6 +830,39 @@ public class SettingsAndNotificationTests
     }
 
     [Fact]
+    public void NormalizeWithChangesReportsInvalidDnsProbeHost()
+    {
+        var settings = new TraySettings { DnsProbeHost = "https://example.com/" };
+
+        var changes = settings.NormalizeWithChanges();
+
+        Assert.Equal(new[] { "Ui.Settings.DnsProbeHost" }, changes);
+        Assert.Equal("www.msftconnecttest.com", settings.DnsProbeHost);
+    }
+
+    [Fact]
+    public void NormalizeWithChangesKeepsValidDnsProbeHost()
+    {
+        var settings = new TraySettings { DnsProbeHost = "example.com" };
+
+        var changes = settings.NormalizeWithChanges();
+
+        Assert.Empty(changes);
+        Assert.Equal("example.com", settings.DnsProbeHost);
+    }
+
+    [Fact]
+    public void TrayPathsExposeDataAndNestedLogDirectories()
+    {
+        Assert.NotEmpty(TrayPaths.DataDirectory);
+        Assert.NotEmpty(TrayPaths.LogDirectory);
+        Assert.StartsWith(
+            Path.GetFullPath(TrayPaths.DataDirectory) + Path.DirectorySeparatorChar,
+            Path.GetFullPath(TrayPaths.LogDirectory),
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void NotificationDeciderCoversModes()
     {
         var repaired = Entry(HistoryOutcome.Repaired, HealthStatus.Warning);

@@ -266,6 +266,7 @@ internal sealed class SettingsForm : Form
     private readonly NumericUpDown historyMax = Numeric(50, 20000);
     private readonly NumericUpDown retention = Numeric(1, 3650);
     private readonly CheckBox cleanup = new() { AutoSize = true };
+    private readonly TextBox dnsProbeHost = new();
     private readonly TextBox services = new() { Multiline = true, ScrollBars = ScrollBars.Vertical, Height = 70 };
     private readonly CheckedListBox enabledChecks = new() { Height = 115, CheckOnClick = true };
     private readonly ComboBox language = new();
@@ -329,6 +330,7 @@ internal sealed class SettingsForm : Form
         Add(table, localizer.Get("Ui.Settings.HistoryMax"), historyMax);
         Add(table, localizer.Get("Ui.Settings.Retention"), retention);
         Add(table, string.Empty, cleanup);
+        Add(table, localizer.Get("Ui.Settings.DnsProbeHost"), dnsProbeHost);
         Add(table, localizer.Get("Ui.Settings.Services"), services);
         Add(table, localizer.Get("Ui.Settings.EnabledChecks"), enabledChecks);
         Add(table, localizer.Get("Ui.Settings.Language"), language);
@@ -371,6 +373,7 @@ internal sealed class SettingsForm : Form
         historyMax.Value = settings.HistoryMaxEntries;
         retention.Value = settings.HistoryRetentionDays;
         cleanup.Checked = settings.AllowComponentCleanup;
+        dnsProbeHost.Text = settings.DnsProbeHost;
         language.SelectedIndex = Array.IndexOf(SupportedCultures, settings.UiCulture) + 1;
         if (language.SelectedIndex < 0)
         {
@@ -402,6 +405,7 @@ internal sealed class SettingsForm : Form
         settings.HistoryMaxEntries = (int)historyMax.Value;
         settings.HistoryRetentionDays = (int)retention.Value;
         settings.AllowComponentCleanup = cleanup.Checked;
+        settings.DnsProbeHost = dnsProbeHost.Text;
         settings.UiCulture = language.SelectedIndex <= 0 ? string.Empty : SupportedCultures[language.SelectedIndex - 1];
         settings.MonitoredServices = services.Lines.ToList();
         settings.ChecksEnabled = checkIds
