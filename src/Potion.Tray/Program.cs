@@ -46,6 +46,7 @@ internal static class Program
             maxEntries: settings.HistoryMaxEntries,
             retentionDays: settings.HistoryRetentionDays,
             log: log);
+        var checkState = new JsonCheckStateStore(log: log);
         var notifier = new BalloonNotifier();
         var checks = new IHealthCheck[]
         {
@@ -72,7 +73,8 @@ internal static class Program
             system,
             new SystemTrayClock(),
             log,
-            localizer);
+            localizer,
+            checkState);
 
         Application.Run(new TrayApplicationContext(engine, history, settingsStore, system, notifier, log, localizer));
     }

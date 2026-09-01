@@ -339,4 +339,19 @@
   <data name="Ui.History.ExportFailed">
     <value>복구 기록 CSV를 내보낼 수 없습니다.</value>
   </data>
+  <data name="Repair.Unverified">
+    <value>복구를 실행했지만 문제가 여전히 남아 있습니다: {0}</value>
+  </data>
+  <data name="Ui.Menu.LastScan">
+    <value>마지막 검사: {0}</value>
+  </data>
+  <data name="Ui.Menu.LastScanNever">
+    <value>마지막 검사: 없음</value>
+  </data>
+  <data name="Ui.Settings.NotificationCooldown">
+    <value>알림 쿨다운(분)</value>
+  </data>
+  <data name="Ui.Settings.DuplicateSuppression">
+    <value>중복 억제(분)</value>
+  </data>
 </root>

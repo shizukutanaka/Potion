@@ -95,8 +95,53 @@ internal sealed class FakeHistoryStore : IHistoryStore
     public Task<IReadOnlyList<HistoryEntry>> ReadRecentAsync(int max, CancellationToken ct) =>
         Task.FromResult<IReadOnlyList<HistoryEntry>>(Entries.OrderByDescending(e => e.TimestampUtc).Take(max).ToList());
 
+    public Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct) =>
+        Task.FromResult(Entries
+            .Select((entry, index) => (entry, index))
+            .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
+            .OrderByDescending(item => item.entry.TimestampUtc)
+            .ThenByDescending(item => item.index)
+            .Select(item => item.entry)
+            .FirstOrDefault());
+
     public Task<int> CountRepairAttemptsSinceAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct) =>
         Task.FromResult(Attempts);
+}
+
+internal sealed class FakeCheckStateStore : ICheckStateStore
+{
+    public Dictionary<string, DateTimeOffset> State { get; } = new(StringComparer.OrdinalIgnoreCase);
+    public int SaveCount { get; private set; }
+    public IReadOnlyDictionary<string, DateTimeOffset>? SavedState { get; private set; }
+
+    public IReadOnlyDictionary<string, DateTimeOffset> Load() => State;
+
+    public void Save(IReadOnlyDictionary<string, DateTimeOffset> lastInspections)
+    {
+        SaveCount++;
+        SavedState = new Dictionary<string, DateTimeOffset>(lastInspections, StringComparer.OrdinalIgnoreCase);
+    }
+}
+
+internal sealed class SequenceHealthCheck : IHealthCheck
+{
+    private readonly Queue<HealthFinding?> findings;
+
+    public SequenceHealthCheck(string id, params HealthFinding?[] findings)
+    {
+        Id = id;
+        this.findings = new Queue<HealthFinding?>(findings);
+    }
+
+    public int Calls { get; private set; }
+    public string Id { get; }
+    public string DisplayName => Id;
+
+    public Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct)
+    {
+        Calls++;
+        return Task.FromResult(findings.Count > 0 ? findings.Dequeue() : null);
+    }
 }
 
 internal sealed class DelegateHealthCheck : IHealthCheck

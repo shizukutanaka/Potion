@@ -339,4 +339,19 @@
   <data name="Ui.History.ExportFailed">
     <value>Не удалось экспортировать историю в CSV.</value>
   </data>
+  <data name="Repair.Unverified">
+    <value>Восстановление выполнено, но проблема всё ещё существует: {0}</value>
+  </data>
+  <data name="Ui.Menu.LastScan">
+    <value>Последняя проверка: {0}</value>
+  </data>
+  <data name="Ui.Menu.LastScanNever">
+    <value>Последняя проверка: никогда</value>
+  </data>
+  <data name="Ui.Settings.NotificationCooldown">
+    <value>Интервал уведомлений (минуты)</value>
+  </data>
+  <data name="Ui.Settings.DuplicateSuppression">
+    <value>Подавление дубликатов (минуты)</value>
+  </data>
 </root>

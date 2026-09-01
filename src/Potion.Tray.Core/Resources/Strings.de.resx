@@ -339,4 +339,19 @@
   <data name="Ui.History.ExportFailed">
     <value>Der Verlauf konnte nicht als CSV exportiert werden.</value>
   </data>
+  <data name="Repair.Unverified">
+    <value>Die Reparatur wurde ausgeführt, aber das Problem besteht weiterhin: {0}</value>
+  </data>
+  <data name="Ui.Menu.LastScan">
+    <value>Letzte Prüfung: {0}</value>
+  </data>
+  <data name="Ui.Menu.LastScanNever">
+    <value>Letzte Prüfung: nie</value>
+  </data>
+  <data name="Ui.Settings.NotificationCooldown">
+    <value>Benachrichtigungswartezeit (Minuten)</value>
+  </data>
+  <data name="Ui.Settings.DuplicateSuppression">
+    <value>Unterdrückung von Duplikaten (Minuten)</value>
+  </data>
 </root>

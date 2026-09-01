@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Globalization;
 using Potion.Tray.Core.Resources;
 
 namespace Potion.Tray.Core;
@@ -14,8 +15,11 @@ public sealed class SelfHealingEngine
     private readonly ITrayClock clock;
     private readonly ITrayLog log;
     private readonly ILocalizer localizer;
+    private readonly ICheckStateStore? checkState;
     private readonly SemaphoreSlim cycleGate = new(1, 1);
     private readonly Dictionary<string, DateTimeOffset> lastInspections = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<(string CheckId, HistoryOutcome Outcome), DateTimeOffset> lastNotifications = new();
+    private bool checkStateLoaded;
     private EngineState state = EngineState.Idle;
 
     public SelfHealingEngine(
@@ -27,7 +31,8 @@ public sealed class SelfHealingEngine
         ISystemInfoProvider system,
         ITrayClock clock,
         ITrayLog log,
-        ILocalizer? localizer = null)
+        ILocalizer? localizer = null,
+        ICheckStateStore? checkState = null)
     {
         this.checks = checks;
         this.repairs = repairs.ToDictionary(r => r.CheckId, StringComparer.OrdinalIgnoreCase);
@@ -38,19 +43,34 @@ public sealed class SelfHealingEngine
         this.clock = clock;
         this.log = log;
         this.localizer = localizer ?? new ResourceLocalizer();
+        this.checkState = checkState;
     }
 
     public EngineState State => state;
-    public string StatusText => state switch
+    public DateTimeOffset? LastCycleCompletedUtc { get; private set; }
+    public string StatusText
     {
-        EngineState.Scanning => localizer.Get("Status.Scanning"),
-        EngineState.Repairing => localizer.Get("Status.Repairing"),
-        EngineState.Warning => localizer.Get("Status.Warning"),
-        EngineState.Critical => localizer.Get("Status.Critical"),
-        _ => localizer.Get("Status.Idle")
-    };
+        get
+        {
+            var status = state switch
+            {
+                EngineState.Scanning => localizer.Get("Status.Scanning"),
+                EngineState.Repairing => localizer.Get("Status.Repairing"),
+                EngineState.Warning => localizer.Get("Status.Warning"),
+                EngineState.Critical => localizer.Get("Status.Critical"),
+                _ => localizer.Get("Status.Idle")
+            };
+            var scan = LastCycleCompletedUtc is { } completed
+                ? localizer.Format(
+                    "Ui.Menu.LastScan",
+                    completed.ToLocalTime().ToString("t", CultureInfo.CurrentCulture))
+                : localizer.Get("Ui.Menu.LastScanNever");
+            return $"{status}{Environment.NewLine}{scan}";
+        }
+    }
 
     public event EventHandler? StateChanged;
+    public event EventHandler? CycleCompleted;
 
     public async Task<CycleResult> RunCycleAsync(CancellationToken ct)
     {
@@ -63,6 +83,7 @@ public sealed class SelfHealingEngine
         {
             var settings = settingsStore.Load();
             settings.Normalize();
+            LoadCheckState();
             SetState(EngineState.Scanning);
             var entries = new List<HistoryEntry>();
             foreach (var check in checks)
@@ -128,6 +149,26 @@ public sealed class SelfHealingEngine
                     {
                         repairOutcome = await repair.RepairAsync(finding, settings, ct);
                         outcome = repairOutcome.Success ? HistoryOutcome.Repaired : HistoryOutcome.RepairFailed;
+                        if (repairOutcome.Success)
+                        {
+                            try
+                            {
+                                var verification = await check.InspectAsync(settings, ct);
+                                if (verification is not null &&
+                                    verification.Status is HealthStatus.Warning or HealthStatus.Critical)
+                                {
+                                    repairOutcome = repairOutcome with
+                                    {
+                                        Summary = $"{repairOutcome.Summary}\n{localizer.Format("Repair.Unverified", verification.Detail)}"
+                                    };
+                                    outcome = HistoryOutcome.RepairFailed;
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                log.Warn($"Unable to verify repair action {repair.DisplayName}; treating it as repaired.", ex);
+                            }
+                        }
                     }
                     catch (Exception ex)
                     {
@@ -149,9 +190,30 @@ public sealed class SelfHealingEngine
                     skipReason,
                     Stopwatch.GetElapsedTime(started),
                     repairOutcome?.Commands ?? Array.Empty<CommandExecution>());
-                await history.AppendAsync(entry, ct);
                 entries.Add(entry);
-                if (NotificationDecider.ShouldNotify(settings.Notifications, entry))
+                var append = true;
+                if (entry.Outcome is HistoryOutcome.Skipped or
+                    HistoryOutcome.ManualActionRequired or
+                    HistoryOutcome.Detected &&
+                    settings.DuplicateSuppressionMinutes > 0)
+                {
+                    var previous = await history.FindLastAsync(entry.CheckId, ct);
+                    append = previous is null ||
+                        previous.Outcome != entry.Outcome ||
+                        !string.Equals(previous.Detail, entry.Detail, StringComparison.Ordinal) ||
+                        !string.Equals(previous.SkipReason, entry.SkipReason, StringComparison.Ordinal) ||
+                        clock.UtcNow - previous.TimestampUtc >=
+                        TimeSpan.FromMinutes(settings.DuplicateSuppressionMinutes);
+                }
+
+                if (!append)
+                {
+                    continue;
+                }
+
+                await history.AppendAsync(entry, ct);
+                if (NotificationDecider.ShouldNotify(settings.Notifications, entry) &&
+                    ShouldNotifyAfterCooldown(settings, entry))
                 {
                     notifier.Notify(new Notification(entry.Title, BuildMessage(entry), entry.Status));
                 }
@@ -168,8 +230,68 @@ public sealed class SelfHealingEngine
         }
         finally
         {
-            cycleGate.Release();
+            SaveCheckState();
+            LastCycleCompletedUtc = clock.UtcNow;
+            try
+            {
+                CycleCompleted?.Invoke(this, EventArgs.Empty);
+            }
+            finally
+            {
+                cycleGate.Release();
+            }
         }
+    }
+
+    private void LoadCheckState()
+    {
+        if (checkState is null || checkStateLoaded)
+        {
+            return;
+        }
+
+        checkStateLoaded = true;
+        try
+        {
+            foreach (var item in checkState.Load())
+            {
+                lastInspections[item.Key] = item.Value;
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Warn("Unable to load check state; continuing without persisted inspection times.", ex);
+        }
+    }
+
+    private void SaveCheckState()
+    {
+        if (checkState is null)
+        {
+            return;
+        }
+
+        try
+        {
+            checkState.Save(lastInspections);
+        }
+        catch (Exception ex)
+        {
+            log.Warn("Unable to save check state.", ex);
+        }
+    }
+
+    private bool ShouldNotifyAfterCooldown(TraySettings settings, HistoryEntry entry)
+    {
+        var key = (entry.CheckId, entry.Outcome);
+        if (lastNotifications.TryGetValue(key, out var previous) &&
+            clock.UtcNow - previous < TimeSpan.FromMinutes(settings.NotificationCooldownMinutes))
+        {
+            return false;
+        }
+
+        lastNotifications[key] = clock.UtcNow;
+        return true;
     }
 
     private bool IsWithinInterval(string checkId, TraySettings settings)

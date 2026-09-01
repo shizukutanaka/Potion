@@ -105,6 +105,8 @@ public sealed class TraySettings
     public int MaxRepairAttemptsPerDay { get; set; } = 3;
     public int HistoryMaxEntries { get; set; } = 1000;
     public int HistoryRetentionDays { get; set; } = 90;
+    public int DuplicateSuppressionMinutes { get; set; } = 60;
+    public int NotificationCooldownMinutes { get; set; } = 60;
     public bool AllowComponentCleanup { get; set; } = true;
     public string UiCulture { get; set; } = string.Empty;
     public string DnsProbeHost { get; set; } = "www.msftconnecttest.com";
@@ -133,6 +135,8 @@ public sealed class TraySettings
             MaxRepairAttemptsPerDay = MaxRepairAttemptsPerDay,
             HistoryMaxEntries = HistoryMaxEntries,
             HistoryRetentionDays = HistoryRetentionDays,
+            DuplicateSuppressionMinutes = DuplicateSuppressionMinutes,
+            NotificationCooldownMinutes = NotificationCooldownMinutes,
             AllowComponentCleanup = AllowComponentCleanup,
             UiCulture = UiCulture,
             DnsProbeHost = DnsProbeHost,
@@ -151,6 +155,8 @@ public sealed class TraySettings
         MaxRepairAttemptsPerDay = Math.Clamp(MaxRepairAttemptsPerDay, 1, 50);
         HistoryMaxEntries = Math.Clamp(HistoryMaxEntries, 50, 20000);
         HistoryRetentionDays = Math.Clamp(HistoryRetentionDays, 1, 3650);
+        DuplicateSuppressionMinutes = Math.Clamp(DuplicateSuppressionMinutes, 0, 1440);
+        NotificationCooldownMinutes = Math.Clamp(NotificationCooldownMinutes, 0, 1440);
         UiCulture ??= string.Empty;
         UiCulture = UiCulture.Trim();
         if (UiCulture.Length > 0)
@@ -214,7 +220,14 @@ public interface IHistoryStore
 {
     Task AppendAsync(HistoryEntry entry, CancellationToken ct);
     Task<IReadOnlyList<HistoryEntry>> ReadRecentAsync(int max, CancellationToken ct);
+    Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct);
     Task<int> CountRepairAttemptsSinceAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct);
+}
+
+public interface ICheckStateStore
+{
+    IReadOnlyDictionary<string, DateTimeOffset> Load();
+    void Save(IReadOnlyDictionary<string, DateTimeOffset> lastInspections);
 }
 
 public enum EngineState { Idle, Scanning, Repairing, Warning, Critical }

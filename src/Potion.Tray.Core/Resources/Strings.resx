@@ -339,4 +339,19 @@
   <data name="Ui.History.ExportFailed">
     <value>Could not export the history CSV.</value>
   </data>
+  <data name="Repair.Unverified">
+    <value>Repair ran but the problem is still present: {0}</value>
+  </data>
+  <data name="Ui.Menu.LastScan">
+    <value>Last scan: {0}</value>
+  </data>
+  <data name="Ui.Menu.LastScanNever">
+    <value>Last scan: never</value>
+  </data>
+  <data name="Ui.Settings.NotificationCooldown">
+    <value>Notification cooldown (minutes)</value>
+  </data>
+  <data name="Ui.Settings.DuplicateSuppression">
+    <value>Duplicate suppression (minutes)</value>
+  </data>
 </root>

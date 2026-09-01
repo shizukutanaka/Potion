@@ -196,8 +196,9 @@ public class EngineTests
         FakeSystemInfoProvider system,
         FakeClock clock,
         IRepairAction[]? repairs = null,
-        FakeLog? log = null) =>
-        new(new[] { check }, repairs ?? Array.Empty<IRepairAction>(), history, settings, notifier, system, clock, log ?? new FakeLog());
+        FakeLog? log = null,
+        ICheckStateStore? checkState = null) =>
+        new(new[] { check }, repairs ?? Array.Empty<IRepairAction>(), history, settings, notifier, system, clock, log ?? new FakeLog(), checkState: checkState);
 
     [Fact]
     public async Task NoFindingProducesNoHistory()
@@ -217,11 +218,159 @@ public class EngineTests
         var notifier = new RecordingNotifier();
         var repair = new DelegateRepair("x", false, (_, _, _) =>
             Task.FromResult(new RepairOutcome(true, "完了", Array.Empty<CommandExecution>())));
-        var engine = Engine(new DelegateHealthCheck("x", (_, _) => Task.FromResult<HealthFinding?>(Finding())),
+        var check = new SequenceHealthCheck("x", Finding(), null);
+        var engine = Engine(check,
             history, new FakeSettingsStore(), notifier, new FakeSystemInfoProvider(), new FakeClock(), new[] { repair });
         var result = await engine.RunCycleAsync(default);
         Assert.Equal(HistoryOutcome.Repaired, result.Entries.Single().Outcome);
         Assert.Single(notifier.Notifications);
+        Assert.Equal(2, check.Calls);
+    }
+
+    [Fact]
+    public async Task SuccessfulRepairWithHealthyVerificationIsRepaired()
+    {
+        var check = new SequenceHealthCheck("x", Finding(), null);
+        var engine = Engine(check, new FakeHistoryStore(), new FakeSettingsStore(), new RecordingNotifier(),
+            new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Equal(HistoryOutcome.Repaired, result.Entries.Single().Outcome);
+        Assert.Equal(2, check.Calls);
+    }
+
+    [Fact]
+    public async Task FailedVerificationMarksRepairFailedWithRemainingDetail()
+    {
+        var check = new SequenceHealthCheck(
+            "x",
+            Finding("x", HealthStatus.Critical),
+            new HealthFinding("x", "x", HealthStatus.Critical, "still present"));
+        var engine = Engine(check, new FakeHistoryStore(), new FakeSettingsStore(), new RecordingNotifier(),
+            new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        var result = await engine.RunCycleAsync(default);
+
+        var entry = result.Entries.Single();
+        Assert.Equal(HistoryOutcome.RepairFailed, entry.Outcome);
+        Assert.Contains("still present", entry.RepairSummary);
+        Assert.Equal(2, check.Calls);
+    }
+
+    [Fact]
+    public async Task VerificationExceptionKeepsRepairSuccessful()
+    {
+        var calls = 0;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+        {
+            calls++;
+            if (calls == 1)
+            {
+                return Task.FromResult<HealthFinding?>(Finding());
+            }
+
+            throw new InvalidOperationException("verification failed");
+        });
+        var log = new FakeLog();
+        var engine = Engine(check, new FakeHistoryStore(), new FakeSettingsStore(), new RecordingNotifier(),
+            new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) }, log);
+
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Equal(HistoryOutcome.Repaired, result.Entries.Single().Outcome);
+        Assert.NotEmpty(log.Warnings);
+    }
+
+    [Fact]
+    public async Task DuplicateSkippedEntryIsNotAppended()
+    {
+        var settings = new FakeSettingsStore { Settings = new TraySettings { AutoRepairEnabled = false } };
+        var history = new FakeHistoryStore();
+        var check = new SequenceHealthCheck("x", Finding(), Finding());
+        var engine = Engine(check, history, settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        var first = await engine.RunCycleAsync(default);
+        var second = await engine.RunCycleAsync(default);
+
+        Assert.Single(history.Entries);
+        Assert.Single(first.Entries);
+        Assert.Single(second.Entries);
+    }
+
+    [Fact]
+    public async Task RepairedEntriesAreAlwaysAppended()
+    {
+        var history = new FakeHistoryStore();
+        var check = new SequenceHealthCheck("x", Finding(), null, Finding(), null);
+        var engine = Engine(check, history, new FakeSettingsStore(), new RecordingNotifier(),
+            new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        await engine.RunCycleAsync(default);
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(2, history.Entries.Count);
+    }
+
+    [Fact]
+    public async Task NotificationCooldownSuppressesThenAllowsNotification()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                Notifications = NotificationMode.All,
+                DuplicateSuppressionMinutes = 0,
+                NotificationCooldownMinutes = 60,
+                AutoRepairEnabled = false
+            }
+        };
+        var notifier = new RecordingNotifier();
+        var check = new SequenceHealthCheck("x", Finding(), Finding(), Finding());
+        var engine = Engine(check, new FakeHistoryStore(), settings, notifier, new FakeSystemInfoProvider(), clock,
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        await engine.RunCycleAsync(default);
+        await engine.RunCycleAsync(default);
+        Assert.Single(notifier.Notifications);
+        clock.UtcNow = clock.UtcNow.AddMinutes(61);
+        await engine.RunCycleAsync(default);
+        Assert.Equal(2, notifier.Notifications.Count);
+    }
+
+    [Fact]
+    public async Task NotificationOutcomeChangeBypassesCooldown()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings { Notifications = NotificationMode.All, AutoRepairEnabled = false }
+        };
+        var notifier = new RecordingNotifier();
+        var check = new SequenceHealthCheck("x", Finding(), Finding(), null);
+        var repair = new DelegateRepair("x", false, (_, _, _) =>
+            Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>())));
+        var engine = Engine(check, new FakeHistoryStore(), settings, notifier, new FakeSystemInfoProvider(), clock,
+            new[] { repair });
+
+        await engine.RunCycleAsync(default);
+        settings.Settings.AutoRepairEnabled = true;
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(2, notifier.Notifications.Count);
     }
 
     [Fact]
@@ -285,6 +434,51 @@ public class EngineTests
         clock.UtcNow = clock.UtcNow.AddMinutes(11);
         await engine.RunCycleAsync(default);
         Assert.Equal(2, calls);
+    }
+
+    [Fact]
+    public async Task PersistedCheckStateHonorsComponentStoreInterval()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["component-store"] = 720 }
+            }
+        };
+        var state = new FakeCheckStateStore();
+        state.State["component-store"] = clock.UtcNow.AddHours(-1);
+        var calls = 0;
+        var check = new DelegateHealthCheck("component-store", (_, _) =>
+        {
+            calls++;
+            return Task.FromResult<HealthFinding?>(Finding("component-store"));
+        });
+        var engine = Engine(check, new FakeHistoryStore(), settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), clock, checkState: state);
+
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Empty(result.Entries);
+        Assert.Equal(0, calls);
+        Assert.Equal(1, state.SaveCount);
+    }
+
+    [Fact]
+    public async Task CheckStateIsSavedAfterCycle()
+    {
+        var clock = new FakeClock();
+        var state = new FakeCheckStateStore();
+        var check = new DelegateHealthCheck("x", (_, _) =>
+            Task.FromResult<HealthFinding?>(Finding("x")));
+        var engine = Engine(check, new FakeHistoryStore(), new FakeSettingsStore(),
+            new RecordingNotifier(), new FakeSystemInfoProvider(), clock, checkState: state);
+
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(1, state.SaveCount);
+        Assert.Equal(clock.UtcNow, state.SavedState!["x"]);
     }
 
     [Fact]

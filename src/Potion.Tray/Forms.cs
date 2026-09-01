@@ -232,6 +232,8 @@ internal sealed class SettingsForm : Form
     private readonly string initialUiCulture;
     private readonly CheckBox autoRepair = new() { AutoSize = true };
     private readonly ComboBox notifications = new();
+    private readonly NumericUpDown notificationCooldown = Numeric(0, 1440);
+    private readonly NumericUpDown duplicateSuppression = Numeric(0, 1440);
     private readonly NumericUpDown scanInterval = Numeric(1, 1440);
     private readonly CheckBox startup = new() { AutoSize = true };
     private readonly CheckBox dryRun = new() { AutoSize = true };
@@ -290,6 +292,8 @@ internal sealed class SettingsForm : Form
         table.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
         Add(table, localizer.Get("Ui.Settings.AutoRepair"), autoRepair);
         Add(table, localizer.Get("Ui.Settings.NotificationMode"), notifications);
+        Add(table, localizer.Get("Ui.Settings.NotificationCooldown"), notificationCooldown);
+        Add(table, localizer.Get("Ui.Settings.DuplicateSuppression"), duplicateSuppression);
         Add(table, localizer.Get("Ui.Settings.ScanInterval"), scanInterval);
         Add(table, localizer.Get("Ui.Settings.Startup"), startup);
         Add(table, string.Empty, dryRun);
@@ -320,6 +324,8 @@ internal sealed class SettingsForm : Form
     {
         autoRepair.Checked = settings.AutoRepairEnabled;
         notifications.SelectedIndex = (int)settings.Notifications;
+        notificationCooldown.Value = settings.NotificationCooldownMinutes;
+        duplicateSuppression.Value = settings.DuplicateSuppressionMinutes;
         scanInterval.Value = settings.ScanIntervalMinutes;
         startup.Checked = settings.RunAtWindowsStartup;
         dryRun.Checked = settings.DryRun;
@@ -347,6 +353,8 @@ internal sealed class SettingsForm : Form
     {
         settings.AutoRepairEnabled = autoRepair.Checked;
         settings.Notifications = (NotificationMode)Math.Max(0, notifications.SelectedIndex);
+        settings.NotificationCooldownMinutes = (int)notificationCooldown.Value;
+        settings.DuplicateSuppressionMinutes = (int)duplicateSuppression.Value;
         settings.ScanIntervalMinutes = (int)scanInterval.Value;
         settings.RunAtWindowsStartup = startup.Checked;
         settings.DryRun = dryRun.Checked;

@@ -114,6 +114,63 @@ public sealed class JsonSettingsStore : ISettingsStore
     };
 }
 
+public sealed class JsonCheckStateStore : ICheckStateStore
+{
+    private readonly string path;
+    private readonly ITrayLog log;
+    private readonly JsonSerializerOptions options = new();
+
+    public JsonCheckStateStore(string? path = null, ITrayLog? log = null)
+    {
+        this.path = path ?? Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "Potion",
+            "state.json");
+        this.log = log ?? new FileTrayLog();
+    }
+
+    public IReadOnlyDictionary<string, DateTimeOffset> Load()
+    {
+        try
+        {
+            if (!File.Exists(path))
+            {
+                return new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+            }
+
+            return JsonSerializer.Deserialize<Dictionary<string, DateTimeOffset>>(
+                       File.ReadAllText(path),
+                       options)
+                   ?? new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            log.Warn("Unable to load check state; using an empty state.", ex);
+            return new Dictionary<string, DateTimeOffset>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    public void Save(IReadOnlyDictionary<string, DateTimeOffset> lastInspections)
+    {
+        try
+        {
+            var directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
+            File.WriteAllText(tempPath, JsonSerializer.Serialize(lastInspections, options), Encoding.UTF8);
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch (Exception ex)
+        {
+            log.Warn("Unable to save check state.", ex);
+        }
+    }
+}
+
 public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
 {
     private readonly string path;
@@ -212,6 +269,25 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 e.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase) &&
                 e.TimestampUtc >= sinceUtc &&
                 e.Outcome is HistoryOutcome.Repaired or HistoryOutcome.RepairFailed);
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    public async Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct)
+    {
+        await gate.WaitAsync(ct);
+        try
+        {
+            return (await ReadEntriesAsync(ct))
+                .Select((entry, index) => (entry, index))
+                .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(item => item.entry.TimestampUtc)
+                .ThenByDescending(item => item.index)
+                .Select(item => item.entry)
+                .FirstOrDefault();
         }
         finally
         {

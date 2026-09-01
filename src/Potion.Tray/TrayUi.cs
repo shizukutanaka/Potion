@@ -101,6 +101,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notifyIcon.DoubleClick += (_, _) => ShowHistory();
 
         engine.StateChanged += EngineOnStateChanged;
+        engine.CycleCompleted += EngineOnStateChanged;
         scanTimer = new System.Threading.Timer(
             async _ => await RunScanAsync(),
             null,
@@ -113,6 +114,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         shutdown.Cancel();
         scanTimer.Dispose();
         engine.StateChanged -= EngineOnStateChanged;
+        engine.CycleCompleted -= EngineOnStateChanged;
         notifyIcon.Visible = false;
         var icon = notifyIcon.Icon;
         notifyIcon.Icon = null;
