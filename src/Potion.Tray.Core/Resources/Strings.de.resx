@@ -36,6 +36,9 @@
   <data name="Check.MemoryPressure.Detail">
     <value>Verfügbarer Speicher ist knapp ({0}%)</value>
   </data>
+  <data name="Check.MemoryPressure.TopProcesses">
+    <value>Prozesse mit dem höchsten Speicherverbrauch: {0}</value>
+  </data>
   <data name="Check.PendingReboot.Title">
     <value>Neustart ausstehend</value>
   </data>
@@ -290,9 +293,6 @@
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Abbrechen</value>
-  </data>
-  <data name="Ui.Settings.RestartNotice">
-    <value>Sprachänderungen werden nach einem Neustart wirksam.</value>
   </data>
   <data name="Ui.Settings.LanguageName.en">
     <value>English</value>

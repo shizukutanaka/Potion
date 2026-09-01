@@ -36,6 +36,9 @@
   <data name="Check.MemoryPressure.Detail">
     <value>Доступной памяти мало ({0}%)</value>
   </data>
+  <data name="Check.MemoryPressure.TopProcesses">
+    <value>Процессы с наибольшим потреблением памяти: {0}</value>
+  </data>
   <data name="Check.PendingReboot.Title">
     <value>Ожидается перезагрузка</value>
   </data>
@@ -290,9 +293,6 @@
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Отмена</value>
-  </data>
-  <data name="Ui.Settings.RestartNotice">
-    <value>Изменения языка вступят в силу после перезапуска приложения.</value>
   </data>
   <data name="Ui.Settings.LanguageName.en">
     <value>English</value>

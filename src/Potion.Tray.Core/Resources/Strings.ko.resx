@@ -36,6 +36,9 @@
   <data name="Check.MemoryPressure.Detail">
     <value>사용 가능한 메모리가 부족합니다({0}%)</value>
   </data>
+  <data name="Check.MemoryPressure.TopProcesses">
+    <value>메모리 사용량 상위 프로세스: {0}</value>
+  </data>
   <data name="Check.PendingReboot.Title">
     <value>재시작 보류</value>
   </data>
@@ -290,9 +293,6 @@
   </data>
   <data name="Ui.Settings.Cancel">
     <value>취소</value>
-  </data>
-  <data name="Ui.Settings.RestartNotice">
-    <value>언어 변경은 애플리케이션을 다시 시작한 후 적용됩니다.</value>
   </data>
   <data name="Ui.Settings.LanguageName.en">
     <value>English</value>

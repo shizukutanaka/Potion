@@ -36,6 +36,9 @@
   <data name="Check.MemoryPressure.Detail">
     <value>Available memory is low ({0}%)</value>
   </data>
+  <data name="Check.MemoryPressure.TopProcesses">
+    <value>Top memory consumers: {0}</value>
+  </data>
   <data name="Check.PendingReboot.Title">
     <value>Pending restart</value>
   </data>
@@ -290,9 +293,6 @@
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Cancel</value>
-  </data>
-  <data name="Ui.Settings.RestartNotice">
-    <value>Language changes take effect after restarting the application.</value>
   </data>
   <data name="Ui.Settings.LanguageName.en">
     <value>English</value>

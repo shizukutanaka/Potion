@@ -237,7 +237,6 @@ internal sealed class SettingsForm : Form
     private readonly ITrayLog log;
     private readonly ILocalizer localizer;
     private readonly TraySettings settings;
-    private readonly string initialUiCulture;
     private readonly CheckBox autoRepair = new() { AutoSize = true };
     private readonly ComboBox notifications = new();
     private readonly NumericUpDown notificationCooldown = Numeric(0, 1440);
@@ -265,7 +264,6 @@ internal sealed class SettingsForm : Form
         this.log = log;
         this.localizer = localizer;
         settings = store.Load().Clone();
-        initialUiCulture = settings.UiCulture;
         Text = localizer.Get("Ui.Settings.Title");
         Width = 620;
         Height = 650;
@@ -389,10 +387,6 @@ internal sealed class SettingsForm : Form
         settings.Normalize();
         store.Save(settings);
         StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
-        if (!string.Equals(settings.UiCulture, initialUiCulture, StringComparison.OrdinalIgnoreCase))
-        {
-            MessageBox.Show(this, localizer.Get("Ui.Settings.RestartNotice"), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
-        }
     }
 
     private static void Add(TableLayoutPanel table, string label, Control control)

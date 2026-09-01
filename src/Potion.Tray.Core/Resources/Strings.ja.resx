@@ -36,6 +36,9 @@
   <data name="Check.MemoryPressure.Detail">
     <value>利用可能メモリが少なくなっています（{0}%）</value>
   </data>
+  <data name="Check.MemoryPressure.TopProcesses">
+    <value>メモリ使用量の上位: {0}</value>
+  </data>
   <data name="Check.PendingReboot.Title">
     <value>再起動保留</value>
   </data>
@@ -290,9 +293,6 @@
   </data>
   <data name="Ui.Settings.Cancel">
     <value>キャンセル</value>
-  </data>
-  <data name="Ui.Settings.RestartNotice">
-    <value>言語の変更はアプリ再起動後に反映されます。</value>
   </data>
   <data name="Ui.Settings.LanguageName.en">
     <value>English</value>

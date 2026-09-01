@@ -54,6 +54,7 @@ public interface IProcessRunner
 
 public sealed record DriveSnapshot(string Name, long TotalBytes, long FreeBytes);
 public sealed record MemorySnapshot(long TotalBytes, long AvailableBytes);
+public sealed record ProcessMemorySnapshot(string Name, long WorkingSetBytes);
 public enum ServiceStartType { Unknown, Boot, System, Automatic, Manual, Disabled }
 public sealed record ServiceSnapshot(
     string Name,
@@ -75,6 +76,7 @@ public interface ISystemInfoProvider
     bool IsElevated { get; }
     IReadOnlyList<DriveSnapshot> GetFixedDrives();
     MemorySnapshot GetMemory();
+    IReadOnlyList<ProcessMemorySnapshot> GetTopMemoryProcesses(int count);
     IReadOnlyList<ServiceSnapshot> GetServices(IReadOnlyList<string> names);
     bool IsRebootPending();
     bool IsNetworkAvailable { get; }

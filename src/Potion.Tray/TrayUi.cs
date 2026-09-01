@@ -23,6 +23,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ToolStripMenuItem notificationRepairsItem;
     private readonly ToolStripMenuItem notificationFailuresItem;
     private readonly ToolStripMenuItem notificationNoneItem;
+    private readonly ToolStripMenuItem scanItem;
+    private readonly ToolStripMenuItem historyItem;
+    private readonly ToolStripMenuItem settingsItem;
+    private readonly ToolStripMenuItem notificationMenu;
+    private readonly ToolStripMenuItem? adminItem;
+    private readonly ToolStripMenuItem exitItem;
     private readonly System.Threading.Timer scanTimer;
     private readonly SynchronizationContext uiContext;
     private readonly CancellationTokenSource shutdown = new();
@@ -73,15 +79,18 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(statusItem);
         menu.Items.Add(lastScanItem);
         menu.Items.Add(new ToolStripSeparator());
-        var scanItem = menu.Items.Add(localizer.Get("Ui.Menu.ScanNow"));
+        scanItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.ScanNow"));
+        menu.Items.Add(scanItem);
         scanItem.Click += async (_, _) => await RunScanAsync();
-        var historyItem = menu.Items.Add(localizer.Get("Ui.Menu.History"));
+        historyItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.History"));
+        menu.Items.Add(historyItem);
         historyItem.Click += (_, _) => ShowHistory();
-        var settingsItem = menu.Items.Add(localizer.Get("Ui.Menu.Settings"));
+        settingsItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.Settings"));
+        menu.Items.Add(settingsItem);
         settingsItem.Click += (_, _) => ShowSettings();
         menu.Items.Add(new ToolStripSeparator());
         menu.Items.Add(autoRepairItem);
-        var notificationMenu = new ToolStripMenuItem(localizer.Get("Ui.Menu.Notifications"));
+        notificationMenu = new ToolStripMenuItem(localizer.Get("Ui.Menu.Notifications"));
         notificationMenu.DropDownItems.AddRange(new ToolStripItem[]
         {
             notificationAllItem, notificationRepairsItem, notificationFailuresItem, notificationNoneItem
@@ -90,11 +99,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         if (!system.IsElevated)
         {
-            var adminItem = menu.Items.Add(localizer.Get("Ui.Menu.RestartAsAdmin"));
-            adminItem.Click += (_, _) => AdministratorRestart.Restart(log);
+            adminItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.RestartAsAdmin"));
+            menu.Items.Add(adminItem);
+            adminItem!.Click += (_, _) => AdministratorRestart.Restart(log);
         }
 
-        var exitItem = menu.Items.Add(localizer.Get("Ui.Menu.Exit"));
+        exitItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.Exit"));
+        menu.Items.Add(exitItem);
         exitItem.Click += (_, _) => ExitThread();
         notifyIcon = new NotifyIcon
         {
@@ -275,6 +286,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         if (form.ShowDialog() == DialogResult.OK)
         {
             var settings = settingsStore.Load();
+            ApplyCulture(settings);
             autoRepairItem.Checked = settings.AutoRepairEnabled;
             ApplyNotificationChecks(settings.Notifications);
             try
@@ -285,6 +297,28 @@ internal sealed class TrayApplicationContext : ApplicationContext
             {
             }
         }
+    }
+
+    private void ApplyCulture(TraySettings settings)
+    {
+        CultureConfigurator.Apply(settings.UiCulture);
+        statusItem.Text = engine.StatusText;
+        lastScanItem.Text = engine.LastScanText;
+        scanItem.Text = localizer.Get("Ui.Menu.ScanNow");
+        historyItem.Text = localizer.Get("Ui.Menu.History");
+        settingsItem.Text = localizer.Get("Ui.Menu.Settings");
+        autoRepairItem.Text = localizer.Get("Ui.Menu.AutoRepair");
+        notificationMenu.Text = localizer.Get("Ui.Menu.Notifications");
+        notificationAllItem.Text = localizer.Get("Ui.Menu.AllNotifications");
+        notificationRepairsItem.Text = localizer.Get("Ui.Menu.RepairsOnly");
+        notificationFailuresItem.Text = localizer.Get("Ui.Menu.FailuresOnly");
+        notificationNoneItem.Text = localizer.Get("Ui.Menu.NoNotifications");
+        if (adminItem is not null)
+        {
+            adminItem.Text = localizer.Get("Ui.Menu.RestartAsAdmin");
+        }
+        exitItem.Text = localizer.Get("Ui.Menu.Exit");
+        notifyIcon.Text = Shorten($"{engine.StatusText} / {engine.LastScanText}");
     }
 
     private void SystemEventsOnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)

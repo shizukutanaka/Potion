@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Runtime.InteropServices;
 using System.Security.Principal;
@@ -30,6 +31,44 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
         return GlobalMemoryStatusEx(ref status)
             ? new MemorySnapshot((long)status.TotalPhys, (long)status.AvailPhys)
             : new MemorySnapshot(0, 0);
+    }
+
+    public IReadOnlyList<ProcessMemorySnapshot> GetTopMemoryProcesses(int count)
+    {
+        if (count <= 0)
+        {
+            return Array.Empty<ProcessMemorySnapshot>();
+        }
+
+        try
+        {
+            var snapshots = new List<ProcessMemorySnapshot>();
+            foreach (var process in Process.GetProcesses())
+            {
+                using (process)
+                {
+                    try
+                    {
+                        snapshots.Add(new ProcessMemorySnapshot(process.ProcessName, process.WorkingSet64));
+                    }
+                    catch (InvalidOperationException)
+                    {
+                    }
+                    catch (Win32Exception)
+                    {
+                    }
+                }
+            }
+
+            return snapshots
+                .OrderByDescending(process => process.WorkingSetBytes)
+                .Take(count)
+                .ToList();
+        }
+        catch
+        {
+            return Array.Empty<ProcessMemorySnapshot>();
+        }
     }
 
     public IReadOnlyList<ServiceSnapshot> GetServices(IReadOnlyList<string> names)
@@ -106,6 +145,30 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
         public ulong TotalVirtual;
         public ulong AvailVirtual;
         public ulong AvailExtendedVirtual;
+    }
+}
+
+internal static class CultureConfigurator
+{
+    private static readonly CultureInfo OriginalUiCulture = CultureInfo.CurrentUICulture;
+    private static readonly CultureInfo OriginalCulture = CultureInfo.CurrentCulture;
+
+    public static void Apply(string uiCulture)
+    {
+        try
+        {
+            var culture = string.IsNullOrWhiteSpace(uiCulture)
+                ? OriginalCulture
+                : CultureInfo.GetCultureInfo(uiCulture);
+            var ui = string.IsNullOrWhiteSpace(uiCulture) ? OriginalUiCulture : culture;
+            CultureInfo.DefaultThreadCurrentUICulture = ui;
+            CultureInfo.DefaultThreadCurrentCulture = culture;
+            Thread.CurrentThread.CurrentUICulture = ui;
+            Thread.CurrentThread.CurrentCulture = culture;
+        }
+        catch (CultureNotFoundException)
+        {
+        }
     }
 }
 

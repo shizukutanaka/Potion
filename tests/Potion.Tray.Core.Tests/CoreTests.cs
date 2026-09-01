@@ -135,6 +135,38 @@ public class HealthCheckTests
     }
 
     [Fact]
+    public async Task MemoryPressureHealthCheck_ListsTopMemoryProcesses()
+    {
+        var system = new FakeSystemInfoProvider
+        {
+            Memory = new MemorySnapshot(100, 5),
+            TopMemoryProcesses = new[]
+            {
+                new ProcessMemorySnapshot("browser", 2L * 1024 * 1024 * 1024)
+            }
+        };
+
+        var finding = await new MemoryPressureHealthCheck(system).InspectAsync(new TraySettings(), default);
+
+        Assert.Contains("browser", finding!.Detail);
+    }
+
+    [Fact]
+    public async Task MemoryPressureHealthCheck_WithoutTopProcessesKeepsExistingDetail()
+    {
+        var system = new FakeSystemInfoProvider
+        {
+            Memory = new MemorySnapshot(100, 5)
+        };
+
+        var finding = await new MemoryPressureHealthCheck(system).InspectAsync(new TraySettings(), default);
+
+        Assert.Equal(
+            new ResourceLocalizer().Format("Check.MemoryPressure.Detail", "5.0"),
+            finding!.Detail);
+    }
+
+    [Fact]
     public async Task NetworkHealthCheck_DnsFailureIsCritical()
     {
         var system = new FakeSystemInfoProvider { CanResolveDns = false };

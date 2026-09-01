@@ -36,6 +36,9 @@
   <data name="Check.MemoryPressure.Detail">
     <value>可用内存不足（{0}%）</value>
   </data>
+  <data name="Check.MemoryPressure.TopProcesses">
+    <value>内存使用量最高的进程：{0}</value>
+  </data>
   <data name="Check.PendingReboot.Title">
     <value>待重启</value>
   </data>
@@ -290,9 +293,6 @@
   </data>
   <data name="Ui.Settings.Cancel">
     <value>取消</value>
-  </data>
-  <data name="Ui.Settings.RestartNotice">
-    <value>语言更改将在重启应用后生效。</value>
   </data>
   <data name="Ui.Settings.LanguageName.en">
     <value>English</value>

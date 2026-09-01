@@ -36,6 +36,9 @@
   <data name="Check.MemoryPressure.Detail">
     <value>A memória disponível está baixa ({0}%)</value>
   </data>
+  <data name="Check.MemoryPressure.TopProcesses">
+    <value>Maiores consumidores de memória: {0}</value>
+  </data>
   <data name="Check.PendingReboot.Title">
     <value>Reinicialização pendente</value>
   </data>
@@ -290,9 +293,6 @@
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Cancelar</value>
-  </data>
-  <data name="Ui.Settings.RestartNotice">
-    <value>As alterações de idioma serão aplicadas após reiniciar o aplicativo.</value>
   </data>
   <data name="Ui.Settings.LanguageName.en">
     <value>English</value>

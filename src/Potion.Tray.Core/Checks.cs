@@ -204,11 +204,13 @@ public sealed class MemoryPressureHealthCheck : IHealthCheck
 {
     private readonly ISystemInfoProvider system;
     private readonly ILocalizer localizer;
+    private readonly ITrayLog? log;
 
-    public MemoryPressureHealthCheck(ISystemInfoProvider system, ILocalizer localizer)
+    public MemoryPressureHealthCheck(ISystemInfoProvider system, ILocalizer localizer, ITrayLog? log = null)
     {
         this.system = system;
         this.localizer = localizer;
+        this.log = log;
     }
     public MemoryPressureHealthCheck(ISystemInfoProvider system) : this(system, new ResourceLocalizer()) { }
     public string Id => "memory-pressure";
@@ -223,17 +225,40 @@ public sealed class MemoryPressureHealthCheck : IHealthCheck
         }
 
         var percent = memory.AvailableBytes * 100d / memory.TotalBytes;
-        return Task.FromResult<HealthFinding?>(percent < settings.MemoryWarnPercent
-            ? new HealthFinding(
-                Id,
-                DisplayName,
-                HealthStatus.Warning,
-                localizer.Format("Check.MemoryPressure.Detail", percent.ToString("0.0", CultureInfo.CurrentUICulture)),
-                new Dictionary<string, string>
-                {
-                    ["available"] = percent.ToString("0.0", CultureInfo.InvariantCulture) + "%"
-                })
-            : null);
+        if (percent >= settings.MemoryWarnPercent)
+        {
+            return Task.FromResult<HealthFinding?>(null);
+        }
+
+        var detail = localizer.Format(
+            "Check.MemoryPressure.Detail",
+            percent.ToString("0.0", CultureInfo.CurrentUICulture));
+        try
+        {
+            var processes = system.GetTopMemoryProcesses(3);
+            if (processes.Count > 0)
+            {
+                var consumers = processes.Select(process =>
+                    $"{process.Name} ({ByteFormatter.Gigabytes(process.WorkingSetBytes, localizer)})");
+                detail += Environment.NewLine + localizer.Format(
+                    "Check.MemoryPressure.TopProcesses",
+                    string.Join(localizer.Get("Format.ListSeparator"), consumers));
+            }
+        }
+        catch (Exception ex)
+        {
+            log?.Warn("Unable to inspect top memory-consuming processes.", ex);
+        }
+
+        return Task.FromResult<HealthFinding?>(new HealthFinding(
+            Id,
+            DisplayName,
+            HealthStatus.Warning,
+            detail,
+            new Dictionary<string, string>
+            {
+                ["available"] = percent.ToString("0.0", CultureInfo.InvariantCulture) + "%"
+            }));
     }
 }
 

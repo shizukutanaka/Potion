@@ -1,5 +1,4 @@
 using System.Threading;
-using System.Globalization;
 using Potion.Tray.Core;
 using Potion.Tray.Core.Checks;
 using Potion.Tray.Core.Repairs;
@@ -33,6 +32,7 @@ internal static class Program
         }
 
         ApplicationConfiguration.Initialize();
+        CultureConfigurator.Apply(string.Empty);
         var log = new FileTrayLog();
         Application.ThreadException += (_, args) => log.Error("An unhandled UI exception occurred.", args.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
@@ -40,18 +40,7 @@ internal static class Program
 
         var settingsStore = new JsonSettingsStore(log: log);
         var settings = settingsStore.Load();
-        if (!string.IsNullOrWhiteSpace(settings.UiCulture))
-        {
-            try
-            {
-                var culture = CultureInfo.GetCultureInfo(settings.UiCulture);
-                CultureInfo.DefaultThreadCurrentUICulture = culture;
-                CultureInfo.DefaultThreadCurrentCulture = culture;
-            }
-            catch (CultureNotFoundException)
-            {
-            }
-        }
+        CultureConfigurator.Apply(settings.UiCulture);
         var localizer = new ResourceLocalizer();
         StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
         var system = new WindowsSystemInfoProvider();
@@ -66,10 +55,10 @@ internal static class Program
         {
             new DiskSpaceHealthCheck(system, localizer),
             new CriticalServiceHealthCheck(system, localizer),
-            new ComponentStoreHealthCheck(processRunner, log, localizer),
-            new MemoryPressureHealthCheck(system, localizer),
+            new MemoryPressureHealthCheck(system, localizer, log),
             new PendingRebootHealthCheck(system, localizer),
-            new NetworkHealthCheck(system, localizer)
+            new NetworkHealthCheck(system, localizer),
+            new ComponentStoreHealthCheck(processRunner, log, localizer)
         };
         var repairs = new IRepairAction[]
         {

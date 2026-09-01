@@ -36,6 +36,9 @@
   <data name="Check.MemoryPressure.Detail">
     <value>La mémoire disponible est faible ({0} %)</value>
   </data>
+  <data name="Check.MemoryPressure.TopProcesses">
+    <value>Principaux consommateurs de mémoire : {0}</value>
+  </data>
   <data name="Check.PendingReboot.Title">
     <value>Redémarrage en attente</value>
   </data>
@@ -290,9 +293,6 @@
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Annuler</value>
-  </data>
-  <data name="Ui.Settings.RestartNotice">
-    <value>Les changements de langue seront appliqués au redémarrage.</value>
   </data>
   <data name="Ui.Settings.LanguageName.en">
     <value>English</value>
