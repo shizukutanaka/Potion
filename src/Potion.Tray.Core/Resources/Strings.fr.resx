@@ -378,4 +378,16 @@
   <data name="Ui.Settings.DiskCriticalFreeGb">
     <value>Espace disque libre critique (Go)</value>
   </data>
+  <data name="Ui.History.SearchHint">
+    <value>Rechercher dans l’historique</value>
+  </data>
+  <data name="Format.Seconds">
+    <value>{0} s</value>
+  </data>
+  <data name="Format.Minutes">
+    <value>{0} min</value>
+  </data>
+  <data name="Ui.History.Column.Commands">
+    <value>Commandes</value>
+  </data>
 </root>

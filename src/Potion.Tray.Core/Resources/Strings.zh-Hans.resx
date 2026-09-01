@@ -378,4 +378,16 @@
   <data name="Ui.Settings.DiskCriticalFreeGb">
     <value>磁盘严重可用空间（GB）</value>
   </data>
+  <data name="Ui.History.SearchHint">
+    <value>搜索历史记录</value>
+  </data>
+  <data name="Format.Seconds">
+    <value>{0} 秒</value>
+  </data>
+  <data name="Format.Minutes">
+    <value>{0} 分钟</value>
+  </data>
+  <data name="Ui.History.Column.Commands">
+    <value>命令</value>
+  </data>
 </root>

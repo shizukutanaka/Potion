@@ -13,6 +13,7 @@ internal sealed class HistoryForm : Form
     private readonly ILocalizer localizer;
     private readonly ListView list = new();
     private readonly TextBox details = new();
+    private readonly TextBox search = new() { Width = 220 };
     private readonly ComboBox filter = new();
     private readonly Button refresh = new();
     private IReadOnlyList<HistoryEntry> entries = Array.Empty<HistoryEntry>();
@@ -39,6 +40,8 @@ internal sealed class HistoryForm : Form
         });
         filter.SelectedIndex = 0;
         filter.SelectedIndexChanged += (_, _) => RefreshList();
+        search.PlaceholderText = localizer.Get("Ui.History.SearchHint");
+        search.TextChanged += (_, _) => RefreshList();
         refresh.Text = localizer.Get("Ui.History.Refresh");
         refresh.AutoSize = true;
         refresh.Click += async (_, _) => await LoadHistoryAsync();
@@ -48,6 +51,7 @@ internal sealed class HistoryForm : Form
         var top = new FlowLayoutPanel { Dock = DockStyle.Top, Height = 42, Padding = new Padding(8) };
         top.Controls.Add(new Label { Text = localizer.Get("Ui.History.Filter"), AutoSize = true, Padding = new Padding(0, 6, 0, 0) });
         top.Controls.Add(filter);
+        top.Controls.Add(search);
         top.Controls.Add(refresh);
         top.Controls.Add(export);
 
@@ -91,14 +95,14 @@ internal sealed class HistoryForm : Form
     private void RefreshList()
     {
         list.Items.Clear();
-        var filtered = entries.Where(MatchesFilter).ToList();
+        var filtered = entries.Where(MatchesEntry).ToList();
         foreach (var entry in filtered)
         {
             var item = new ListViewItem(entry.TimestampUtc.ToLocalTime().ToString("g", CultureInfo.CurrentCulture));
             item.SubItems.Add(entry.Title);
             item.SubItems.Add(StatusText(entry.Status));
             item.SubItems.Add(OutcomeText(entry.Outcome));
-            item.SubItems.Add(entry.Detail);
+            item.SubItems.Add(HistoryText.SingleLine(entry.Detail));
             item.Tag = entry;
             list.Items.Add(item);
         }
@@ -119,6 +123,9 @@ internal sealed class HistoryForm : Form
             _ => true
         };
 
+    private bool MatchesEntry(HistoryEntry entry) =>
+        MatchesFilter(entry) && HistorySearch.Matches(entry, search.Text);
+
     private void ShowSelectedDetails()
     {
         if (list.SelectedItems.Count == 0 || list.SelectedItems[0].Tag is not HistoryEntry entry)
@@ -130,14 +137,17 @@ internal sealed class HistoryForm : Form
         var builder = new StringBuilder()
             .AppendLine(entry.Detail)
             .AppendLine(localizer.Format("Ui.History.Detail.Result", OutcomeText(entry.Outcome)))
-            .AppendLine(localizer.Format("Ui.History.Detail.Duration", entry.Duration))
+            .AppendLine(localizer.Format("Ui.History.Detail.Duration", DurationFormatter.Format(entry.Duration, localizer)))
             .AppendLine(localizer.Format("Ui.History.Detail.RepairSummary", entry.RepairSummary ?? localizer.Get("Ui.History.Detail.None")))
             .AppendLine(localizer.Format("Ui.History.Detail.SkipReason", entry.SkipReason ?? localizer.Get("Ui.History.Detail.None")));
         foreach (var command in entry.Commands)
         {
             builder.AppendLine()
                 .AppendLine(localizer.Format("Ui.History.Detail.Command", command.FileName, command.Arguments))
-                .AppendLine(localizer.Format("Ui.History.Detail.ExitCode", command.ExitCode, command.Duration))
+                .AppendLine(localizer.Format(
+                    "Ui.History.Detail.ExitCode",
+                    command.ExitCode,
+                    DurationFormatter.Format(command.Duration, localizer)))
                 .AppendLine(localizer.Format("Ui.History.Detail.StdOut", command.StdOutTail))
                 .AppendLine(localizer.Format("Ui.History.Detail.StdErr", command.StdErrTail));
         }
@@ -168,9 +178,10 @@ internal sealed class HistoryForm : Form
                 localizer.Get("Ui.History.Column.Result"),
                 localizer.Get("Ui.History.Column.Summary"),
                 localizer.Get("Ui.History.Column.RepairSummary"),
-                localizer.Get("Ui.History.Column.SkipReason")
+                localizer.Get("Ui.History.Column.SkipReason"),
+                localizer.Get("Ui.History.Column.Commands")
             }.Select(EscapeCsv)));
-            foreach (var entry in entries.Where(MatchesFilter))
+            foreach (var entry in entries.Where(MatchesEntry))
             {
                 builder.AppendLine(string.Join(",", new[]
                 {
@@ -180,7 +191,8 @@ internal sealed class HistoryForm : Form
                     entry.Outcome.ToString(),
                     entry.Detail,
                     entry.RepairSummary ?? string.Empty,
-                    entry.SkipReason ?? string.Empty
+                    entry.SkipReason ?? string.Empty,
+                    HistoryText.CommandSummary(entry.Commands)
                 }.Select(EscapeCsv)));
             }
 

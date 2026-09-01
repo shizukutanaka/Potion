@@ -378,4 +378,16 @@
   <data name="Ui.Settings.DiskCriticalFreeGb">
     <value>Критический объём свободного места на диске (ГБ)</value>
   </data>
+  <data name="Ui.History.SearchHint">
+    <value>Поиск в журнале</value>
+  </data>
+  <data name="Format.Seconds">
+    <value>{0} с</value>
+  </data>
+  <data name="Format.Minutes">
+    <value>{0} мин</value>
+  </data>
+  <data name="Ui.History.Column.Commands">
+    <value>Команды</value>
+  </data>
 </root>

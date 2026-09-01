@@ -378,4 +378,16 @@
   <data name="Ui.Settings.DiskCriticalFreeGb">
     <value>디스크 심각 여유 공간(GB)</value>
   </data>
+  <data name="Ui.History.SearchHint">
+    <value>기록 검색</value>
+  </data>
+  <data name="Format.Seconds">
+    <value>{0}초</value>
+  </data>
+  <data name="Format.Minutes">
+    <value>{0}분</value>
+  </data>
+  <data name="Ui.History.Column.Commands">
+    <value>명령</value>
+  </data>
 </root>

@@ -378,4 +378,16 @@
   <data name="Ui.Settings.DiskCriticalFreeGb">
     <value>ディスク重大空き容量（GB）</value>
   </data>
+  <data name="Ui.History.SearchHint">
+    <value>履歴を検索</value>
+  </data>
+  <data name="Format.Seconds">
+    <value>{0} 秒</value>
+  </data>
+  <data name="Format.Minutes">
+    <value>{0} 分</value>
+  </data>
+  <data name="Ui.History.Column.Commands">
+    <value>実行コマンド</value>
+  </data>
 </root>

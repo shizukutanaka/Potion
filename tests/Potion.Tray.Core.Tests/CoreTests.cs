@@ -1017,6 +1017,88 @@ public class ProcessRunnerTests
     }
 }
 
+public class HistoryFormattingTests
+{
+    [Fact]
+    public void SingleLineCollapsesHistoryWhitespace()
+    {
+        Assert.Equal("one two three", HistoryText.SingleLine("  one\r\n two\t\tthree  "));
+    }
+
+    [Fact]
+    public void SingleLineReturnsEmptyForNullOrEmpty()
+    {
+        Assert.Equal(string.Empty, HistoryText.SingleLine(null));
+        Assert.Equal(string.Empty, HistoryText.SingleLine(string.Empty));
+    }
+
+    [Fact]
+    public void HistorySearchMatchesFieldsIgnoringCase()
+    {
+        var entry = Entry("Disk space warning", "Free space is low", "Cleanup completed", null);
+
+        Assert.True(HistorySearch.Matches(entry, "CLEANUP"));
+        Assert.True(HistorySearch.Matches(entry, "  disk  "));
+    }
+
+    [Fact]
+    public void HistorySearchRejectsNonMatchingTerms()
+    {
+        var entry = Entry("Disk space warning", "Free space is low", null, "Manual action");
+
+        Assert.False(HistorySearch.Matches(entry, "network"));
+        Assert.True(HistorySearch.Matches(entry, " \t"));
+    }
+
+    [Fact]
+    public void DurationFormatterUsesSecondsForShortDurations()
+    {
+        var localizer = new ResourceLocalizer();
+
+        Assert.Equal("1.2 s", DurationFormatter.Format(TimeSpan.FromSeconds(1.23), localizer));
+    }
+
+    [Fact]
+    public void DurationFormatterUsesMinutesForLongDurationsAndClampsNegative()
+    {
+        var localizer = new ResourceLocalizer();
+
+        Assert.Equal("2.0 min", DurationFormatter.Format(TimeSpan.FromMinutes(2), localizer));
+        Assert.Equal("0.0 s", DurationFormatter.Format(TimeSpan.FromSeconds(-1), localizer));
+    }
+
+    [Fact]
+    public void CommandSummaryIncludesMultipleCommandsAndEmptyInput()
+    {
+        var commands = new[]
+        {
+            new CommandExecution("sfc.exe", "/scannow", 0, TimeSpan.Zero, string.Empty, string.Empty),
+            new CommandExecution("sc.exe", string.Empty, 5, TimeSpan.Zero, string.Empty, string.Empty)
+        };
+
+        Assert.Equal("sfc.exe /scannow -> 0 ; sc.exe -> 5", HistoryText.CommandSummary(commands));
+        Assert.Equal(string.Empty, HistoryText.CommandSummary(Array.Empty<CommandExecution>()));
+    }
+
+    private static HistoryEntry Entry(
+        string title,
+        string detail,
+        string? repairSummary,
+        string? skipReason) =>
+        new(
+            Guid.NewGuid().ToString("N"),
+            DateTimeOffset.UtcNow,
+            "test",
+            title,
+            HealthStatus.Warning,
+            HistoryOutcome.Detected,
+            detail,
+            repairSummary,
+            skipReason,
+            TimeSpan.Zero,
+            Array.Empty<CommandExecution>());
+}
+
 internal sealed class TempDirectory : IDisposable
 {
     public TempDirectory() => Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "potion-tests-" + Guid.NewGuid().ToString("N"));
