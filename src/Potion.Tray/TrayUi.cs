@@ -36,6 +36,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly SynchronizationContext uiContext;
     private readonly CancellationTokenSource shutdown = new();
     private readonly RegisteredWaitHandle? showHistoryWait;
+    private Task? runningScan;
     private bool historyOpen;
     private DateTimeOffset lastKickUtc;
 
@@ -85,7 +86,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         scanItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.ScanNow"));
         menu.Items.Add(scanItem);
-        scanItem.Click += async (_, _) => await RunScanAsync();
+        scanItem.Click += async (_, _) =>
+        {
+            var scan = RunScanAsync();
+            runningScan = scan;
+            await scan;
+        };
         historyItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.History"));
         menu.Items.Add(historyItem);
         historyItem.Click += (_, _) => ShowHistory();
@@ -155,7 +161,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
             {
                 try
                 {
-                    await RunScanAsync();
+                    var scan = RunScanAsync();
+                    runningScan = scan;
+                    await scan;
                 }
                 catch (Exception ex)
                 {
@@ -170,6 +178,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         shutdown.Cancel();
+        if (runningScan is not null)
+        {
+            try
+            {
+                if (!runningScan.Wait(TimeSpan.FromSeconds(5)))
+                {
+                    log.Warn("Timed out waiting for the active scan to stop.");
+                }
+            }
+            catch (AggregateException)
+            {
+            }
+            catch (OperationCanceledException)
+            {
+            }
+        }
+
         engine.StateChanged -= EngineOnStateChanged;
         engine.CycleCompleted -= EngineOnStateChanged;
         SystemEvents.PowerModeChanged -= SystemEventsOnPowerModeChanged;
@@ -421,7 +446,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         lastKickUtc = now;
         log.Info($"Triggering a scan after {reason}.");
-        _ = RunScanAsync();
+        runningScan = RunScanAsync();
     }
 
     private static string Shorten(string text) => text.Length <= 63 ? text : text[..60] + "...";

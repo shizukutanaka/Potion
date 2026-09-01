@@ -420,6 +420,9 @@
   <data name="Storage.TempFiles">
     <value>Temporäre Dateien</value>
   </data>
+  <data name="Repair.Aborted">
+    <value>Die Reparatur wurde abgebrochen, weil die Anwendung geschlossen wurde</value>
+  </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
   </data>

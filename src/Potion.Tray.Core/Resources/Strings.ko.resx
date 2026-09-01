@@ -420,6 +420,9 @@
   <data name="Storage.TempFiles">
     <value>임시 파일</value>
   </data>
+  <data name="Repair.Aborted">
+    <value>앱을 닫는 중이어서 복구가 중단되었습니다</value>
+  </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
   </data>

@@ -449,6 +449,48 @@ public class EngineTests
     }
 
     [Fact]
+    public async Task CanceledRepairIsRecordedAsAborted()
+    {
+        var history = new FakeHistoryStore();
+        var repair = new DelegateRepair("x", false, (_, _, _) =>
+            throw new OperationCanceledException());
+        var engine = Engine(
+            new DelegateHealthCheck("x", (_, _) => Task.FromResult<HealthFinding?>(Finding())),
+            history,
+            new FakeSettingsStore(),
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            new FakeClock(),
+            new[] { repair });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => engine.RunCycleAsync(default));
+
+        var entry = Assert.Single(history.Entries);
+        Assert.Equal(HistoryOutcome.RepairFailed, entry.Outcome);
+        Assert.Equal(new ResourceLocalizer().Get("Repair.Aborted"), entry.RepairSummary);
+    }
+
+    [Fact]
+    public async Task CanceledRepairDoesNotNotify()
+    {
+        var notifier = new RecordingNotifier();
+        var repair = new DelegateRepair("x", false, (_, _, _) =>
+            throw new OperationCanceledException());
+        var engine = Engine(
+            new DelegateHealthCheck("x", (_, _) => Task.FromResult<HealthFinding?>(Finding())),
+            new FakeHistoryStore(),
+            new FakeSettingsStore(),
+            notifier,
+            new FakeSystemInfoProvider(),
+            new FakeClock(),
+            new[] { repair });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => engine.RunCycleAsync(default));
+
+        Assert.Empty(notifier.Notifications);
+    }
+
+    [Fact]
     public async Task SuccessfulRepairIsRecordedAndNotified()
     {
         var history = new FakeHistoryStore();

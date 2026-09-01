@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using Potion.Tray.Core.Resources;
 
 namespace Potion.Tray.Core;
@@ -110,6 +111,7 @@ public sealed class SelfHealingEngine
                 RepairOutcome? repairOutcome = null;
                 string? skipReason = null;
                 HistoryOutcome outcome;
+                OperationCanceledException? repairCancellation = null;
                 if (!repairs.TryGetValue(finding.CheckId, out var repair))
                 {
                     outcome = HistoryOutcome.ManualActionRequired;
@@ -148,13 +150,25 @@ public sealed class SelfHealingEngine
                             {
                                 repairOutcome = await repair.RepairAsync(finding, settings, ct);
                             }
+                            catch (OperationCanceledException ex)
+                            {
+                                repairCancellation = ex;
+                                repairOutcome = new RepairOutcome(
+                                    false,
+                                    localizer.Get("Repair.Aborted"),
+                                    Array.Empty<CommandExecution>());
+                            }
                             finally
                             {
                                 RecordRepairAttempt(finding.CheckId, clock.UtcNow);
                             }
 
-                            outcome = repairOutcome.Success ? HistoryOutcome.Repaired : HistoryOutcome.RepairFailed;
-                            if (repairOutcome.Success)
+                            outcome = repairCancellation is not null
+                                ? HistoryOutcome.RepairFailed
+                                : repairOutcome.Success
+                                    ? HistoryOutcome.Repaired
+                                    : HistoryOutcome.RepairFailed;
+                            if (repairCancellation is null && repairOutcome.Success)
                             {
                                 try
                                 {
@@ -217,16 +231,27 @@ public sealed class SelfHealingEngine
                     continue;
                 }
 
-                await history.AppendAsync(entry, ct);
+                await history.AppendAsync(
+                    entry,
+                    repairCancellation is null ? ct : CancellationToken.None);
                 if (history.LastAppendFailed)
                 {
                     log.Error($"History entry for {entry.CheckId} could not be saved.");
-                    NotifyHistoryFailure(settings);
+                    if (repairCancellation is null)
+                    {
+                        NotifyHistoryFailure(settings);
+                    }
                 }
-                if (NotificationDecider.ShouldNotify(settings.Notifications, entry) &&
+                if (repairCancellation is null &&
+                    NotificationDecider.ShouldNotify(settings.Notifications, entry) &&
                     ShouldNotifyAfterCooldown(settings, entry))
                 {
                     notifier.Notify(new Notification(entry.Title, BuildMessage(entry), entry.Status));
+                }
+
+                if (repairCancellation is not null)
+                {
+                    ExceptionDispatchInfo.Capture(repairCancellation).Throw();
                 }
             }
 

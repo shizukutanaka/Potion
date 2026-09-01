@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Diagnostics;
 
 namespace Potion.Tray.Core;
@@ -62,6 +63,28 @@ public sealed class SystemProcessRunner : IProcessRunner
         }
         catch (OperationCanceledException) when (ct.IsCancellationRequested)
         {
+            try
+            {
+                process.Kill(entireProcessTree: true);
+            }
+            catch (InvalidOperationException)
+            {
+            }
+            catch (Win32Exception)
+            {
+            }
+            catch (NotSupportedException)
+            {
+            }
+
+            try
+            {
+                await Task.WhenAll(outputTask, errorTask);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+
             throw;
         }
         catch (OperationCanceledException)
@@ -71,6 +94,12 @@ public sealed class SystemProcessRunner : IProcessRunner
                 process.Kill(entireProcessTree: true);
             }
             catch (InvalidOperationException)
+            {
+            }
+            catch (Win32Exception)
+            {
+            }
+            catch (NotSupportedException)
             {
             }
 

@@ -420,6 +420,9 @@
   <data name="Storage.TempFiles">
     <value>临时文件</value>
   </data>
+  <data name="Repair.Aborted">
+    <value>由于应用程序正在关闭，修复已中断</value>
+  </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
   </data>

@@ -420,6 +420,9 @@
   <data name="Storage.TempFiles">
     <value>Временные файлы</value>
   </data>
+  <data name="Repair.Aborted">
+    <value>Восстановление прервано, поскольку приложение закрывалось</value>
+  </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
   </data>

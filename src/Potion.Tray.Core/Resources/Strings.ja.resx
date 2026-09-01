@@ -420,6 +420,9 @@
   <data name="Storage.TempFiles">
     <value>一時ファイル</value>
   </data>
+  <data name="Repair.Aborted">
+    <value>アプリの終了により修復を中断しました</value>
+  </data>
   <data name="Format.AtLeast">
     <value>{0}+</value>
   </data>
