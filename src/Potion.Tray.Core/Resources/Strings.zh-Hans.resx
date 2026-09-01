@@ -420,4 +420,7 @@
   <data name="Storage.TempFiles">
     <value>临时文件</value>
   </data>
+  <data name="Format.AtLeast">
+    <value>{0}+</value>
+  </data>
 </root>

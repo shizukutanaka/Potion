@@ -63,13 +63,21 @@ public sealed class DiskSpaceRepair : IRepairAction
             if (consumers.Count > 0)
             {
                 var details = consumers.Select(consumer =>
-                    $"{localizer.Get(consumer.NameKey)} ({ByteFormatter.Gigabytes(consumer.Bytes, localizer)})");
+                {
+                    var size = ByteFormatter.Gigabytes(consumer.Bytes, localizer);
+                    if (consumer.Truncated)
+                    {
+                        size = localizer.Format("Format.AtLeast", size);
+                    }
+
+                    return $"{localizer.Get(consumer.NameKey)} ({size})";
+                });
                 summary += Environment.NewLine + localizer.Format(
                     "Repair.DiskSpace.LargeConsumers",
                     string.Join(localizer.Get("Format.ListSeparator"), details));
             }
         }
-        catch
+        catch (Exception)
         {
         }
 

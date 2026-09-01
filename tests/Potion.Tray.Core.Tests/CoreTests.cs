@@ -284,6 +284,31 @@ public class RepairTests
     }
 
     [Fact]
+    public async Task DiskSpaceRepairMarksTruncatedStorageConsumersAsLowerBounds()
+    {
+        var system = new FakeSystemInfoProvider
+        {
+            LargeStorageConsumers = new[]
+            {
+                new StorageConsumer("Storage.Downloads", 2L * 1024 * 1024 * 1024, true)
+            }
+        };
+        var repair = new DiskSpaceRepair(
+            new FakeTempFileCleaner(),
+            new FakeProcessRunner(),
+            system,
+            new ResourceLocalizer());
+
+        var outcome = await repair.RepairAsync(
+            new HealthFinding("disk-space", "disk", HealthStatus.Warning, ""), new TraySettings
+            {
+                AllowComponentCleanup = false
+            }, default);
+
+        Assert.Contains("2.0 GB+", outcome.Summary);
+    }
+
+    [Fact]
     public async Task DiskSpaceRepairOmitsStorageConsumersWhenNoneAreReported()
     {
         var localizer = new ResourceLocalizer();

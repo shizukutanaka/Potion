@@ -55,7 +55,7 @@ public interface IProcessRunner
 public sealed record DriveSnapshot(string Name, long TotalBytes, long FreeBytes);
 public sealed record MemorySnapshot(long TotalBytes, long AvailableBytes);
 public sealed record ProcessMemorySnapshot(string Name, long WorkingSetBytes);
-public sealed record StorageConsumer(string NameKey, long Bytes);
+public sealed record StorageConsumer(string NameKey, long Bytes, bool Truncated = false);
 public enum ServiceStartType { Unknown, Boot, System, Automatic, Manual, Disabled }
 public sealed record ServiceSnapshot(
     string Name,

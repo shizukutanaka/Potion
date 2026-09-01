@@ -420,4 +420,7 @@
   <data name="Storage.TempFiles">
     <value>Archivos temporales</value>
   </data>
+  <data name="Format.AtLeast">
+    <value>{0}+</value>
+  </data>
 </root>

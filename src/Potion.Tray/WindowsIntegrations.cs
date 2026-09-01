@@ -103,10 +103,10 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
                     continue;
                 }
 
-                var bytes = SumFiles(path);
-                if (bytes >= 1L * 1024 * 1024 * 1024)
+                var result = SumFiles(path);
+                if (result.Bytes >= 1L * 1024 * 1024 * 1024)
                 {
-                    consumers.Add(new StorageConsumer(nameKey, bytes));
+                    consumers.Add(new StorageConsumer(nameKey, result.Bytes, result.Truncated));
                 }
             }
 
@@ -121,60 +121,68 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
         }
     }
 
-    private static long SumFiles(string root)
+    private static (long Bytes, bool Truncated) SumFiles(string root)
     {
         var total = 0L;
         var scanned = 0;
         var stopwatch = Stopwatch.StartNew();
-        IEnumerator<string> files;
+        IEnumerator<FileInfo> files;
         try
         {
-            files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).GetEnumerator();
+            files = new DirectoryInfo(root)
+                .EnumerateFiles("*", new EnumerationOptions
+                {
+                    RecurseSubdirectories = true,
+                    IgnoreInaccessible = true
+                })
+                .GetEnumerator();
         }
         catch (UnauthorizedAccessException)
         {
-            return 0;
+            return (0, false);
         }
         catch (DirectoryNotFoundException)
         {
-            return 0;
+            return (0, false);
         }
         catch (IOException)
         {
-            return 0;
+            return (0, false);
         }
 
         using (files)
         {
-            while (scanned < 20_000 && stopwatch.Elapsed < TimeSpan.FromSeconds(5))
+            while (scanned < 20_000)
             {
-                string file;
                 try
                 {
                     if (!files.MoveNext())
                     {
-                        break;
+                        return (total, false);
                     }
-
-                    file = files.Current;
                 }
                 catch (UnauthorizedAccessException)
                 {
-                    break;
+                    return (total, false);
                 }
                 catch (DirectoryNotFoundException)
                 {
-                    break;
+                    return (total, false);
                 }
                 catch (IOException)
                 {
-                    break;
+                    return (total, false);
+                }
+
+                if (stopwatch.Elapsed >= TimeSpan.FromSeconds(5))
+                {
+                    return (total, true);
                 }
 
                 scanned++;
                 try
                 {
-                    total += new FileInfo(file).Length;
+                    total += files.Current.Length;
                 }
                 catch (UnauthorizedAccessException)
                 {
@@ -191,7 +199,7 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
             }
         }
 
-        return total;
+        return (total, true);
     }
 
     public IReadOnlyList<ServiceSnapshot> GetServices(IReadOnlyList<string> names)
