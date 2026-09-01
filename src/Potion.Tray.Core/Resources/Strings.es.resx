@@ -390,4 +390,13 @@
   <data name="Ui.History.Column.Commands">
     <value>Comandos</value>
   </data>
+  <data name="Ui.Settings.Adjusted">
+    <value>Algunos valores estaban fuera del rango permitido y se ajustaron: {0}. Revísalos y guárdalos de nuevo.</value>
+  </data>
+  <data name="Ui.Settings.NoChecksWarning">
+    <value>Todas las comprobaciones están desactivadas, por lo que Potion no detectará ni reparará nada. ¿Guardar de todos modos?</value>
+  </data>
+  <data name="Ui.Settings.UnknownServices">
+    <value>Estos servicios no existen en este equipo y se ignorarán: {0}</value>
+  </data>
 </root>

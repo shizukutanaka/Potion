@@ -782,6 +782,54 @@ public class SettingsAndNotificationTests
     }
 
     [Fact]
+    public void NormalizeWithChangesReportsCriticalThresholdAdjustment()
+    {
+        var settings = new TraySettings
+        {
+            DiskWarnPercent = 15,
+            DiskCriticalPercent = 30
+        };
+
+        var changes = settings.NormalizeWithChanges();
+
+        Assert.Equal(new[] { "Ui.Settings.DiskCritical" }, changes);
+        Assert.Equal(15, settings.DiskCriticalPercent);
+    }
+
+    [Fact]
+    public void NormalizeWithChangesReturnsEmptyForValuesInRange()
+    {
+        var changes = new TraySettings().NormalizeWithChanges();
+
+        Assert.Empty(changes);
+    }
+
+    [Fact]
+    public void NormalizeWithChangesReportsServiceWhitespaceRemoval()
+    {
+        var settings = new TraySettings
+        {
+            MonitoredServices = new() { "Dnscache", "  " }
+        };
+
+        var changes = settings.NormalizeWithChanges();
+
+        Assert.Equal(new[] { "Ui.Settings.Services" }, changes);
+        Assert.Equal(new[] { "Dnscache" }, settings.MonitoredServices);
+    }
+
+    [Fact]
+    public void NormalizeWithChangesReportsInvalidCulture()
+    {
+        var settings = new TraySettings { UiCulture = "not-a-culture-###" };
+
+        var changes = settings.NormalizeWithChanges();
+
+        Assert.Equal(new[] { "Ui.Settings.Language" }, changes);
+        Assert.Equal(string.Empty, settings.UiCulture);
+    }
+
+    [Fact]
     public void NotificationDeciderCoversModes()
     {
         var repaired = Entry(HistoryOutcome.Repaired, HealthStatus.Warning);

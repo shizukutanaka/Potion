@@ -248,6 +248,7 @@ internal sealed class SettingsForm : Form
     private readonly ISettingsStore store;
     private readonly ITrayLog log;
     private readonly ILocalizer localizer;
+    private readonly ISystemInfoProvider system;
     private readonly TraySettings settings;
     private readonly CheckBox autoRepair = new() { AutoSize = true };
     private readonly ComboBox notifications = new();
@@ -270,11 +271,12 @@ internal sealed class SettingsForm : Form
     private readonly ComboBox language = new();
     private readonly string[] checkIds = { "disk-space", "critical-services", "component-store", "memory-pressure", "pending-reboot", "network" };
 
-    public SettingsForm(ISettingsStore store, ITrayLog log, ILocalizer localizer)
+    public SettingsForm(ISettingsStore store, ITrayLog log, ILocalizer localizer, ISystemInfoProvider system)
     {
         this.store = store;
         this.log = log;
         this.localizer = localizer;
+        this.system = system;
         settings = store.Load().Clone();
         Text = localizer.Get("Ui.Settings.Title");
         Width = 620;
@@ -299,7 +301,8 @@ internal sealed class SettingsForm : Form
         startup.Text = localizer.Get("Ui.Settings.Startup");
         dryRun.Text = localizer.Get("Ui.Settings.DryRun");
         cleanup.Text = localizer.Get("Ui.Settings.ComponentCleanup");
-        LoadValues();
+        InitializeItems();
+        ApplyValues();
 
         var table = new TableLayoutPanel
         {
@@ -342,7 +345,15 @@ internal sealed class SettingsForm : Form
         Controls.Add(buttons);
     }
 
-    private void LoadValues()
+    private void InitializeItems()
+    {
+        foreach (var id in checkIds)
+        {
+            enabledChecks.Items.Add(CheckTitle(id));
+        }
+    }
+
+    private void ApplyValues()
     {
         autoRepair.Checked = settings.AutoRepairEnabled;
         notifications.SelectedIndex = (int)settings.Notifications;
@@ -368,7 +379,7 @@ internal sealed class SettingsForm : Form
         services.Text = string.Join(Environment.NewLine, settings.MonitoredServices);
         foreach (var id in checkIds)
         {
-            var index = enabledChecks.Items.Add(CheckTitle(id));
+            var index = Array.IndexOf(checkIds, id);
             enabledChecks.SetItemChecked(index, settings.IsCheckEnabled(id));
         }
     }
@@ -396,7 +407,61 @@ internal sealed class SettingsForm : Form
         settings.ChecksEnabled = checkIds
             .Select((id, index) => new { id, enabled = enabledChecks.GetItemChecked(index) })
             .ToDictionary(x => x.id, x => x.enabled, StringComparer.OrdinalIgnoreCase);
-        settings.Normalize();
+        var adjusted = settings.NormalizeWithChanges();
+        if (adjusted.Count > 0)
+        {
+            ApplyValues();
+            var names = string.Join(
+                localizer.Get("Format.ListSeparator"),
+                adjusted.Select(localizer.Get));
+            MessageBox.Show(
+                this,
+                localizer.Format("Ui.Settings.Adjusted", names),
+                Text,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
+            DialogResult = DialogResult.None;
+            return;
+        }
+
+        if (settings.ChecksEnabled.Values.All(enabled => !enabled))
+        {
+            var result = MessageBox.Show(
+                this,
+                localizer.Get("Ui.Settings.NoChecksWarning"),
+                Text,
+                MessageBoxButtons.OKCancel,
+                MessageBoxIcon.Warning);
+            if (result == DialogResult.Cancel)
+            {
+                DialogResult = DialogResult.None;
+                return;
+            }
+        }
+
+        try
+        {
+            var unknownServices = system.GetServices(settings.MonitoredServices)
+                .Where(service => !service.Exists)
+                .Select(service => service.Name)
+                .ToList();
+            if (unknownServices.Count > 0)
+            {
+                MessageBox.Show(
+                    this,
+                    localizer.Format(
+                        "Ui.Settings.UnknownServices",
+                        string.Join(localizer.Get("Format.ListSeparator"), unknownServices)),
+                    Text,
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+        catch (Exception ex)
+        {
+            log.Warn("Unable to validate monitored services.", ex);
+        }
+
         store.Save(settings);
         StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
     }

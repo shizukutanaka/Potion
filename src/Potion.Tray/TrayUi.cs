@@ -319,7 +319,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowSettings()
     {
-        using var form = new SettingsForm(settingsStore, log, localizer);
+        using var form = new SettingsForm(settingsStore, log, localizer, system);
         if (form.ShowDialog() == DialogResult.OK)
         {
             var settings = settingsStore.Load();

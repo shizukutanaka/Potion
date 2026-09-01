@@ -390,4 +390,13 @@
   <data name="Ui.History.Column.Commands">
     <value>命令</value>
   </data>
+  <data name="Ui.Settings.Adjusted">
+    <value>部分值超出允许范围，已进行调整：{0}。请检查后再次保存。</value>
+  </data>
+  <data name="Ui.Settings.NoChecksWarning">
+    <value>所有检查均已禁用，Potion 将不会检测或修复任何问题。仍要保存吗？</value>
+  </data>
+  <data name="Ui.Settings.UnknownServices">
+    <value>此电脑不存在以下服务，它们将被忽略：{0}</value>
+  </data>
 </root>

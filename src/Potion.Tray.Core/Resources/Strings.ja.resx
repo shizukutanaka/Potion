@@ -390,4 +390,13 @@
   <data name="Ui.History.Column.Commands">
     <value>実行コマンド</value>
   </data>
+  <data name="Ui.Settings.Adjusted">
+    <value>一部の値が許容範囲外だったため調整しました: {0}。内容を確認してもう一度保存してください。</value>
+  </data>
+  <data name="Ui.Settings.NoChecksWarning">
+    <value>すべての点検が無効です。この設定では問題の検知も修復も行われません。保存しますか？</value>
+  </data>
+  <data name="Ui.Settings.UnknownServices">
+    <value>次のサービスはこの PC に存在しないため無視されます: {0}</value>
+  </data>
 </root>

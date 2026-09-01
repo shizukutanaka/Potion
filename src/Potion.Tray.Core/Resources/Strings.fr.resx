@@ -390,4 +390,13 @@
   <data name="Ui.History.Column.Commands">
     <value>Commandes</value>
   </data>
+  <data name="Ui.Settings.Adjusted">
+    <value>Certaines valeurs étaient hors de la plage autorisée et ont été ajustées : {0}. Vérifiez-les et enregistrez à nouveau.</value>
+  </data>
+  <data name="Ui.Settings.NoChecksWarning">
+    <value>Toutes les vérifications sont désactivées ; Potion ne détectera ni ne réparera aucun problème. Enregistrer quand même ?</value>
+  </data>
+  <data name="Ui.Settings.UnknownServices">
+    <value>Ces services n’existent pas sur ce PC et seront ignorés : {0}</value>
+  </data>
 </root>

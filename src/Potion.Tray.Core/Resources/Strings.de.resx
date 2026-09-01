@@ -390,4 +390,13 @@
   <data name="Ui.History.Column.Commands">
     <value>Befehle</value>
   </data>
+  <data name="Ui.Settings.Adjusted">
+    <value>Einige Werte lagen außerhalb des zulässigen Bereichs und wurden angepasst: {0}. Überprüfen Sie sie und speichern Sie erneut.</value>
+  </data>
+  <data name="Ui.Settings.NoChecksWarning">
+    <value>Alle Prüfungen sind deaktiviert, daher wird Potion nichts erkennen oder reparieren. Trotzdem speichern?</value>
+  </data>
+  <data name="Ui.Settings.UnknownServices">
+    <value>Diese Dienste sind auf diesem PC nicht vorhanden und werden ignoriert: {0}</value>
+  </data>
 </root>

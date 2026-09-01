@@ -171,8 +171,24 @@ public sealed class TraySettings
         };
     }
 
-    public void Normalize()
+    public void Normalize() => _ = NormalizeWithChanges();
+
+    public IReadOnlyList<string> NormalizeWithChanges()
     {
+        var originalScanIntervalMinutes = ScanIntervalMinutes;
+        var originalDiskWarnPercent = DiskWarnPercent;
+        var originalDiskCriticalPercent = DiskCriticalPercent;
+        var originalDiskWarnFreeGb = DiskWarnFreeGb;
+        var originalDiskCriticalFreeGb = DiskCriticalFreeGb;
+        var originalMemoryWarnPercent = MemoryWarnPercent;
+        var originalMaxRepairAttemptsPerDay = MaxRepairAttemptsPerDay;
+        var originalHistoryMaxEntries = HistoryMaxEntries;
+        var originalHistoryRetentionDays = HistoryRetentionDays;
+        var originalDuplicateSuppressionMinutes = DuplicateSuppressionMinutes;
+        var originalNotificationCooldownMinutes = NotificationCooldownMinutes;
+        var originalMonitoredServices = (MonitoredServices ?? new()).ToList();
+        var originalUiCulture = UiCulture;
+
         ScanIntervalMinutes = Math.Clamp(ScanIntervalMinutes, 1, 1440);
         DiskWarnPercent = Math.Clamp(DiskWarnPercent, 1, 90);
         DiskCriticalPercent = Math.Clamp(DiskCriticalPercent, 1, DiskWarnPercent);
@@ -216,6 +232,62 @@ public sealed class TraySettings
                 p => p.Key.Trim(),
                 p => Math.Clamp(p.Value, 1, 10080),
                 StringComparer.OrdinalIgnoreCase);
+
+        var changes = new List<string>();
+        if (ScanIntervalMinutes != originalScanIntervalMinutes)
+        {
+            changes.Add("Ui.Settings.ScanInterval");
+        }
+        if (DiskWarnPercent != originalDiskWarnPercent)
+        {
+            changes.Add("Ui.Settings.DiskWarn");
+        }
+        if (DiskCriticalPercent != originalDiskCriticalPercent)
+        {
+            changes.Add("Ui.Settings.DiskCritical");
+        }
+        if (DiskWarnFreeGb != originalDiskWarnFreeGb)
+        {
+            changes.Add("Ui.Settings.DiskWarnFreeGb");
+        }
+        if (DiskCriticalFreeGb != originalDiskCriticalFreeGb)
+        {
+            changes.Add("Ui.Settings.DiskCriticalFreeGb");
+        }
+        if (MemoryWarnPercent != originalMemoryWarnPercent)
+        {
+            changes.Add("Ui.Settings.MemoryWarn");
+        }
+        if (MaxRepairAttemptsPerDay != originalMaxRepairAttemptsPerDay)
+        {
+            changes.Add("Ui.Settings.Attempts");
+        }
+        if (HistoryMaxEntries != originalHistoryMaxEntries)
+        {
+            changes.Add("Ui.Settings.HistoryMax");
+        }
+        if (HistoryRetentionDays != originalHistoryRetentionDays)
+        {
+            changes.Add("Ui.Settings.Retention");
+        }
+        if (DuplicateSuppressionMinutes != originalDuplicateSuppressionMinutes)
+        {
+            changes.Add("Ui.Settings.DuplicateSuppression");
+        }
+        if (NotificationCooldownMinutes != originalNotificationCooldownMinutes)
+        {
+            changes.Add("Ui.Settings.NotificationCooldown");
+        }
+        if (!originalMonitoredServices.SequenceEqual(MonitoredServices, StringComparer.Ordinal))
+        {
+            changes.Add("Ui.Settings.Services");
+        }
+        if (!string.Equals(originalUiCulture, UiCulture, StringComparison.Ordinal))
+        {
+            changes.Add("Ui.Settings.Language");
+        }
+
+        return changes;
     }
 
     public bool IsCheckEnabled(string checkId) =>

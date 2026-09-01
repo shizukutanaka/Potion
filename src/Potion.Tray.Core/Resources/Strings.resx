@@ -390,4 +390,13 @@
   <data name="Ui.History.Column.Commands">
     <value>Commands</value>
   </data>
+  <data name="Ui.Settings.Adjusted">
+    <value>Some values were outside the allowed range and were adjusted: {0}. Review them and save again.</value>
+  </data>
+  <data name="Ui.Settings.NoChecksWarning">
+    <value>All checks are disabled, so Potion will not detect or repair anything. Save anyway?</value>
+  </data>
+  <data name="Ui.Settings.UnknownServices">
+    <value>These services do not exist on this PC and will be ignored: {0}</value>
+  </data>
 </root>

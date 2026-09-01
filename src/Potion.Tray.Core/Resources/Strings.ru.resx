@@ -390,4 +390,13 @@
   <data name="Ui.History.Column.Commands">
     <value>Команды</value>
   </data>
+  <data name="Ui.Settings.Adjusted">
+    <value>Некоторые значения были вне допустимого диапазона и скорректированы: {0}. Проверьте их и сохраните снова.</value>
+  </data>
+  <data name="Ui.Settings.NoChecksWarning">
+    <value>Все проверки отключены, поэтому Potion не будет обнаруживать или исправлять проблемы. Всё равно сохранить?</value>
+  </data>
+  <data name="Ui.Settings.UnknownServices">
+    <value>Эти службы отсутствуют на этом компьютере и будут проигнорированы: {0}</value>
+  </data>
 </root>
