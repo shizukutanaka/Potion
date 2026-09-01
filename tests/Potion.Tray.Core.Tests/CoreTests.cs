@@ -585,6 +585,25 @@ public class SettingsAndNotificationTests
 public class StoreTests
 {
     [Fact]
+    public void FileTrayLogPrunesExpiredDailyFiles()
+    {
+        using var directory = new TempDirectory();
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeClock { UtcNow = now };
+        var oldPath = Path.Combine(directory.Path, $"tray-{now.AddDays(-40):yyyyMMdd}.log");
+        var currentPath = Path.Combine(directory.Path, $"tray-{now:yyyyMMdd}.log");
+        Directory.CreateDirectory(directory.Path);
+        File.WriteAllText(oldPath, "old");
+        File.WriteAllText(currentPath, "current");
+
+        var log = new FileTrayLog(directory.Path, clock);
+        log.Info("test");
+
+        Assert.False(File.Exists(oldPath));
+        Assert.True(File.Exists(currentPath));
+    }
+
+    [Fact]
     public async Task JsonlHistoryStoreReadsNewestSkipsCorruptAndCountsAttempts()
     {
         using var directory = new TempDirectory();

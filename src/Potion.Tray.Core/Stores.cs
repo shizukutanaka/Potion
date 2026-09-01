@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -8,13 +9,16 @@ public sealed class FileTrayLog : ITrayLog
 {
     private readonly string directory;
     private readonly ITrayClock clock;
+    private readonly int retentionDays;
     private readonly object gate = new();
+    private string? lastCleanupDay;
 
-    public FileTrayLog(string? directory = null, ITrayClock? clock = null)
+    public FileTrayLog(string? directory = null, ITrayClock? clock = null, int retentionDays = 30)
     {
         this.directory = directory ??
             Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Potion", "logs");
         this.clock = clock ?? new SystemTrayClock();
+        this.retentionDays = Math.Clamp(retentionDays, 1, 3650);
     }
 
     public void Info(string message) => Write("INFO", message, null);
@@ -25,8 +29,10 @@ public sealed class FileTrayLog : ITrayLog
     {
         try
         {
-            var path = Path.Combine(directory, $"tray-{clock.UtcNow:yyyyMMdd}.log");
-            var line = $"{clock.UtcNow:O} [{level}] {message}";
+            var now = clock.UtcNow;
+            var day = now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
+            var path = Path.Combine(directory, $"tray-{day}.log");
+            var line = $"{now:O} [{level}] {message}";
             if (exception is not null)
             {
                 line += $" {exception}";
@@ -35,11 +41,46 @@ public sealed class FileTrayLog : ITrayLog
             lock (gate)
             {
                 Directory.CreateDirectory(directory);
+                if (!string.Equals(lastCleanupDay, day, StringComparison.Ordinal))
+                {
+                    Cleanup(now.Date);
+                    lastCleanupDay = day;
+                }
+
                 File.AppendAllText(path, line + Environment.NewLine, Encoding.UTF8);
             }
         }
         catch
         {
+        }
+    }
+
+    private void Cleanup(DateTime currentDate)
+    {
+        var cutoff = currentDate.AddDays(-retentionDays);
+        foreach (var file in Directory.EnumerateFiles(directory, "tray-*.log"))
+        {
+            var name = Path.GetFileNameWithoutExtension(file);
+            if (name.Length != "tray-yyyyMMdd".Length ||
+                !name.StartsWith("tray-", StringComparison.Ordinal) ||
+                !DateTime.TryParseExact(
+                    name["tray-".Length..],
+                    "yyyyMMdd",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.None,
+                    out var fileDate) ||
+                fileDate >= cutoff)
+            {
+                continue;
+            }
+
+            try
+            {
+                File.Delete(file);
+            }
+            catch
+            {
+            }
         }
     }
 }

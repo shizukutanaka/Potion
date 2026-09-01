@@ -10,6 +10,8 @@ Potion.Tray は、Windows の状態を定期的に点検し、許可された安
 4. 修復が成功した場合は同じ点検を再実行し、問題が残っていれば未検証として履歴に記録します。
 5. 通知モードに応じて Windows のバルーン通知を表示します。
 
+スリープ復帰、ユーザーのログオン・ロック解除、ネットワーク復帰時には即時点検を開始します（イベント連発時は2分間デバウンス）。同じユーザーで二重起動した場合は、既存インスタンスの履歴画面を開きます。
+
 ## 点検と修復
 
 | 点検 | 既定の間隔 | 修復 | 管理者権限 |
@@ -34,7 +36,7 @@ Potion.Tray は、Windows の状態を定期的に点検し、許可された安
 - 設定: `%LOCALAPPDATA%\Potion\settings.json`
 - 履歴: `%LOCALAPPDATA%\Potion\history.jsonl`
 - 点検状態: `%LOCALAPPDATA%\Potion\state.json`（再起動後も点検間隔を維持するための最終点検時刻）
-- ログ: `%LOCALAPPDATA%\Potion\logs\tray-yyyyMMdd.log`
+- ログ: `%LOCALAPPDATA%\Potion\logs\tray-yyyyMMdd.log`（30日保持）
 
 ## ビルドと実行
 

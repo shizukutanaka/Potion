@@ -1,5 +1,7 @@
 using System.Drawing;
+using System.Net.NetworkInformation;
 using System.Text;
+using Microsoft.Win32;
 using Potion.Tray.Core;
 using Potion.Tray.Core.Resources;
 
@@ -24,6 +26,9 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly System.Threading.Timer scanTimer;
     private readonly SynchronizationContext uiContext;
     private readonly CancellationTokenSource shutdown = new();
+    private readonly RegisteredWaitHandle? showHistoryWait;
+    private bool historyOpen;
+    private DateTimeOffset lastKickUtc;
 
     public TrayApplicationContext(
         SelfHealingEngine engine,
@@ -32,7 +37,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         ISystemInfoProvider system,
         INotifier notifier,
         ITrayLog log,
-        ILocalizer localizer)
+        ILocalizer localizer,
+        EventWaitHandle? showHistorySignal = null)
     {
         this.engine = engine;
         this.history = history;
@@ -105,8 +111,37 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         engine.StateChanged += EngineOnStateChanged;
         engine.CycleCompleted += EngineOnStateChanged;
+        SystemEvents.PowerModeChanged += SystemEventsOnPowerModeChanged;
+        SystemEvents.SessionSwitch += SystemEventsOnSessionSwitch;
+        NetworkChange.NetworkAvailabilityChanged += NetworkChangeOnNetworkAvailabilityChanged;
+        showHistoryWait = null;
+        if (showHistorySignal is not null)
+        {
+            showHistoryWait = ThreadPool.RegisterWaitForSingleObject(
+                showHistorySignal,
+                (_, timedOut) =>
+                {
+                    if (!timedOut)
+                    {
+                        uiContext.Post(_ => ShowHistory(), null);
+                    }
+                },
+                null,
+                Timeout.Infinite,
+                executeOnlyOnce: false);
+        }
         scanTimer = new System.Threading.Timer(
-            async _ => await RunScanAsync(),
+            async _ =>
+            {
+                try
+                {
+                    await RunScanAsync();
+                }
+                catch (Exception ex)
+                {
+                    log.Error("Scan callback failed.", ex);
+                }
+            },
             null,
             TimeSpan.FromSeconds(30),
             Timeout.InfiniteTimeSpan);
@@ -115,9 +150,13 @@ internal sealed class TrayApplicationContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         shutdown.Cancel();
-        scanTimer.Dispose();
         engine.StateChanged -= EngineOnStateChanged;
         engine.CycleCompleted -= EngineOnStateChanged;
+        SystemEvents.PowerModeChanged -= SystemEventsOnPowerModeChanged;
+        SystemEvents.SessionSwitch -= SystemEventsOnSessionSwitch;
+        NetworkChange.NetworkAvailabilityChanged -= NetworkChangeOnNetworkAvailabilityChanged;
+        scanTimer.Dispose();
+        showHistoryWait?.Unregister(null);
         notifyIcon.Visible = false;
         var icon = notifyIcon.Icon;
         notifyIcon.Icon = null;
@@ -178,8 +217,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             if (!shutdown.IsCancellationRequested)
             {
-                var settings = settingsStore.Load();
-                scanTimer.Change(TimeSpan.FromMinutes(settings.ScanIntervalMinutes), Timeout.InfiniteTimeSpan);
+                try
+                {
+                    var settings = settingsStore.Load();
+                    try
+                    {
+                        scanTimer.Change(TimeSpan.FromMinutes(settings.ScanIntervalMinutes), Timeout.InfiniteTimeSpan);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Error("Unable to schedule the next scan.", ex);
+                }
             }
         }
     }
@@ -200,8 +252,21 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowHistory()
     {
-        using var form = new HistoryForm(history, settingsStore.Load(), localizer, log);
-        form.ShowDialog();
+        if (historyOpen)
+        {
+            return;
+        }
+
+        historyOpen = true;
+        try
+        {
+            using var form = new HistoryForm(history, settingsStore.Load(), localizer, log);
+            form.ShowDialog();
+        }
+        finally
+        {
+            historyOpen = false;
+        }
     }
 
     private void ShowSettings()
@@ -212,8 +277,56 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var settings = settingsStore.Load();
             autoRepairItem.Checked = settings.AutoRepairEnabled;
             ApplyNotificationChecks(settings.Notifications);
-            scanTimer.Change(TimeSpan.FromMinutes(settings.ScanIntervalMinutes), Timeout.InfiniteTimeSpan);
+            try
+            {
+                scanTimer.Change(TimeSpan.FromMinutes(settings.ScanIntervalMinutes), Timeout.InfiniteTimeSpan);
+            }
+            catch (ObjectDisposedException)
+            {
+            }
         }
+    }
+
+    private void SystemEventsOnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
+    {
+        if (e.Mode == PowerModes.Resume)
+        {
+            KickScan("power resume");
+        }
+    }
+
+    private void SystemEventsOnSessionSwitch(object? sender, SessionSwitchEventArgs e)
+    {
+        if (e.Reason is SessionSwitchReason.SessionUnlock or SessionSwitchReason.SessionLogon)
+        {
+            KickScan("session resume");
+        }
+    }
+
+    private void NetworkChangeOnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
+    {
+        if (e.IsAvailable)
+        {
+            KickScan("network availability");
+        }
+    }
+
+    private void KickScan(string reason)
+    {
+        if (shutdown.IsCancellationRequested)
+        {
+            return;
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (lastKickUtc != default && now - lastKickUtc < TimeSpan.FromMinutes(2))
+        {
+            return;
+        }
+
+        lastKickUtc = now;
+        log.Info($"Triggering a scan after {reason}.");
+        _ = RunScanAsync();
     }
 
     private static string Shorten(string text) => text.Length <= 63 ? text : text[..60] + "...";

@@ -12,9 +12,23 @@ internal static class Program
     [STAThread]
     private static void Main()
     {
+        const string showHistoryName = @"Local\Potion.Tray.ShowHistory";
+        using var showHistorySignal = new EventWaitHandle(
+            false,
+            EventResetMode.AutoReset,
+            showHistoryName,
+            out _);
         using var mutex = new Mutex(true, @"Local\Potion.Tray.SingleInstance", out var created);
         if (!created)
         {
+            if (EventWaitHandle.TryOpenExisting(showHistoryName, out var handle))
+            {
+                using (handle)
+                {
+                    handle.Set();
+                }
+            }
+
             return;
         }
 
@@ -76,6 +90,14 @@ internal static class Program
             localizer,
             checkState);
 
-        Application.Run(new TrayApplicationContext(engine, history, settingsStore, system, notifier, log, localizer));
+        Application.Run(new TrayApplicationContext(
+            engine,
+            history,
+            settingsStore,
+            system,
+            notifier,
+            log,
+            localizer,
+            showHistorySignal));
     }
 }
