@@ -86,12 +86,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         scanItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.ScanNow"));
         menu.Items.Add(scanItem);
-        scanItem.Click += async (_, _) =>
-        {
-            var scan = RunScanAsync();
-            runningScan = scan;
-            await scan;
-        };
+        scanItem.Click += (_, _) => runningScan = Task.Run(RunScanAsync);
         historyItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.History"));
         menu.Items.Add(historyItem);
         historyItem.Click += (_, _) => ShowHistory();
@@ -283,7 +278,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         try
         {
-            await engine.RunCycleAsync(shutdown.Token);
+            await engine.RunCycleAsync(shutdown.Token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
         {
