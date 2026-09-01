@@ -90,6 +90,24 @@
   <data name="Repair.DnsFlush.Failed">
     <value>Разрешение имён по-прежнему не работает после очистки кэша DNS</value>
   </data>
+  <data name="Notify.HistoryUnavailable.Title">
+    <value>Не удается сохранить журнал</value>
+  </data>
+  <data name="Notify.HistoryUnavailable.Message">
+    <value>Восстановление продолжается, но Potion не может записать файл журнала. Проверьте место на диске и разрешения.</value>
+  </data>
+  <data name="Notify.Welcome.Title">
+    <value>Potion запущен</value>
+  </data>
+  <data name="Notify.Welcome.Message">
+    <value>Теперь Potion работает в области уведомлений и автоматически проверяет этот компьютер. Дважды щелкните значок, чтобы просмотреть выполненные действия.</value>
+  </data>
+  <data name="Notify.AdminRequired.Title">
+    <value>Восстановление ограничено</value>
+  </data>
+  <data name="Notify.AdminRequired.Message">
+    <value>Без прав администратора Potion может обнаруживать проблемы, но не может их исправлять. Используйте пункт «Перезапустить от имени администратора» в меню трея.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Автоматическое восстановление отключено</value>
   </data>

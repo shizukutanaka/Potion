@@ -90,6 +90,24 @@
   <data name="Repair.DnsFlush.Failed">
     <value>刷新 DNS 缓存后名称解析仍然失败</value>
   </data>
+  <data name="Notify.HistoryUnavailable.Title">
+    <value>无法保存历史记录</value>
+  </data>
+  <data name="Notify.HistoryUnavailable.Message">
+    <value>修复将继续进行，但 Potion 无法写入历史记录文件。请检查磁盘空间和权限。</value>
+  </data>
+  <data name="Notify.Welcome.Title">
+    <value>Potion 正在运行</value>
+  </data>
+  <data name="Notify.Welcome.Message">
+    <value>Potion 现在将在通知区域运行，并自动检查此电脑。双击图标即可查看执行的操作。</value>
+  </data>
+  <data name="Notify.AdminRequired.Title">
+    <value>修复功能受限</value>
+  </data>
+  <data name="Notify.AdminRequired.Message">
+    <value>没有管理员权限时，Potion 可以检测问题，但无法修复问题。请使用托盘菜单中的“以管理员身份重新启动”。</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>自动修复已禁用</value>
   </data>

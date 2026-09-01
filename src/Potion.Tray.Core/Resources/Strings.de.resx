@@ -90,6 +90,24 @@
   <data name="Repair.DnsFlush.Failed">
     <value>Namensauflösung nach dem Leeren des DNS-Caches weiterhin fehlgeschlagen</value>
   </data>
+  <data name="Notify.HistoryUnavailable.Title">
+    <value>Verlauf kann nicht gespeichert werden</value>
+  </data>
+  <data name="Notify.HistoryUnavailable.Message">
+    <value>Reparaturen werden fortgesetzt, aber Potion kann die Verlaufsdatei nicht schreiben. Prüfen Sie Speicherplatz und Berechtigungen.</value>
+  </data>
+  <data name="Notify.Welcome.Title">
+    <value>Potion wird ausgeführt</value>
+  </data>
+  <data name="Notify.Welcome.Message">
+    <value>Potion läuft jetzt im Infobereich und überprüft diesen PC automatisch. Doppelklicken Sie auf das Symbol, um die ausgeführten Aktionen anzuzeigen.</value>
+  </data>
+  <data name="Notify.AdminRequired.Title">
+    <value>Reparaturen sind eingeschränkt</value>
+  </data>
+  <data name="Notify.AdminRequired.Message">
+    <value>Ohne Administratorrechte kann Potion Probleme erkennen, aber nicht reparieren. Verwenden Sie „Als Administrator neu starten“ im Tray-Menü.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Automatische Reparatur ist deaktiviert</value>
   </data>

@@ -13,6 +13,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly IHistoryStore history;
     private readonly ISettingsStore settingsStore;
     private readonly ISystemInfoProvider system;
+    private readonly INotifier notifier;
     private readonly ITrayLog log;
     private readonly ILocalizer localizer;
     private readonly NotifyIcon notifyIcon;
@@ -50,6 +51,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         this.history = history;
         this.settingsStore = settingsStore;
         this.system = system;
+        this.notifier = notifier;
         this.log = log;
         this.localizer = localizer;
         uiContext = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
@@ -118,6 +120,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             balloonNotifier.Attach(notifyIcon);
         }
+        ShowStartupNotices(settings);
         notifyIcon.DoubleClick += (_, _) => ShowHistory();
 
         engine.StateChanged += EngineOnStateChanged;
@@ -196,6 +199,40 @@ internal sealed class TrayApplicationContext : ApplicationContext
             ApplyNotificationChecks(mode);
         };
         return item;
+    }
+
+    private void ShowStartupNotices(TraySettings settings)
+    {
+        if (settings.Notifications == NotificationMode.None)
+        {
+            return;
+        }
+
+        var current = settingsStore.Load();
+        var changed = false;
+        if (!current.HasSeenWelcome)
+        {
+            notifier.Notify(new Notification(
+                localizer.Get("Notify.Welcome.Title"),
+                localizer.Get("Notify.Welcome.Message"),
+                HealthStatus.Warning));
+            current.HasSeenWelcome = true;
+            changed = true;
+        }
+        else if (!system.IsElevated && !current.HasSeenAdminNotice)
+        {
+            notifier.Notify(new Notification(
+                localizer.Get("Notify.AdminRequired.Title"),
+                localizer.Get("Notify.AdminRequired.Message"),
+                HealthStatus.Warning));
+            current.HasSeenAdminNotice = true;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            settingsStore.Save(current);
+        }
     }
 
     private void ApplyNotificationChecks(NotificationMode mode)

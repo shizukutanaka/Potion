@@ -90,6 +90,24 @@
   <data name="Repair.DnsFlush.Failed">
     <value>DNS キャッシュのクリア後も名前解決に失敗しました</value>
   </data>
+  <data name="Notify.HistoryUnavailable.Title">
+    <value>履歴を保存できません</value>
+  </data>
+  <data name="Notify.HistoryUnavailable.Message">
+    <value>修復は継続しますが、履歴ファイルに書き込めません。ディスクの空き容量と権限を確認してください。</value>
+  </data>
+  <data name="Notify.Welcome.Title">
+    <value>Potion が常駐しています</value>
+  </data>
+  <data name="Notify.Welcome.Message">
+    <value>通知領域に常駐し、この PC を自動で点検します。アイコンをダブルクリックすると実行内容を確認できます。</value>
+  </data>
+  <data name="Notify.AdminRequired.Title">
+    <value>修復が制限されています</value>
+  </data>
+  <data name="Notify.AdminRequired.Message">
+    <value>管理者権限がないため、問題の検知はできても修復は実行できません。トレイメニューの「管理者で再起動」から昇格できます。</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>自動修復が無効です</value>
   </data>

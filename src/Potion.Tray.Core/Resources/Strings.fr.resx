@@ -90,6 +90,24 @@
   <data name="Repair.DnsFlush.Failed">
     <value>La résolution des noms échoue toujours après vidage du cache DNS</value>
   </data>
+  <data name="Notify.HistoryUnavailable.Title">
+    <value>Impossible d’enregistrer l’historique</value>
+  </data>
+  <data name="Notify.HistoryUnavailable.Message">
+    <value>Les réparations continuent, mais Potion ne peut pas écrire son fichier d’historique. Vérifiez l’espace disque et les autorisations.</value>
+  </data>
+  <data name="Notify.Welcome.Title">
+    <value>Potion est en cours d’exécution</value>
+  </data>
+  <data name="Notify.Welcome.Message">
+    <value>Potion s’exécute maintenant dans la zone de notification et vérifie automatiquement ce PC. Double-cliquez sur l’icône pour voir ce qu’il a fait.</value>
+  </data>
+  <data name="Notify.AdminRequired.Title">
+    <value>Réparations limitées</value>
+  </data>
+  <data name="Notify.AdminRequired.Message">
+    <value>Sans droits d’administrateur, Potion peut détecter les problèmes, mais pas les réparer. Utilisez « Redémarrer en tant qu’administrateur » dans le menu de la zone de notification.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>La réparation automatique est désactivée</value>
   </data>

@@ -127,6 +127,8 @@ public sealed class TraySettings
     public int DuplicateSuppressionMinutes { get; set; } = 60;
     public int NotificationCooldownMinutes { get; set; } = 60;
     public bool AllowComponentCleanup { get; set; } = true;
+    public bool HasSeenWelcome { get; set; }
+    public bool HasSeenAdminNotice { get; set; }
     public string UiCulture { get; set; } = string.Empty;
     public string DnsProbeHost { get; set; } = "www.msftconnecttest.com";
     public List<string> MonitoredServices { get; set; } = new()
@@ -159,6 +161,8 @@ public sealed class TraySettings
             DuplicateSuppressionMinutes = DuplicateSuppressionMinutes,
             NotificationCooldownMinutes = NotificationCooldownMinutes,
             AllowComponentCleanup = AllowComponentCleanup,
+            HasSeenWelcome = HasSeenWelcome,
+            HasSeenAdminNotice = HasSeenAdminNotice,
             UiCulture = UiCulture,
             DnsProbeHost = DnsProbeHost,
             MonitoredServices = new List<string>(MonitoredServices ?? new()),
@@ -241,6 +245,7 @@ public sealed record HistoryEntry(
 
 public interface IHistoryStore
 {
+    bool LastAppendFailed { get; }
     Task AppendAsync(HistoryEntry entry, CancellationToken ct);
     Task<IReadOnlyList<HistoryEntry>> ReadRecentAsync(int max, CancellationToken ct);
     Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct);

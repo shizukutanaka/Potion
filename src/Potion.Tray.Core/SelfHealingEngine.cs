@@ -20,6 +20,7 @@ public sealed class SelfHealingEngine
     private readonly Dictionary<string, DateTimeOffset> lastInspections = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<DateTimeOffset>> repairAttempts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<(string CheckId, HistoryOutcome Outcome), DateTimeOffset> lastNotifications = new();
+    private DateTimeOffset lastHistoryFailureNotifiedUtc;
     private bool checkStateLoaded;
     private EngineState state = EngineState.Idle;
 
@@ -217,6 +218,11 @@ public sealed class SelfHealingEngine
                 }
 
                 await history.AppendAsync(entry, ct);
+                if (history.LastAppendFailed)
+                {
+                    log.Error($"History entry for {entry.CheckId} could not be saved.");
+                    NotifyHistoryFailure(settings);
+                }
                 if (NotificationDecider.ShouldNotify(settings.Notifications, entry) &&
                     ShouldNotifyAfterCooldown(settings, entry))
                 {
@@ -291,6 +297,24 @@ public sealed class SelfHealingEngine
 
         lastNotifications[key] = clock.UtcNow;
         return true;
+    }
+
+    private void NotifyHistoryFailure(TraySettings settings)
+    {
+        if (settings.Notifications == NotificationMode.None ||
+            (settings.NotificationCooldownMinutes > 0 &&
+             lastHistoryFailureNotifiedUtc != default &&
+             clock.UtcNow - lastHistoryFailureNotifiedUtc <
+             TimeSpan.FromMinutes(settings.NotificationCooldownMinutes)))
+        {
+            return;
+        }
+
+        notifier.Notify(new Notification(
+            localizer.Get("Notify.HistoryUnavailable.Title"),
+            localizer.Get("Notify.HistoryUnavailable.Message"),
+            HealthStatus.Warning));
+        lastHistoryFailureNotifiedUtc = clock.UtcNow;
     }
 
     private int CountRecentRepairAttempts(string checkId, DateTimeOffset sinceUtc)

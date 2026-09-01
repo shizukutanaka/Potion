@@ -89,15 +89,17 @@ public sealed class JsonSettingsStore : ISettingsStore
 {
     private readonly string path;
     private readonly ITrayLog log;
+    private readonly ITrayClock clock;
     private readonly JsonSerializerOptions options = CreateOptions();
 
-    public JsonSettingsStore(string? path = null, ITrayLog? log = null)
+    public JsonSettingsStore(string? path = null, ITrayLog? log = null, ITrayClock? clock = null)
     {
         this.path = path ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "Potion",
             "settings.json");
         this.log = log ?? new FileTrayLog();
+        this.clock = clock ?? new SystemTrayClock();
     }
 
     public TraySettings Load()
@@ -115,7 +117,31 @@ public sealed class JsonSettingsStore : ISettingsStore
         }
         catch (Exception ex)
         {
-            log.Warn("Unable to load settings; using defaults.", ex);
+            if (File.Exists(path))
+            {
+                var directory = Path.GetDirectoryName(path) ?? string.Empty;
+                var name = $"settings.invalid-{clock.UtcNow.ToString("yyyyMMddHHmmss", CultureInfo.InvariantCulture)}";
+                var invalidPath = Path.Combine(directory, $"{name}.json");
+                var suffix = 1;
+                while (File.Exists(invalidPath))
+                {
+                    invalidPath = Path.Combine(directory, $"{name}-{suffix++}.json");
+                }
+                try
+                {
+                    File.Move(path, invalidPath);
+                    log.Error($"Invalid settings file moved to '{invalidPath}'.", ex);
+                }
+                catch (Exception moveException)
+                {
+                    log.Error($"Unable to move invalid settings file to '{invalidPath}'.", moveException);
+                }
+            }
+            else
+            {
+                log.Warn("Unable to load settings; using defaults.", ex);
+            }
+
             return NewDefaults();
         }
     }
@@ -245,8 +271,11 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         pruneInterval = Math.Max(20, this.maxEntries / 10);
     }
 
+    public bool LastAppendFailed { get; private set; }
+
     public async Task AppendAsync(HistoryEntry entry, CancellationToken ct)
     {
+        LastAppendFailed = false;
         await gate.WaitAsync(ct);
         try
         {
@@ -277,7 +306,8 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            log.Warn("Unable to save history.", ex);
+            LastAppendFailed = true;
+            log.Error("Unable to save history.", ex);
         }
         finally
         {

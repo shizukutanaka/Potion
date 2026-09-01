@@ -97,8 +97,10 @@ internal sealed class FakeHistoryStore : IHistoryStore
     public List<HistoryEntry> Entries { get; } = new();
     public int Attempts { get; set; }
     public bool FailAppend { get; set; }
+    public bool LastAppendFailed { get; private set; }
     public Task AppendAsync(HistoryEntry entry, CancellationToken ct)
     {
+        LastAppendFailed = FailAppend;
         if (!FailAppend)
         {
             Entries.Add(entry);

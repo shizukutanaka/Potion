@@ -90,6 +90,24 @@
   <data name="Repair.DnsFlush.Failed">
     <value>Name resolution still fails after flushing the DNS cache</value>
   </data>
+  <data name="Notify.HistoryUnavailable.Title">
+    <value>History cannot be saved</value>
+  </data>
+  <data name="Notify.HistoryUnavailable.Message">
+    <value>Repairs continue, but Potion cannot write its history file. Check disk space and permissions.</value>
+  </data>
+  <data name="Notify.Welcome.Title">
+    <value>Potion is running</value>
+  </data>
+  <data name="Notify.Welcome.Message">
+    <value>Potion now runs in the notification area and checks this PC automatically. Double-click the icon to see what it did.</value>
+  </data>
+  <data name="Notify.AdminRequired.Title">
+    <value>Repairs are limited</value>
+  </data>
+  <data name="Notify.AdminRequired.Message">
+    <value>Without administrator rights Potion can detect problems but cannot repair them. Use "Restart as administrator" in the tray menu.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Automatic repair is disabled</value>
   </data>

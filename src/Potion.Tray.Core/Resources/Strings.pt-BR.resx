@@ -90,6 +90,24 @@
   <data name="Repair.DnsFlush.Failed">
     <value>A resolução de nomes continua falhando após limpar o cache DNS</value>
   </data>
+  <data name="Notify.HistoryUnavailable.Title">
+    <value>Não foi possível salvar o histórico</value>
+  </data>
+  <data name="Notify.HistoryUnavailable.Message">
+    <value>Os reparos continuam, mas o Potion não consegue gravar o arquivo de histórico. Verifique o espaço em disco e as permissões.</value>
+  </data>
+  <data name="Notify.Welcome.Title">
+    <value>O Potion está em execução</value>
+  </data>
+  <data name="Notify.Welcome.Message">
+    <value>O Potion agora é executado na área de notificação e verifica este PC automaticamente. Clique duas vezes no ícone para ver o que ele fez.</value>
+  </data>
+  <data name="Notify.AdminRequired.Title">
+    <value>Os reparos são limitados</value>
+  </data>
+  <data name="Notify.AdminRequired.Message">
+    <value>Sem direitos de administrador, o Potion pode detectar problemas, mas não pode repará-los. Use "Reiniciar como administrador" no menu da bandeja.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>O reparo automático está desativado</value>
   </data>

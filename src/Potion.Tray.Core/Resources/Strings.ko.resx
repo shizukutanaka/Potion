@@ -90,6 +90,24 @@
   <data name="Repair.DnsFlush.Failed">
     <value>DNS 캐시를 비운 후에도 이름 확인에 실패합니다</value>
   </data>
+  <data name="Notify.HistoryUnavailable.Title">
+    <value>기록을 저장할 수 없습니다</value>
+  </data>
+  <data name="Notify.HistoryUnavailable.Message">
+    <value>복구는 계속되지만 Potion에서 기록 파일에 쓸 수 없습니다. 디스크 공간과 권한을 확인하세요.</value>
+  </data>
+  <data name="Notify.Welcome.Title">
+    <value>Potion이 실행 중입니다</value>
+  </data>
+  <data name="Notify.Welcome.Message">
+    <value>Potion이 이제 알림 영역에서 실행되며 이 PC를 자동으로 검사합니다. 아이콘을 두 번 클릭하면 수행한 작업을 확인할 수 있습니다.</value>
+  </data>
+  <data name="Notify.AdminRequired.Title">
+    <value>복구가 제한됩니다</value>
+  </data>
+  <data name="Notify.AdminRequired.Message">
+    <value>관리자 권한이 없으면 Potion은 문제를 감지할 수 있지만 복구할 수 없습니다. 트레이 메뉴에서 "관리자 권한으로 다시 시작"을 사용하세요.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>자동 복구가 비활성화되었습니다</value>
   </data>

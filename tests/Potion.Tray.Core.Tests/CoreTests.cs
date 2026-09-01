@@ -475,6 +475,49 @@ public class EngineTests
     }
 
     [Fact]
+    public async Task HistoryAppendFailureNotifiesUser()
+    {
+        var history = new FakeHistoryStore { FailAppend = true };
+        var notifier = new RecordingNotifier();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                Notifications = NotificationMode.RepairsOnly,
+                AutoRepairEnabled = false
+            }
+        };
+        var engine = Engine(new DelegateHealthCheck("x", (_, _) =>
+                Task.FromResult<HealthFinding?>(Finding(status: HealthStatus.Warning))),
+            history, settings, notifier, new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "unused", Array.Empty<CommandExecution>()))) });
+
+        await engine.RunCycleAsync(default);
+
+        var notification = Assert.Single(notifier.Notifications);
+        Assert.Equal(new ResourceLocalizer().Get("Notify.HistoryUnavailable.Title"), notification.Title);
+    }
+
+    [Fact]
+    public async Task HistoryAppendFailureDoesNotNotifyWhenNotificationsDisabled()
+    {
+        var history = new FakeHistoryStore { FailAppend = true };
+        var notifier = new RecordingNotifier();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings { Notifications = NotificationMode.None, AutoRepairEnabled = false }
+        };
+        var engine = Engine(new DelegateHealthCheck("x", (_, _) =>
+                Task.FromResult<HealthFinding?>(Finding())),
+            history, settings, notifier, new FakeSystemInfoProvider(), new FakeClock());
+
+        await engine.RunCycleAsync(default);
+
+        Assert.Empty(notifier.Notifications);
+    }
+
+    [Fact]
     public async Task RepairedEntriesAreAlwaysAppended()
     {
         var history = new FakeHistoryStore();
@@ -901,7 +944,39 @@ public class StoreTests
         Assert.Equal(10, loaded.DiskCriticalPercent);
         File.WriteAllText(path, "{broken}");
         Assert.True(store.Load().AutoRepairEnabled);
-        Assert.NotEmpty(log.Warnings);
+        Assert.NotEmpty(log.Errors);
+    }
+
+    [Fact]
+    public void JsonSettingsStoreMovesBrokenJsonToInvalidBackup()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "settings.json");
+        const string broken = "{ this is not json }";
+        Directory.CreateDirectory(directory.Path);
+        File.WriteAllText(path, broken);
+        var clock = new FakeClock { UtcNow = new DateTimeOffset(2030, 1, 2, 3, 4, 5, TimeSpan.Zero) };
+
+        var settings = new JsonSettingsStore(path, new FakeLog(), clock).Load();
+
+        Assert.True(settings.AutoRepairEnabled);
+        Assert.False(File.Exists(path));
+        var backups = Directory.GetFiles(directory.Path, "settings.invalid-*.json");
+        var backup = Assert.Single(backups);
+        Assert.Equal(broken, File.ReadAllText(backup));
+    }
+
+    [Fact]
+    public void JsonSettingsStoreDoesNotCreateInvalidBackupWhenFileIsMissing()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "settings.json");
+        Directory.CreateDirectory(directory.Path);
+
+        var settings = new JsonSettingsStore(path, new FakeLog()).Load();
+
+        Assert.True(settings.AutoRepairEnabled);
+        Assert.Empty(Directory.GetFiles(directory.Path, "settings.invalid-*.json"));
     }
 
     private static HistoryEntry Entry(string id, HistoryOutcome outcome) =>
