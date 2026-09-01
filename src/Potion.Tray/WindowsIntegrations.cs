@@ -271,7 +271,7 @@ internal static class StartupRegistration
                 @"Software\Microsoft\Windows\CurrentVersion\Run");
             if (enabled)
             {
-                key?.SetValue("PotionTray", Application.ExecutablePath);
+                key?.SetValue("PotionTray", $"\"{Application.ExecutablePath}\"");
             }
             else
             {

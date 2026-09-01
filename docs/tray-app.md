@@ -45,10 +45,22 @@ Potion.Tray は、Windows の状態を定期的に点検し、許可された安
 
 ## ビルドと実行
 
+配布用には、.NET 8 Desktop Runtime が不要な self-contained 単一 exe を推奨します。
+
 ```bash
 dotnet build Potion.Tray.sln -c Release
+dotnet publish src/Potion.Tray -p:PublishProfile=win-x64
+```
+
+発行先の `win-x64` フォルダーにカルチャ別サテライトフォルダーが現れる場合もありますが、単一 exe と同じリソースの重複コピーです。`Potion.Tray.exe` だけを配布すれば9言語が利用できます。空白を含む任意のパス（例: `C:\Program Files\Potion\Potion.Tray.exe`）へ配置でき、初回起動時にユーザー単位の Windows スタートアップへ登録されます。
+
+開発者が .NET 8 Desktop Runtime を別途インストール済みの場合は、self-contained ではない発行も利用できます。
+
+```bash
 dotnet publish src/Potion.Tray -c Release -r win-x64 --self-contained false
 ```
+
+この形式では配布先に .NET 8 Desktop Runtime が必要です。
 
 ## CI で実行するコマンド
 

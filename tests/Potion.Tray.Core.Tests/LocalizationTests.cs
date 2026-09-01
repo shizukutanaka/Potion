@@ -60,6 +60,35 @@ public sealed class LocalizationTests
         }
     }
 
+    [Fact]
+    public void PublishProfileIncludesEverySatelliteCulture()
+    {
+        var root = FindRepositoryRoot();
+        var resourcesPath = Path.Combine(root, "src", "Potion.Tray.Core", "Resources");
+        var resourceCultures = Directory.GetFiles(resourcesPath, "Strings.*.resx")
+            .Select(Path.GetFileName)
+            .Where(name => name is not null)
+            .Select(name => name!["Strings.".Length..^".resx".Length])
+            .ToHashSet(StringComparer.Ordinal);
+
+        var profilePath = Path.Combine(
+            root,
+            "src",
+            "Potion.Tray",
+            "Properties",
+            "PublishProfiles",
+            "win-x64.pubxml");
+        var profile = System.Xml.Linq.XDocument.Load(profilePath);
+        var languages = profile.Descendants("SatelliteResourceLanguages")
+            .Single()
+            .Value
+            .Split(';', StringSplitOptions.RemoveEmptyEntries)
+            .ToHashSet(StringComparer.Ordinal);
+
+        languages.Remove("en");
+        Assert.Equal(resourceCultures, languages);
+    }
+
     private static HashSet<string> Keys(ResourceSet set) =>
         set.Cast<System.Collections.DictionaryEntry>()
             .Select(entry => (string)entry.Key)
@@ -70,4 +99,20 @@ public sealed class LocalizationTests
             .Select(match => match.Groups[1].Value)
             .OrderBy(index => index)
             .ToArray();
+
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "Potion.Tray.sln")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new DirectoryNotFoundException("Unable to locate the repository root.");
+    }
 }
