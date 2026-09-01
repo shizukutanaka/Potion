@@ -284,6 +284,7 @@ public sealed class PendingRebootHealthCheck : IHealthCheck
 
 public sealed class NetworkHealthCheck : IHealthCheck
 {
+    private static readonly TimeSpan DefaultRetryInterval = TimeSpan.FromSeconds(2);
     private readonly ISystemInfoProvider system;
     private readonly ILocalizer localizer;
     private readonly int maxAttempts;
@@ -298,9 +299,11 @@ public sealed class NetworkHealthCheck : IHealthCheck
         this.system = system;
         this.localizer = localizer;
         this.maxAttempts = Math.Max(1, maxAttempts);
-        this.retryInterval = retryInterval is { } interval && interval > TimeSpan.Zero
-            ? interval
-            : TimeSpan.Zero;
+        this.retryInterval = retryInterval is null
+            ? DefaultRetryInterval
+            : retryInterval.Value < TimeSpan.Zero
+                ? TimeSpan.Zero
+                : retryInterval.Value;
     }
     public NetworkHealthCheck(
         ISystemInfoProvider system,
