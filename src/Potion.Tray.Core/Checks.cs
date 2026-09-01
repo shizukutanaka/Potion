@@ -286,18 +286,55 @@ public sealed class NetworkHealthCheck : IHealthCheck
 {
     private readonly ISystemInfoProvider system;
     private readonly ILocalizer localizer;
+    private readonly int maxAttempts;
+    private readonly TimeSpan retryInterval;
 
-    public NetworkHealthCheck(ISystemInfoProvider system, ILocalizer localizer)
+    public NetworkHealthCheck(
+        ISystemInfoProvider system,
+        ILocalizer localizer,
+        int maxAttempts = 3,
+        TimeSpan? retryInterval = null)
     {
         this.system = system;
         this.localizer = localizer;
+        this.maxAttempts = Math.Max(1, maxAttempts);
+        this.retryInterval = retryInterval is { } interval && interval > TimeSpan.Zero
+            ? interval
+            : TimeSpan.Zero;
     }
-    public NetworkHealthCheck(ISystemInfoProvider system) : this(system, new ResourceLocalizer()) { }
+    public NetworkHealthCheck(
+        ISystemInfoProvider system,
+        int maxAttempts = 3,
+        TimeSpan? retryInterval = null)
+        : this(system, new ResourceLocalizer(), maxAttempts, retryInterval) { }
     public string Id => "network";
     public string DisplayName => localizer.Get("Check.Network.Title");
 
-    public async Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct) =>
-        !system.IsNetworkAvailable || await system.CanResolveDnsAsync(settings.DnsProbeHost, ct)
-            ? null
-            : new HealthFinding(Id, DisplayName, HealthStatus.Critical, localizer.Get("Check.Network.Detail"));
+    public async Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct)
+    {
+        if (!system.IsNetworkAvailable)
+        {
+            return null;
+        }
+
+        for (var attempt = 0; attempt < maxAttempts; attempt++)
+        {
+            if (!system.IsNetworkAvailable)
+            {
+                return null;
+            }
+
+            if (await system.CanResolveDnsAsync(settings.DnsProbeHost, ct))
+            {
+                return null;
+            }
+
+            if (attempt + 1 < maxAttempts)
+            {
+                await Task.Delay(retryInterval, ct);
+            }
+        }
+
+        return new HealthFinding(Id, DisplayName, HealthStatus.Critical, localizer.Get("Check.Network.Detail"));
+    }
 }

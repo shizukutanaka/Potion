@@ -249,9 +249,11 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
 
     public async Task<bool> CanResolveDnsAsync(string host, CancellationToken ct)
     {
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
         try
         {
-            await Dns.GetHostEntryAsync(host, ct);
+            await Dns.GetHostEntryAsync(host, timeoutCts.Token);
             return true;
         }
         catch (Exception) when (!ct.IsCancellationRequested)

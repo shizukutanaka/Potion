@@ -36,6 +36,8 @@ internal sealed class FakeSystemInfoProvider : ISystemInfoProvider
     public bool CanResolveDns { get; set; } = true;
     public bool IsNetworkAvailable { get; set; } = true;
     public int DnsCalls { get; private set; }
+    public Queue<bool> DnsResults { get; } = new();
+    public Action<int>? OnDnsCall { get; set; }
 
     public IReadOnlyList<DriveSnapshot> GetFixedDrives() => Drives;
     public MemorySnapshot GetMemory() => Memory;
@@ -47,7 +49,8 @@ internal sealed class FakeSystemInfoProvider : ISystemInfoProvider
     public Task<bool> CanResolveDnsAsync(string host, CancellationToken ct)
     {
         DnsCalls++;
-        return Task.FromResult(CanResolveDns);
+        OnDnsCall?.Invoke(DnsCalls);
+        return Task.FromResult(DnsResults.Count > 0 ? DnsResults.Dequeue() : CanResolveDns);
     }
 }
 

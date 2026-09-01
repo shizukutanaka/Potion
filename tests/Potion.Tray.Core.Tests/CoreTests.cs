@@ -170,8 +170,62 @@ public class HealthCheckTests
     public async Task NetworkHealthCheck_DnsFailureIsCritical()
     {
         var system = new FakeSystemInfoProvider { CanResolveDns = false };
-        var finding = await new NetworkHealthCheck(system).InspectAsync(new TraySettings(), default);
+        var finding = await new NetworkHealthCheck(
+            system,
+            maxAttempts: 3,
+            retryInterval: TimeSpan.Zero).InspectAsync(new TraySettings(), default);
         Assert.Equal(HealthStatus.Critical, finding!.Status);
+    }
+
+    [Fact]
+    public async Task NetworkHealthCheck_TransientDnsFailureIsIgnored()
+    {
+        var system = new FakeSystemInfoProvider();
+        system.DnsResults.Enqueue(false);
+        system.DnsResults.Enqueue(true);
+
+        var finding = await new NetworkHealthCheck(
+            system,
+            maxAttempts: 3,
+            retryInterval: TimeSpan.Zero).InspectAsync(new TraySettings(), default);
+
+        Assert.Null(finding);
+        Assert.Equal(2, system.DnsCalls);
+    }
+
+    [Fact]
+    public async Task NetworkHealthCheck_ThreeDnsFailuresAreCritical()
+    {
+        var system = new FakeSystemInfoProvider { CanResolveDns = false };
+
+        var finding = await new NetworkHealthCheck(
+            system,
+            maxAttempts: 3,
+            retryInterval: TimeSpan.Zero).InspectAsync(new TraySettings(), default);
+
+        Assert.Equal(HealthStatus.Critical, finding!.Status);
+        Assert.Equal(3, system.DnsCalls);
+    }
+
+    [Fact]
+    public async Task NetworkHealthCheck_LosingNetworkDuringRetryIsIgnored()
+    {
+        var system = new FakeSystemInfoProvider { CanResolveDns = false };
+        system.OnDnsCall = calls =>
+        {
+            if (calls == 1)
+            {
+                system.IsNetworkAvailable = false;
+            }
+        };
+
+        var finding = await new NetworkHealthCheck(
+            system,
+            maxAttempts: 3,
+            retryInterval: TimeSpan.Zero).InspectAsync(new TraySettings(), default);
+
+        Assert.Null(finding);
+        Assert.Equal(1, system.DnsCalls);
     }
 
     [Fact]
@@ -896,6 +950,54 @@ public class EngineTests
     }
 
     [Fact]
+    public async Task CanceledInspectionIsRetriedOnNextCycle()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings { CheckIntervalMinutes = new() { ["x"] = 10 } }
+        };
+        var calls = 0;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+        {
+            calls++;
+            return calls == 1
+                ? Task.FromException<HealthFinding?>(new OperationCanceledException())
+                : Task.FromResult<HealthFinding?>(null);
+        });
+        var engine = Engine(check, new FakeHistoryStore(), settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), clock);
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => engine.RunCycleAsync(default));
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(2, calls);
+    }
+
+    [Fact]
+    public async Task FailedInspectionIsNotRetriedWithinInterval()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings { CheckIntervalMinutes = new() { ["x"] = 10 } }
+        };
+        var calls = 0;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+        {
+            calls++;
+            throw new InvalidOperationException("bad");
+        });
+        var engine = Engine(check, new FakeHistoryStore(), settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), clock);
+
+        await engine.RunCycleAsync(default);
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
     public async Task CheckIntervalSkipsUntilElapsed()
     {
         var clock = new FakeClock();
@@ -942,6 +1044,90 @@ public class EngineTests
         Assert.Empty(result.Entries);
         Assert.Equal(0, calls);
         Assert.Equal(1, state.SaveCount);
+    }
+
+    [Fact]
+    public async Task LongIntervalCheckGetsInitialGracePeriod()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["component-store"] = 720 }
+            }
+        };
+        var state = new FakeCheckStateStore();
+        var calls = 0;
+        var check = new DelegateHealthCheck("component-store", (_, _) =>
+        {
+            calls++;
+            return Task.FromResult<HealthFinding?>(null);
+        });
+        var engine = Engine(check, new FakeHistoryStore(), settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), clock, checkState: state);
+
+        await engine.RunCycleAsync(default);
+        Assert.Equal(0, calls);
+
+        clock.UtcNow = clock.UtcNow.AddMinutes(30);
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(1, calls);
+    }
+
+    [Fact]
+    public async Task PersistedLongIntervalCheckDoesNotGetInitialGraceSeed()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["component-store"] = 720 }
+            }
+        };
+        var state = new FakeCheckStateStore();
+        state.State["component-store"] = clock.UtcNow.AddHours(-1);
+        var calls = 0;
+        var check = new DelegateHealthCheck("component-store", (_, _) =>
+        {
+            calls++;
+            return Task.FromResult<HealthFinding?>(null);
+        });
+        var engine = Engine(check, new FakeHistoryStore(), settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), clock, checkState: state);
+
+        await engine.RunCycleAsync(default);
+        clock.UtcNow = clock.UtcNow.AddMinutes(30);
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task ShortIntervalCheckRunsOnFirstCycle()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["x"] = 15 }
+            }
+        };
+        var calls = 0;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+        {
+            calls++;
+            return Task.FromResult<HealthFinding?>(null);
+        });
+        var engine = Engine(check, new FakeHistoryStore(), settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), clock, checkState: new FakeCheckStateStore());
+
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(1, calls);
     }
 
     [Fact]

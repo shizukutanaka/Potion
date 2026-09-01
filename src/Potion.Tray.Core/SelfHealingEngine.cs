@@ -8,6 +8,7 @@ namespace Potion.Tray.Core;
 public sealed class SelfHealingEngine
 {
     private static readonly TimeSpan ConsecutiveFailureWindow = TimeSpan.FromDays(7);
+    private static readonly TimeSpan InitialLongCheckGrace = TimeSpan.FromMinutes(30);
     private readonly IReadOnlyList<IHealthCheck> checks;
     private readonly IReadOnlyDictionary<string, IRepairAction> repairs;
     private readonly IHistoryStore history;
@@ -80,7 +81,7 @@ public sealed class SelfHealingEngine
         {
             var settings = settingsStore.Load();
             settings.Normalize();
-            LoadCheckState();
+            LoadCheckState(settings);
             SetState(EngineState.Scanning);
             var entries = new List<HistoryEntry>();
             foreach (var check in checks)
@@ -91,14 +92,15 @@ public sealed class SelfHealingEngine
                     continue;
                 }
 
-                lastInspections[check.Id] = clock.UtcNow;
                 HealthFinding? finding;
                 try
                 {
                     finding = await check.InspectAsync(settings, ct);
+                    lastInspections[check.Id] = clock.UtcNow;
                 }
                 catch (Exception ex) when (ex is not OperationCanceledException)
                 {
+                    lastInspections[check.Id] = clock.UtcNow;
                     log.Error($"Health check {check.DisplayName} failed with an exception.", ex);
                     continue;
                 }
@@ -292,7 +294,7 @@ public sealed class SelfHealingEngine
         }
     }
 
-    private void LoadCheckState()
+    private void LoadCheckState(TraySettings settings)
     {
         if (checkState is null || checkStateLoaded)
         {
@@ -310,6 +312,20 @@ public sealed class SelfHealingEngine
         catch (Exception ex)
         {
             log.Warn("Unable to load check state; continuing without persisted inspection times.", ex);
+        }
+
+        foreach (var check in checks)
+        {
+            if (!settings.CheckIntervalMinutes.TryGetValue(check.Id, out var minutes))
+            {
+                continue;
+            }
+
+            var interval = TimeSpan.FromMinutes(minutes);
+            if (interval > InitialLongCheckGrace && !lastInspections.ContainsKey(check.Id))
+            {
+                lastInspections[check.Id] = clock.UtcNow - (interval - InitialLongCheckGrace);
+            }
         }
     }
 
