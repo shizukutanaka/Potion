@@ -394,9 +394,10 @@ public class StoreTests
     {
         using var directory = new TempDirectory();
         using var store = new JsonlHistoryStore(Path.Combine(directory.Path, "history.jsonl"), maxEntries: 2, retentionDays: 90, compactionThreshold: 1);
-        await store.AppendAsync(Entry("1", HistoryOutcome.Detected), default);
-        await store.AppendAsync(Entry("2", HistoryOutcome.Detected), default);
-        await store.AppendAsync(Entry("3", HistoryOutcome.Detected), default);
+        foreach (var id in Enumerable.Range(1, 22))
+        {
+            await store.AppendAsync(Entry(id.ToString(), HistoryOutcome.Detected), default);
+        }
         Assert.Equal(2, (await store.ReadRecentAsync(10, default)).Count);
     }
 
@@ -409,6 +410,30 @@ public class StoreTests
         var old = Entry("old", HistoryOutcome.Detected) with { TimestampUtc = DateTimeOffset.UtcNow.AddDays(-91) };
         await store.AppendAsync(old, default);
         await store.AppendAsync(Entry("new", HistoryOutcome.Detected), default);
+        var entries = await store.ReadRecentAsync(10, default);
+        Assert.Single(entries);
+        Assert.Equal("new", entries[0].Id);
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreUsesInjectedClockForRetention()
+    {
+        using var directory = new TempDirectory();
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeClock { UtcNow = now };
+        using var store = new JsonlHistoryStore(
+            Path.Combine(directory.Path, "history.jsonl"),
+            maxEntries: 100,
+            retentionDays: 90,
+            compactionThreshold: 1,
+            clock: clock);
+        await store.AppendAsync(
+            Entry("old", HistoryOutcome.Detected) with { TimestampUtc = now.AddDays(-91) },
+            default);
+        await store.AppendAsync(
+            Entry("new", HistoryOutcome.Detected) with { TimestampUtc = now },
+            default);
+
         var entries = await store.ReadRecentAsync(10, default);
         Assert.Single(entries);
         Assert.Equal("new", entries[0].Id);

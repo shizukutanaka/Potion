@@ -8,6 +8,7 @@ namespace Potion.Tray;
 internal sealed class HistoryForm : Form
 {
     private readonly IHistoryStore history;
+    private readonly ITrayLog log;
     private readonly TraySettings settings;
     private readonly ILocalizer localizer;
     private readonly ListView list = new();
@@ -16,9 +17,10 @@ internal sealed class HistoryForm : Form
     private readonly Button refresh = new();
     private IReadOnlyList<HistoryEntry> entries = Array.Empty<HistoryEntry>();
 
-    public HistoryForm(IHistoryStore history, TraySettings settings, ILocalizer localizer)
+    public HistoryForm(IHistoryStore history, TraySettings settings, ILocalizer localizer, ITrayLog log)
     {
         this.history = history;
+        this.log = log;
         this.settings = settings;
         this.localizer = localizer;
         Text = localizer.Get("Ui.History.Title");
@@ -165,8 +167,8 @@ internal sealed class HistoryForm : Form
                 localizer.Get("Ui.History.Column.Severity"),
                 localizer.Get("Ui.History.Column.Result"),
                 localizer.Get("Ui.History.Column.Summary"),
-                localizer.Get("Ui.History.Detail.RepairSummary").Split(':')[0],
-                localizer.Get("Ui.History.Detail.SkipReason").Split(':')[0]
+                localizer.Get("Ui.History.Column.RepairSummary"),
+                localizer.Get("Ui.History.Column.SkipReason")
             }.Select(EscapeCsv)));
             foreach (var entry in entries.Where(MatchesFilter))
             {
@@ -184,8 +186,15 @@ internal sealed class HistoryForm : Form
 
             File.WriteAllText(dialog.FileName, builder.ToString(), new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
         }
-        catch
+        catch (Exception ex)
         {
+            log.Warn("Unable to export history CSV.", ex);
+            MessageBox.Show(
+                this,
+                localizer.Get("Ui.History.ExportFailed"),
+                Text,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Warning);
         }
     }
 
@@ -201,7 +210,7 @@ internal sealed class HistoryForm : Form
     {
         HealthStatus.Critical => localizer.Get("Status.Critical"),
         HealthStatus.Warning => localizer.Get("Status.Warning"),
-        _ => localizer.Get("Status.Idle")
+        _ => localizer.Get("Status.Healthy")
     };
 
     private string OutcomeText(HistoryOutcome outcome) => outcome switch
@@ -220,6 +229,7 @@ internal sealed class SettingsForm : Form
     private readonly ITrayLog log;
     private readonly ILocalizer localizer;
     private readonly TraySettings settings;
+    private readonly string initialUiCulture;
     private readonly CheckBox autoRepair = new() { AutoSize = true };
     private readonly ComboBox notifications = new();
     private readonly NumericUpDown scanInterval = Numeric(1, 1440);
@@ -243,6 +253,7 @@ internal sealed class SettingsForm : Form
         this.log = log;
         this.localizer = localizer;
         settings = store.Load().Clone();
+        initialUiCulture = settings.UiCulture;
         Text = localizer.Get("Ui.Settings.Title");
         Width = 620;
         Height = 650;
@@ -260,7 +271,7 @@ internal sealed class SettingsForm : Form
         language.Items.Add(localizer.Get("Ui.Settings.AutomaticLanguage"));
         foreach (var culture in SupportedCultures)
         {
-            language.Items.Add(CultureInfo.GetCultureInfo(culture).NativeName);
+            language.Items.Add(localizer.Get($"Ui.Settings.LanguageName.{culture}"));
         }
         autoRepair.Text = localizer.Get("Ui.Settings.AutoRepair");
         startup.Text = localizer.Get("Ui.Settings.Startup");
@@ -354,7 +365,7 @@ internal sealed class SettingsForm : Form
         settings.Normalize();
         store.Save(settings);
         StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
-        if (settings.UiCulture != CultureInfo.CurrentUICulture.Name)
+        if (!string.Equals(settings.UiCulture, initialUiCulture, StringComparison.OrdinalIgnoreCase))
         {
             MessageBox.Show(this, localizer.Get("Ui.Settings.RestartNotice"), Text, MessageBoxButtons.OK, MessageBoxIcon.Information);
         }

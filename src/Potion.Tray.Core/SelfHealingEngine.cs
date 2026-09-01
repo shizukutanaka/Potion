@@ -81,7 +81,7 @@ public sealed class SelfHealingEngine
                 }
                 catch (Exception ex)
                 {
-                    log.Error($"点検 {check.DisplayName} で例外が発生しました。", ex);
+                    log.Error($"Health check {check.DisplayName} failed with an exception.", ex);
                     continue;
                 }
 
@@ -131,7 +131,7 @@ public sealed class SelfHealingEngine
                     }
                     catch (Exception ex)
                     {
-                        log.Error($"修復 {repair.DisplayName} で例外が発生しました。", ex);
+                        log.Error($"Repair action {repair.DisplayName} failed with an exception.", ex);
                         repairOutcome = new RepairOutcome(false, ex.Message, Array.Empty<CommandExecution>());
                         outcome = HistoryOutcome.RepairFailed;
                     }
@@ -186,7 +186,9 @@ public sealed class SelfHealingEngine
     private static string BuildMessage(HistoryEntry entry)
     {
         var suffix = entry.RepairSummary ?? entry.SkipReason ?? entry.Detail;
-        return $"{entry.Detail}\n{suffix}";
+        return suffix is null || string.Equals(suffix, entry.Detail, StringComparison.Ordinal)
+            ? entry.Detail
+            : $"{entry.Detail}\n{suffix}";
     }
 
     private void SetState(EngineState value)

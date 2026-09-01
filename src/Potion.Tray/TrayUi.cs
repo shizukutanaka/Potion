@@ -114,7 +114,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
         scanTimer.Dispose();
         engine.StateChanged -= EngineOnStateChanged;
         notifyIcon.Visible = false;
+        var icon = notifyIcon.Icon;
+        notifyIcon.Icon = null;
         notifyIcon.Dispose();
+        icon?.Dispose();
         shutdown.Dispose();
         if (history is IDisposable disposable)
         {
@@ -191,7 +194,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowHistory()
     {
-        using var form = new HistoryForm(history, settingsStore.Load(), localizer);
+        using var form = new HistoryForm(history, settingsStore.Load(), localizer, log);
         form.ShowDialog();
     }
 
@@ -249,18 +252,17 @@ internal static class IconFactory
 internal sealed class BalloonNotifier : INotifier
 {
     private NotifyIcon? notifyIcon;
-    private readonly SynchronizationContext context;
+    private SynchronizationContext? context;
 
-    public BalloonNotifier()
+    public void Attach(NotifyIcon icon)
     {
-        context = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
+        notifyIcon = icon;
+        context ??= SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
     }
-
-    public void Attach(NotifyIcon icon) => notifyIcon = icon;
 
     public void Notify(Notification notification)
     {
-        context.Post(_ =>
+        (context ??= SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext()).Post(_ =>
         {
             if (notifyIcon is null)
             {

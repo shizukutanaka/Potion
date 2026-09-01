@@ -39,7 +39,10 @@ public sealed class DiskSpaceRepair : IRepairAction
         var actions = new List<string>();
         if (cleanup.FilesDeleted > 0)
         {
-            actions.Add(localizer.Format("Repair.DiskSpace.FilesSummary", cleanup.FilesDeleted, FormatGb(cleanup.BytesFreed)));
+            actions.Add(localizer.Format(
+                "Repair.DiskSpace.FilesSummary",
+                cleanup.FilesDeleted,
+                ByteFormatter.Gigabytes(cleanup.BytesFreed, localizer)));
         }
 
         if (componentCleanup is { ExitCode: 0 })
@@ -49,18 +52,15 @@ public sealed class DiskSpaceRepair : IRepairAction
 
         var summary = actions.Count == 0
             ? localizer.Get("Repair.DiskSpace.NoneSummary")
-            : string.Join(", ", actions);
+            : string.Join(localizer.Get("Format.ListSeparator"), actions);
         return new RepairOutcome(
             cleanup.FilesDeleted > 0 || componentCleanup is { ExitCode: 0 },
             summary,
             componentCleanup is null
                 ? Array.Empty<CommandExecution>()
-                : new[] { ToExecution("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup" }, componentCleanup) });
+                : new[] { CommandExecutionFactory.Create("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup" }, componentCleanup) });
     }
 
-    private static string FormatGb(long bytes) => $"{bytes / (1024d * 1024d * 1024d):0.0} GB";
-    private static CommandExecution ToExecution(string fileName, IReadOnlyList<string> args, ProcessRunResult result) =>
-        new(fileName, string.Join(" ", args), result.ExitCode, result.Duration, result.StandardOutput, result.StandardError);
 }
 
 public sealed class ServiceRestartRepair : IRepairAction
@@ -94,7 +94,7 @@ public sealed class ServiceRestartRepair : IRepairAction
         {
             var args = new[] { "start", service.Name };
             var result = await processRunner.RunAsync("sc.exe", args, TimeSpan.FromMinutes(2), ct);
-            commands.Add(ToExecution("sc.exe", args, result));
+            commands.Add(CommandExecutionFactory.Create("sc.exe", args, result));
             if (result.ExitCode == 0 || result.ExitCode == 1056)
             {
                 successful.Add(service.Name);
@@ -107,13 +107,11 @@ public sealed class ServiceRestartRepair : IRepairAction
 
         var summary = localizer.Format(
             "Repair.ServiceRestart.Summary",
-            successful.Count == 0 ? localizer.Get("Ui.History.Detail.None") : string.Join(", ", successful),
-            failed.Count == 0 ? localizer.Get("Ui.History.Detail.None") : string.Join(", ", failed));
+            successful.Count == 0 ? localizer.Get("Ui.History.Detail.None") : string.Join(localizer.Get("Format.ListSeparator"), successful),
+            failed.Count == 0 ? localizer.Get("Ui.History.Detail.None") : string.Join(localizer.Get("Format.ListSeparator"), failed));
         return new RepairOutcome(failed.Count == 0, summary, commands);
     }
 
-    private static CommandExecution ToExecution(string fileName, IReadOnlyList<string> args, ProcessRunResult result) =>
-        new(fileName, string.Join(" ", args), result.ExitCode, result.Duration, result.StandardOutput, result.StandardError);
 }
 
 public sealed class ComponentStoreRepair : IRepairAction
@@ -136,7 +134,7 @@ public sealed class ComponentStoreRepair : IRepairAction
         var commands = new List<CommandExecution>();
         var restoreArgs = new[] { "/Online", "/Cleanup-Image", "/RestoreHealth" };
         var restore = await processRunner.RunAsync("DISM.exe", restoreArgs, TimeSpan.FromMinutes(60), ct);
-        commands.Add(ToExecution("DISM.exe", restoreArgs, restore));
+        commands.Add(CommandExecutionFactory.Create("DISM.exe", restoreArgs, restore));
         if (restore.ExitCode != 0)
         {
             return new RepairOutcome(false, localizer.Get("Repair.ComponentStore.RestoreFailed"), commands);
@@ -144,7 +142,7 @@ public sealed class ComponentStoreRepair : IRepairAction
 
         var sfcArgs = new[] { "/scannow" };
         var sfc = await processRunner.RunAsync("sfc.exe", sfcArgs, TimeSpan.FromMinutes(60), ct);
-        commands.Add(ToExecution("sfc.exe", sfcArgs, sfc));
+        commands.Add(CommandExecutionFactory.Create("sfc.exe", sfcArgs, sfc));
         return new RepairOutcome(
             sfc.ExitCode == 0,
             sfc.ExitCode == 0
@@ -153,8 +151,6 @@ public sealed class ComponentStoreRepair : IRepairAction
             commands);
     }
 
-    private static CommandExecution ToExecution(string fileName, IReadOnlyList<string> args, ProcessRunResult result) =>
-        new(fileName, string.Join(" ", args), result.ExitCode, result.Duration, result.StandardOutput, result.StandardError);
 }
 
 public sealed class DnsFlushRepair : IRepairAction
@@ -186,6 +182,6 @@ public sealed class DnsFlushRepair : IRepairAction
             success
                 ? localizer.Get("Repair.DnsFlush.Success")
                 : localizer.Get("Repair.DnsFlush.Failed"),
-            new[] { new CommandExecution("ipconfig.exe", "/flushdns", result.ExitCode, result.Duration, result.StandardOutput, result.StandardError) });
+            new[] { CommandExecutionFactory.Create("ipconfig.exe", args, result) });
     }
 }

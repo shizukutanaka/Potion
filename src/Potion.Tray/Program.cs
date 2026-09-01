@@ -20,17 +20,23 @@ internal static class Program
 
         ApplicationConfiguration.Initialize();
         var log = new FileTrayLog();
-        Application.ThreadException += (_, args) => log.Error("UI で未処理例外が発生しました。", args.Exception);
+        Application.ThreadException += (_, args) => log.Error("An unhandled UI exception occurred.", args.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
-            log.Error("未処理例外が発生しました。", args.ExceptionObject as Exception);
+            log.Error("An unhandled exception occurred.", args.ExceptionObject as Exception);
 
         var settingsStore = new JsonSettingsStore(log: log);
         var settings = settingsStore.Load();
         if (!string.IsNullOrWhiteSpace(settings.UiCulture))
         {
-            var culture = CultureInfo.GetCultureInfo(settings.UiCulture);
-            CultureInfo.DefaultThreadCurrentUICulture = culture;
-            CultureInfo.DefaultThreadCurrentCulture = culture;
+            try
+            {
+                var culture = CultureInfo.GetCultureInfo(settings.UiCulture);
+                CultureInfo.DefaultThreadCurrentUICulture = culture;
+                CultureInfo.DefaultThreadCurrentCulture = culture;
+            }
+            catch (CultureNotFoundException)
+            {
+            }
         }
         var localizer = new ResourceLocalizer();
         var system = new WindowsSystemInfoProvider();

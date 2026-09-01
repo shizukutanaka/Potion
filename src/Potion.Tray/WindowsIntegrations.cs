@@ -104,7 +104,11 @@ internal sealed class WindowsTempFileCleaner : ITempFileCleaner
         var filesDeleted = 0;
         long bytesFreed = 0;
         var cutoff = DateTime.UtcNow.AddHours(-24);
-        var roots = new[] { Path.GetTempPath(), @"C:\Windows\Temp" };
+        var roots = new[]
+        {
+            Path.GetTempPath(),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Windows), "Temp")
+        };
         foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
         {
             if (!Directory.Exists(root))
@@ -171,7 +175,7 @@ internal static class StartupRegistration
         }
         catch (Exception ex)
         {
-            log.Warn("Windows 起動時の設定を変更できませんでした。", ex);
+            log.Warn("Unable to update Windows startup registration.", ex);
         }
     }
 }
@@ -195,7 +199,7 @@ internal static class AdministratorRestart
         }
         catch (Exception ex)
         {
-            log.Warn("管理者として再起動できませんでした。", ex);
+            log.Warn("Unable to restart as administrator.", ex);
         }
     }
 }

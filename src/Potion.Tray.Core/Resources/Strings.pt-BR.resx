@@ -1,7 +1,342 @@
-<?xml version="1.0" encoding="utf-8"?><root><resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader><resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
-<data name="Check.DiskSpace.Title"><value>Espaço em disco</value></data><data name="Check.DiskSpace.Detail"><value>{0} livre {1} / {2} ({3}%)</value></data><data name="Check.CriticalServices.Title"><value>Serviços críticos</value></data><data name="Check.CriticalServices.Detail"><value>Serviços parados: {0}</value></data><data name="Check.ComponentStore.Title"><value>Armazenamento de componentes</value></data><data name="Check.ComponentStore.Detail"><value>Corrupção reparável detectada no armazenamento de componentes</value></data><data name="Check.MemoryPressure.Title"><value>Pressão de memória</value></data><data name="Check.MemoryPressure.Detail"><value>A memória disponível está baixa ({0}%)</value></data><data name="Check.PendingReboot.Title"><value>Reinicialização pendente</value></data><data name="Check.PendingReboot.Detail"><value>É necessário reiniciar o Windows</value></data><data name="Check.Network.Title"><value>Rede</value></data><data name="Check.Network.Detail"><value>Falha na resolução de nomes (possível problema de DNS)</value></data>
-<data name="Repair.DiskSpace.Title"><value>Limpar espaço em disco</value></data><data name="Repair.DiskSpace.FilesSummary"><value>{0} arquivos temporários / {1} liberados</value></data><data name="Repair.DiskSpace.ComponentSummary"><value>limpeza do armazenamento de componentes concluída</value></data><data name="Repair.DiskSpace.NoneSummary"><value>Nenhum item para limpar foi encontrado</value></data><data name="Repair.ServiceRestart.Title"><value>Reiniciar serviços críticos</value></data><data name="Repair.ServiceRestart.Summary"><value>Sucesso: {0}; Falha: {1}</value></data><data name="Repair.ComponentStore.Title"><value>Reparar armazenamento de componentes</value></data><data name="Repair.ComponentStore.RestoreFailed"><value>Falha ao reparar o armazenamento de componentes</value></data><data name="Repair.ComponentStore.Success"><value>O armazenamento de componentes e os arquivos do sistema foram reparados</value></data><data name="Repair.ComponentStore.SfcFailed"><value>Falha ao reparar os arquivos do sistema</value></data><data name="Repair.DnsFlush.Title"><value>Limpar cache DNS</value></data><data name="Repair.DnsFlush.Success"><value>Cache DNS limpo e resolução de nomes verificada</value></data><data name="Repair.DnsFlush.Failed"><value>A resolução de nomes continua falhando após limpar o cache DNS</value></data>
-<data name="Skip.AutoRepairDisabled"><value>O reparo automático está desativado</value></data><data name="Skip.DryRun"><value>Não executado porque o modo de simulação está ativo</value></data><data name="Skip.AdminRequired"><value>São necessários privilégios de administrador</value></data><data name="Skip.DailyLimit"><value>O limite diário de tentativas de reparo foi atingido</value></data><data name="Status.Idle"><value>Normal</value></data><data name="Status.Scanning"><value>Verificando</value></data><data name="Status.Repairing"><value>Reparando</value></data><data name="Status.Warning"><value>Avisos detectados</value></data><data name="Status.Critical"><value>Problemas críticos detectados</value></data><data name="Outcome.Detected"><value>Detectado</value></data><data name="Outcome.Repaired"><value>Reparado</value></data><data name="Outcome.RepairFailed"><value>Falha no reparo</value></data><data name="Outcome.Skipped"><value>Ignorado</value></data><data name="Outcome.ManualActionRequired"><value>Ação necessária</value></data>
-<data name="Ui.Menu.ScanNow"><value>Verificar agora</value></data><data name="Ui.Menu.History"><value>Histórico de reparos…</value></data><data name="Ui.Menu.Settings"><value>Configurações…</value></data><data name="Ui.Menu.AutoRepair"><value>Ativar reparo automático</value></data><data name="Ui.Menu.Notifications"><value>Notificações</value></data><data name="Ui.Menu.AllNotifications"><value>Todas as notificações</value></data><data name="Ui.Menu.RepairsOnly"><value>Apenas reparos</value></data><data name="Ui.Menu.FailuresOnly"><value>Apenas falhas</value></data><data name="Ui.Menu.NoNotifications"><value>Sem notificações</value></data><data name="Ui.Menu.RestartAsAdmin"><value>Reiniciar como administrador</value></data><data name="Ui.Menu.Exit"><value>Sair</value></data>
-<data name="Ui.History.Title"><value>Histórico de reparos</value></data><data name="Ui.History.Filter"><value>Resultado:</value></data><data name="Ui.History.All"><value>Todos</value></data><data name="Ui.History.Repaired"><value>Reparados</value></data><data name="Ui.History.Failed"><value>Falhas</value></data><data name="Ui.History.Skipped"><value>Ignorados</value></data><data name="Ui.History.Manual"><value>Ação necessária</value></data><data name="Ui.History.Refresh"><value>Atualizar</value></data><data name="Ui.History.Export"><value>Exportar CSV</value></data><data name="Ui.History.Column.Timestamp"><value>Data e hora (local)</value></data><data name="Ui.History.Column.Target"><value>Destino</value></data><data name="Ui.History.Column.Severity"><value>Gravidade</value></data><data name="Ui.History.Column.Result"><value>Resultado</value></data><data name="Ui.History.Column.Summary"><value>Resumo</value></data><data name="Ui.History.Empty"><value>Nenhum histórico ainda</value></data><data name="Ui.History.Detail.Result"><value>Resultado: {0}</value></data><data name="Ui.History.Detail.Duration"><value>Duração: {0}</value></data><data name="Ui.History.Detail.RepairSummary"><value>Resumo do reparo: {0}</value></data><data name="Ui.History.Detail.SkipReason"><value>Motivo do ignorado: {0}</value></data><data name="Ui.History.Detail.None"><value>Nenhum</value></data><data name="Ui.History.Detail.Command"><value>Comando: {0} {1}</value></data><data name="Ui.History.Detail.ExitCode"><value>Código de saída: {0} / Duração: {1}</value></data><data name="Ui.History.Detail.StdOut"><value>Final da saída padrão: {0}</value></data><data name="Ui.History.Detail.StdErr"><value>Final do erro padrão: {0}</value></data>
-<data name="Ui.Settings.Title"><value>Configurações</value></data><data name="Ui.Settings.AutoRepair"><value>Reparo automático</value></data><data name="Ui.Settings.NotificationMode"><value>Modo de notificação</value></data><data name="Ui.Settings.ScanInterval"><value>Intervalo de verificação (minutos)</value></data><data name="Ui.Settings.Startup"><value>Iniciar com o Windows</value></data><data name="Ui.Settings.DryRun"><value>Simulação</value></data><data name="Ui.Settings.DiskWarn"><value>Limite de alerta de disco (%)</value></data><data name="Ui.Settings.DiskCritical"><value>Limite crítico de disco (%)</value></data><data name="Ui.Settings.MemoryWarn"><value>Limite de alerta de memória (%)</value></data><data name="Ui.Settings.Attempts"><value>Limite diário de tentativas</value></data><data name="Ui.Settings.HistoryMax"><value>Máximo de entradas do histórico</value></data><data name="Ui.Settings.Retention"><value>Retenção do histórico (dias)</value></data><data name="Ui.Settings.ComponentCleanup"><value>Permitir limpeza do armazenamento</value></data><data name="Ui.Settings.Services"><value>Serviços monitorados (um por linha)</value></data><data name="Ui.Settings.EnabledChecks"><value>Verificações ativas</value></data><data name="Ui.Settings.Language"><value>Idioma</value></data><data name="Ui.Settings.AutomaticLanguage"><value>Automático (configuração do sistema)</value></data><data name="Ui.Settings.Save"><value>Salvar</value></data><data name="Ui.Settings.Cancel"><value>Cancelar</value></data><data name="Ui.Settings.RestartNotice"><value>As alterações de idioma serão aplicadas após reiniciar o aplicativo.</value></data><data name="Ui.Settings.LanguageName.en"><value>English</value></data><data name="Ui.Settings.LanguageName.ja"><value>日本語</value></data><data name="Ui.Settings.LanguageName.zh-Hans"><value>简体中文</value></data><data name="Ui.Settings.LanguageName.ko"><value>한국어</value></data><data name="Ui.Settings.LanguageName.es"><value>Español</value></data><data name="Ui.Settings.LanguageName.fr"><value>Français</value></data><data name="Ui.Settings.LanguageName.de"><value>Deutsch</value></data><data name="Ui.Settings.LanguageName.pt-BR"><value>Português (Brasil)</value></data><data name="Ui.Settings.LanguageName.ru"><value>Русский</value></data></root>
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Check.DiskSpace.Title">
+    <value>Espaço em disco</value>
+  </data>
+  <data name="Check.DiskSpace.Detail">
+    <value>{0} livre {1} / {2} ({3}%)</value>
+  </data>
+  <data name="Check.CriticalServices.Title">
+    <value>Serviços críticos</value>
+  </data>
+  <data name="Check.CriticalServices.Detail">
+    <value>Serviços parados: {0}</value>
+  </data>
+  <data name="Check.ComponentStore.Title">
+    <value>Armazenamento de componentes</value>
+  </data>
+  <data name="Check.ComponentStore.Detail">
+    <value>Corrupção reparável detectada no armazenamento de componentes</value>
+  </data>
+  <data name="Check.MemoryPressure.Title">
+    <value>Pressão de memória</value>
+  </data>
+  <data name="Check.MemoryPressure.Detail">
+    <value>A memória disponível está baixa ({0}%)</value>
+  </data>
+  <data name="Check.PendingReboot.Title">
+    <value>Reinicialização pendente</value>
+  </data>
+  <data name="Check.PendingReboot.Detail">
+    <value>É necessário reiniciar o Windows</value>
+  </data>
+  <data name="Check.Network.Title">
+    <value>Rede</value>
+  </data>
+  <data name="Check.Network.Detail">
+    <value>Falha na resolução de nomes (possível problema de DNS)</value>
+  </data>
+  <data name="Repair.DiskSpace.Title">
+    <value>Limpar espaço em disco</value>
+  </data>
+  <data name="Repair.DiskSpace.FilesSummary">
+    <value>{0} arquivos temporários / {1} liberados</value>
+  </data>
+  <data name="Repair.DiskSpace.ComponentSummary">
+    <value>limpeza do armazenamento de componentes concluída</value>
+  </data>
+  <data name="Repair.DiskSpace.NoneSummary">
+    <value>Nenhum item para limpar foi encontrado</value>
+  </data>
+  <data name="Repair.ServiceRestart.Title">
+    <value>Reiniciar serviços críticos</value>
+  </data>
+  <data name="Repair.ServiceRestart.Summary">
+    <value>Sucesso: {0}; Falha: {1}</value>
+  </data>
+  <data name="Repair.ComponentStore.Title">
+    <value>Reparar armazenamento de componentes</value>
+  </data>
+  <data name="Repair.ComponentStore.RestoreFailed">
+    <value>Falha ao reparar o armazenamento de componentes</value>
+  </data>
+  <data name="Repair.ComponentStore.Success">
+    <value>O armazenamento de componentes e os arquivos do sistema foram reparados</value>
+  </data>
+  <data name="Repair.ComponentStore.SfcFailed">
+    <value>Falha ao reparar os arquivos do sistema</value>
+  </data>
+  <data name="Repair.DnsFlush.Title">
+    <value>Limpar cache DNS</value>
+  </data>
+  <data name="Repair.DnsFlush.Success">
+    <value>Cache DNS limpo e resolução de nomes verificada</value>
+  </data>
+  <data name="Repair.DnsFlush.Failed">
+    <value>A resolução de nomes continua falhando após limpar o cache DNS</value>
+  </data>
+  <data name="Skip.AutoRepairDisabled">
+    <value>O reparo automático está desativado</value>
+  </data>
+  <data name="Skip.DryRun">
+    <value>Não executado porque o modo de simulação está ativo</value>
+  </data>
+  <data name="Skip.AdminRequired">
+    <value>São necessários privilégios de administrador</value>
+  </data>
+  <data name="Skip.DailyLimit">
+    <value>O limite diário de tentativas de reparo foi atingido</value>
+  </data>
+  <data name="Status.Idle">
+    <value>Normal</value>
+  </data>
+  <data name="Status.Scanning">
+    <value>Verificando</value>
+  </data>
+  <data name="Status.Repairing">
+    <value>Reparando</value>
+  </data>
+  <data name="Status.Warning">
+    <value>Avisos detectados</value>
+  </data>
+  <data name="Status.Critical">
+    <value>Problemas críticos detectados</value>
+  </data>
+  <data name="Outcome.Detected">
+    <value>Detectado</value>
+  </data>
+  <data name="Outcome.Repaired">
+    <value>Reparado</value>
+  </data>
+  <data name="Outcome.RepairFailed">
+    <value>Falha no reparo</value>
+  </data>
+  <data name="Outcome.Skipped">
+    <value>Ignorado</value>
+  </data>
+  <data name="Outcome.ManualActionRequired">
+    <value>Ação necessária</value>
+  </data>
+  <data name="Ui.Menu.ScanNow">
+    <value>Verificar agora</value>
+  </data>
+  <data name="Ui.Menu.History">
+    <value>Histórico de reparos…</value>
+  </data>
+  <data name="Ui.Menu.Settings">
+    <value>Configurações…</value>
+  </data>
+  <data name="Ui.Menu.AutoRepair">
+    <value>Ativar reparo automático</value>
+  </data>
+  <data name="Ui.Menu.Notifications">
+    <value>Notificações</value>
+  </data>
+  <data name="Ui.Menu.AllNotifications">
+    <value>Todas as notificações</value>
+  </data>
+  <data name="Ui.Menu.RepairsOnly">
+    <value>Apenas reparos</value>
+  </data>
+  <data name="Ui.Menu.FailuresOnly">
+    <value>Apenas falhas</value>
+  </data>
+  <data name="Ui.Menu.NoNotifications">
+    <value>Sem notificações</value>
+  </data>
+  <data name="Ui.Menu.RestartAsAdmin">
+    <value>Reiniciar como administrador</value>
+  </data>
+  <data name="Ui.Menu.Exit">
+    <value>Sair</value>
+  </data>
+  <data name="Ui.History.Title">
+    <value>Histórico de reparos</value>
+  </data>
+  <data name="Ui.History.Filter">
+    <value>Resultado:</value>
+  </data>
+  <data name="Ui.History.All">
+    <value>Todos</value>
+  </data>
+  <data name="Ui.History.Repaired">
+    <value>Reparados</value>
+  </data>
+  <data name="Ui.History.Failed">
+    <value>Falhas</value>
+  </data>
+  <data name="Ui.History.Skipped">
+    <value>Ignorados</value>
+  </data>
+  <data name="Ui.History.Manual">
+    <value>Ação necessária</value>
+  </data>
+  <data name="Ui.History.Refresh">
+    <value>Atualizar</value>
+  </data>
+  <data name="Ui.History.Export">
+    <value>Exportar CSV</value>
+  </data>
+  <data name="Ui.History.Column.Timestamp">
+    <value>Data e hora (local)</value>
+  </data>
+  <data name="Ui.History.Column.Target">
+    <value>Destino</value>
+  </data>
+  <data name="Ui.History.Column.Severity">
+    <value>Gravidade</value>
+  </data>
+  <data name="Ui.History.Column.Result">
+    <value>Resultado</value>
+  </data>
+  <data name="Ui.History.Column.Summary">
+    <value>Resumo</value>
+  </data>
+  <data name="Ui.History.Empty">
+    <value>Nenhum histórico ainda</value>
+  </data>
+  <data name="Ui.History.Detail.Result">
+    <value>Resultado: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.Duration">
+    <value>Duração: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.RepairSummary">
+    <value>Resumo do reparo: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.SkipReason">
+    <value>Motivo do ignorado: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.None">
+    <value>Nenhum</value>
+  </data>
+  <data name="Ui.History.Detail.Command">
+    <value>Comando: {0} {1}</value>
+  </data>
+  <data name="Ui.History.Detail.ExitCode">
+    <value>Código de saída: {0} / Duração: {1}</value>
+  </data>
+  <data name="Ui.History.Detail.StdOut">
+    <value>Final da saída padrão: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.StdErr">
+    <value>Final do erro padrão: {0}</value>
+  </data>
+  <data name="Ui.Settings.Title">
+    <value>Configurações</value>
+  </data>
+  <data name="Ui.Settings.AutoRepair">
+    <value>Reparo automático</value>
+  </data>
+  <data name="Ui.Settings.NotificationMode">
+    <value>Modo de notificação</value>
+  </data>
+  <data name="Ui.Settings.ScanInterval">
+    <value>Intervalo de verificação (minutos)</value>
+  </data>
+  <data name="Ui.Settings.Startup">
+    <value>Iniciar com o Windows</value>
+  </data>
+  <data name="Ui.Settings.DryRun">
+    <value>Simulação</value>
+  </data>
+  <data name="Ui.Settings.DiskWarn">
+    <value>Limite de alerta de disco (%)</value>
+  </data>
+  <data name="Ui.Settings.DiskCritical">
+    <value>Limite crítico de disco (%)</value>
+  </data>
+  <data name="Ui.Settings.MemoryWarn">
+    <value>Limite de alerta de memória (%)</value>
+  </data>
+  <data name="Ui.Settings.Attempts">
+    <value>Limite diário de tentativas</value>
+  </data>
+  <data name="Ui.Settings.HistoryMax">
+    <value>Máximo de entradas do histórico</value>
+  </data>
+  <data name="Ui.Settings.Retention">
+    <value>Retenção do histórico (dias)</value>
+  </data>
+  <data name="Ui.Settings.ComponentCleanup">
+    <value>Permitir limpeza do armazenamento</value>
+  </data>
+  <data name="Ui.Settings.Services">
+    <value>Serviços monitorados (um por linha)</value>
+  </data>
+  <data name="Ui.Settings.EnabledChecks">
+    <value>Verificações ativas</value>
+  </data>
+  <data name="Ui.Settings.Language">
+    <value>Idioma</value>
+  </data>
+  <data name="Ui.Settings.AutomaticLanguage">
+    <value>Automático (configuração do sistema)</value>
+  </data>
+  <data name="Ui.Settings.Save">
+    <value>Salvar</value>
+  </data>
+  <data name="Ui.Settings.Cancel">
+    <value>Cancelar</value>
+  </data>
+  <data name="Ui.Settings.RestartNotice">
+    <value>As alterações de idioma serão aplicadas após reiniciar o aplicativo.</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.en">
+    <value>English</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ja">
+    <value>日本語</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.zh-Hans">
+    <value>简体中文</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ko">
+    <value>한국어</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.es">
+    <value>Español</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.fr">
+    <value>Français</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.de">
+    <value>Deutsch</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.pt-BR">
+    <value>Português (Brasil)</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ru">
+    <value>Русский</value>
+  </data>
+  <data name="Format.ListSeparator">
+    <value>, </value>
+  </data>
+  <data name="Format.Gigabytes">
+    <value>{0} GB</value>
+  </data>
+  <data name="Status.Healthy">
+    <value>Normal</value>
+  </data>
+  <data name="Ui.History.Column.RepairSummary">
+    <value>Resumo do reparo</value>
+  </data>
+  <data name="Ui.History.Column.SkipReason">
+    <value>Motivo do ignorado</value>
+  </data>
+  <data name="Ui.History.ExportFailed">
+    <value>Não foi possível exportar o CSV do histórico.</value>
+  </data>
+</root>

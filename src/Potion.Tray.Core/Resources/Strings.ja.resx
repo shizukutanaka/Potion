@@ -1,10 +1,342 @@
-<?xml version="1.0" encoding="utf-8"?>
+<?xml version='1.0' encoding='utf-8'?>
 <root>
-  <resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader><resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
-  <data name="Check.DiskSpace.Title"><value>ディスク空き容量</value></data><data name="Check.DiskSpace.Detail"><value>{0} 空き {1} / {2} ({3}%)</value></data><data name="Check.CriticalServices.Title"><value>重要サービス</value></data><data name="Check.CriticalServices.Detail"><value>停止中のサービス: {0}</value></data><data name="Check.ComponentStore.Title"><value>コンポーネントストア</value></data><data name="Check.ComponentStore.Detail"><value>コンポーネントストアの破損を検出（修復可能）</value></data><data name="Check.MemoryPressure.Title"><value>メモリ使用状況</value></data><data name="Check.MemoryPressure.Detail"><value>利用可能メモリが少なくなっています（{0}%）</value></data><data name="Check.PendingReboot.Title"><value>再起動保留</value></data><data name="Check.PendingReboot.Detail"><value>Windows の再起動が必要です</value></data><data name="Check.Network.Title"><value>ネットワーク</value></data><data name="Check.Network.Detail"><value>名前解決に失敗（DNS 異常の可能性）</value></data>
-  <data name="Repair.DiskSpace.Title"><value>ディスク空き容量の整理</value></data><data name="Repair.DiskSpace.FilesSummary"><value>一時ファイル {0} 件 / {1} を削除</value></data><data name="Repair.DiskSpace.ComponentSummary"><value>コンポーネントストアを整理</value></data><data name="Repair.DiskSpace.NoneSummary"><value>整理対象はありませんでした</value></data><data name="Repair.ServiceRestart.Title"><value>重要サービスの再起動</value></data><data name="Repair.ServiceRestart.Summary"><value>成功: {0}; 失敗: {1}</value></data><data name="Repair.ComponentStore.Title"><value>コンポーネントストアの修復</value></data><data name="Repair.ComponentStore.RestoreFailed"><value>コンポーネントストアの修復に失敗しました</value></data><data name="Repair.ComponentStore.Success"><value>コンポーネントストアとシステムファイルを修復しました</value></data><data name="Repair.ComponentStore.SfcFailed"><value>システムファイルの修復に失敗しました</value></data><data name="Repair.DnsFlush.Title"><value>DNS キャッシュのクリア</value></data><data name="Repair.DnsFlush.Success"><value>DNS キャッシュをクリアし、名前解決を確認しました</value></data><data name="Repair.DnsFlush.Failed"><value>DNS キャッシュのクリア後も名前解決に失敗しました</value></data>
-  <data name="Skip.AutoRepairDisabled"><value>自動修復が無効です</value></data><data name="Skip.DryRun"><value>ドライラン設定のため実行しません</value></data><data name="Skip.AdminRequired"><value>管理者権限が必要です</value></data><data name="Skip.DailyLimit"><value>本日の修復試行上限に達しました</value></data><data name="Status.Idle"><value>正常</value></data><data name="Status.Scanning"><value>点検中</value></data><data name="Status.Repairing"><value>修復中</value></data><data name="Status.Warning"><value>警告があります</value></data><data name="Status.Critical"><value>重大な問題があります</value></data><data name="Outcome.Detected"><value>検出</value></data><data name="Outcome.Repaired"><value>修復済み</value></data><data name="Outcome.RepairFailed"><value>修復失敗</value></data><data name="Outcome.Skipped"><value>スキップ</value></data><data name="Outcome.ManualActionRequired"><value>要対応</value></data>
-  <data name="Ui.Menu.ScanNow"><value>今すぐ点検</value></data><data name="Ui.Menu.History"><value>修復履歴…</value></data><data name="Ui.Menu.Settings"><value>設定…</value></data><data name="Ui.Menu.AutoRepair"><value>自動修復を有効にする</value></data><data name="Ui.Menu.Notifications"><value>通知</value></data><data name="Ui.Menu.AllNotifications"><value>全通知</value></data><data name="Ui.Menu.RepairsOnly"><value>修復時のみ</value></data><data name="Ui.Menu.FailuresOnly"><value>失敗時のみ</value></data><data name="Ui.Menu.NoNotifications"><value>通知しない</value></data><data name="Ui.Menu.RestartAsAdmin"><value>管理者として再起動</value></data><data name="Ui.Menu.Exit"><value>終了</value></data>
-  <data name="Ui.History.Title"><value>修復履歴</value></data><data name="Ui.History.Filter"><value>結果:</value></data><data name="Ui.History.All"><value>すべて</value></data><data name="Ui.History.Repaired"><value>修復済み</value></data><data name="Ui.History.Failed"><value>失敗</value></data><data name="Ui.History.Skipped"><value>スキップ</value></data><data name="Ui.History.Manual"><value>要対応</value></data><data name="Ui.History.Refresh"><value>更新</value></data><data name="Ui.History.Export"><value>CSV に書き出す</value></data><data name="Ui.History.Column.Timestamp"><value>日時（ローカル時刻）</value></data><data name="Ui.History.Column.Target"><value>対象</value></data><data name="Ui.History.Column.Severity"><value>深刻度</value></data><data name="Ui.History.Column.Result"><value>結果</value></data><data name="Ui.History.Column.Summary"><value>概要</value></data><data name="Ui.History.Empty"><value>履歴はまだありません</value></data><data name="Ui.History.Detail.Result"><value>結果: {0}</value></data><data name="Ui.History.Detail.Duration"><value>所要時間: {0}</value></data><data name="Ui.History.Detail.RepairSummary"><value>修復概要: {0}</value></data><data name="Ui.History.Detail.SkipReason"><value>スキップ理由: {0}</value></data><data name="Ui.History.Detail.None"><value>なし</value></data><data name="Ui.History.Detail.Command"><value>コマンド: {0} {1}</value></data><data name="Ui.History.Detail.ExitCode"><value>終了コード: {0} / 所要時間: {1}</value></data><data name="Ui.History.Detail.StdOut"><value>標準出力末尾: {0}</value></data><data name="Ui.History.Detail.StdErr"><value>標準エラー末尾: {0}</value></data>
-  <data name="Ui.Settings.Title"><value>設定</value></data><data name="Ui.Settings.AutoRepair"><value>自動修復</value></data><data name="Ui.Settings.NotificationMode"><value>通知モード</value></data><data name="Ui.Settings.ScanInterval"><value>点検間隔（分）</value></data><data name="Ui.Settings.Startup"><value>Windows 起動時に開始</value></data><data name="Ui.Settings.DryRun"><value>ドライラン</value></data><data name="Ui.Settings.DiskWarn"><value>ディスク警告閾値（%）</value></data><data name="Ui.Settings.DiskCritical"><value>ディスク重大閾値（%）</value></data><data name="Ui.Settings.MemoryWarn"><value>メモリ警告閾値（%）</value></data><data name="Ui.Settings.Attempts"><value>1日の修復試行上限</value></data><data name="Ui.Settings.HistoryMax"><value>履歴の最大件数</value></data><data name="Ui.Settings.Retention"><value>履歴保持日数</value></data><data name="Ui.Settings.ComponentCleanup"><value>コンポーネントストア整理を許可</value></data><data name="Ui.Settings.Services"><value>監視サービス（1行1件）</value></data><data name="Ui.Settings.EnabledChecks"><value>有効な点検</value></data><data name="Ui.Settings.Language"><value>言語</value></data><data name="Ui.Settings.AutomaticLanguage"><value>自動 (OS 設定)</value></data><data name="Ui.Settings.Save"><value>保存</value></data><data name="Ui.Settings.Cancel"><value>キャンセル</value></data><data name="Ui.Settings.RestartNotice"><value>言語の変更はアプリ再起動後に反映されます。</value></data><data name="Ui.Settings.LanguageName.en"><value>English</value></data><data name="Ui.Settings.LanguageName.ja"><value>日本語</value></data><data name="Ui.Settings.LanguageName.zh-Hans"><value>简体中文</value></data><data name="Ui.Settings.LanguageName.ko"><value>한국어</value></data><data name="Ui.Settings.LanguageName.es"><value>Español</value></data><data name="Ui.Settings.LanguageName.fr"><value>Français</value></data><data name="Ui.Settings.LanguageName.de"><value>Deutsch</value></data><data name="Ui.Settings.LanguageName.pt-BR"><value>Português (Brasil)</value></data><data name="Ui.Settings.LanguageName.ru"><value>Русский</value></data>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Check.DiskSpace.Title">
+    <value>ディスク空き容量</value>
+  </data>
+  <data name="Check.DiskSpace.Detail">
+    <value>{0} 空き {1} / {2} ({3}%)</value>
+  </data>
+  <data name="Check.CriticalServices.Title">
+    <value>重要サービス</value>
+  </data>
+  <data name="Check.CriticalServices.Detail">
+    <value>停止中のサービス: {0}</value>
+  </data>
+  <data name="Check.ComponentStore.Title">
+    <value>コンポーネントストア</value>
+  </data>
+  <data name="Check.ComponentStore.Detail">
+    <value>コンポーネントストアの破損を検出（修復可能）</value>
+  </data>
+  <data name="Check.MemoryPressure.Title">
+    <value>メモリ使用状況</value>
+  </data>
+  <data name="Check.MemoryPressure.Detail">
+    <value>利用可能メモリが少なくなっています（{0}%）</value>
+  </data>
+  <data name="Check.PendingReboot.Title">
+    <value>再起動保留</value>
+  </data>
+  <data name="Check.PendingReboot.Detail">
+    <value>Windows の再起動が必要です</value>
+  </data>
+  <data name="Check.Network.Title">
+    <value>ネットワーク</value>
+  </data>
+  <data name="Check.Network.Detail">
+    <value>名前解決に失敗（DNS 異常の可能性）</value>
+  </data>
+  <data name="Repair.DiskSpace.Title">
+    <value>ディスク空き容量の整理</value>
+  </data>
+  <data name="Repair.DiskSpace.FilesSummary">
+    <value>一時ファイル {0} 件 / {1} を削除</value>
+  </data>
+  <data name="Repair.DiskSpace.ComponentSummary">
+    <value>コンポーネントストアを整理</value>
+  </data>
+  <data name="Repair.DiskSpace.NoneSummary">
+    <value>整理対象はありませんでした</value>
+  </data>
+  <data name="Repair.ServiceRestart.Title">
+    <value>重要サービスの再起動</value>
+  </data>
+  <data name="Repair.ServiceRestart.Summary">
+    <value>成功: {0}; 失敗: {1}</value>
+  </data>
+  <data name="Repair.ComponentStore.Title">
+    <value>コンポーネントストアの修復</value>
+  </data>
+  <data name="Repair.ComponentStore.RestoreFailed">
+    <value>コンポーネントストアの修復に失敗しました</value>
+  </data>
+  <data name="Repair.ComponentStore.Success">
+    <value>コンポーネントストアとシステムファイルを修復しました</value>
+  </data>
+  <data name="Repair.ComponentStore.SfcFailed">
+    <value>システムファイルの修復に失敗しました</value>
+  </data>
+  <data name="Repair.DnsFlush.Title">
+    <value>DNS キャッシュのクリア</value>
+  </data>
+  <data name="Repair.DnsFlush.Success">
+    <value>DNS キャッシュをクリアし、名前解決を確認しました</value>
+  </data>
+  <data name="Repair.DnsFlush.Failed">
+    <value>DNS キャッシュのクリア後も名前解決に失敗しました</value>
+  </data>
+  <data name="Skip.AutoRepairDisabled">
+    <value>自動修復が無効です</value>
+  </data>
+  <data name="Skip.DryRun">
+    <value>ドライラン設定のため実行しません</value>
+  </data>
+  <data name="Skip.AdminRequired">
+    <value>管理者権限が必要です</value>
+  </data>
+  <data name="Skip.DailyLimit">
+    <value>本日の修復試行上限に達しました</value>
+  </data>
+  <data name="Status.Idle">
+    <value>正常</value>
+  </data>
+  <data name="Status.Scanning">
+    <value>点検中</value>
+  </data>
+  <data name="Status.Repairing">
+    <value>修復中</value>
+  </data>
+  <data name="Status.Warning">
+    <value>警告があります</value>
+  </data>
+  <data name="Status.Critical">
+    <value>重大な問題があります</value>
+  </data>
+  <data name="Outcome.Detected">
+    <value>検出</value>
+  </data>
+  <data name="Outcome.Repaired">
+    <value>修復済み</value>
+  </data>
+  <data name="Outcome.RepairFailed">
+    <value>修復失敗</value>
+  </data>
+  <data name="Outcome.Skipped">
+    <value>スキップ</value>
+  </data>
+  <data name="Outcome.ManualActionRequired">
+    <value>要対応</value>
+  </data>
+  <data name="Ui.Menu.ScanNow">
+    <value>今すぐ点検</value>
+  </data>
+  <data name="Ui.Menu.History">
+    <value>修復履歴…</value>
+  </data>
+  <data name="Ui.Menu.Settings">
+    <value>設定…</value>
+  </data>
+  <data name="Ui.Menu.AutoRepair">
+    <value>自動修復を有効にする</value>
+  </data>
+  <data name="Ui.Menu.Notifications">
+    <value>通知</value>
+  </data>
+  <data name="Ui.Menu.AllNotifications">
+    <value>全通知</value>
+  </data>
+  <data name="Ui.Menu.RepairsOnly">
+    <value>修復時のみ</value>
+  </data>
+  <data name="Ui.Menu.FailuresOnly">
+    <value>失敗時のみ</value>
+  </data>
+  <data name="Ui.Menu.NoNotifications">
+    <value>通知しない</value>
+  </data>
+  <data name="Ui.Menu.RestartAsAdmin">
+    <value>管理者として再起動</value>
+  </data>
+  <data name="Ui.Menu.Exit">
+    <value>終了</value>
+  </data>
+  <data name="Ui.History.Title">
+    <value>修復履歴</value>
+  </data>
+  <data name="Ui.History.Filter">
+    <value>結果:</value>
+  </data>
+  <data name="Ui.History.All">
+    <value>すべて</value>
+  </data>
+  <data name="Ui.History.Repaired">
+    <value>修復済み</value>
+  </data>
+  <data name="Ui.History.Failed">
+    <value>失敗</value>
+  </data>
+  <data name="Ui.History.Skipped">
+    <value>スキップ</value>
+  </data>
+  <data name="Ui.History.Manual">
+    <value>要対応</value>
+  </data>
+  <data name="Ui.History.Refresh">
+    <value>更新</value>
+  </data>
+  <data name="Ui.History.Export">
+    <value>CSV に書き出す</value>
+  </data>
+  <data name="Ui.History.Column.Timestamp">
+    <value>日時（ローカル時刻）</value>
+  </data>
+  <data name="Ui.History.Column.Target">
+    <value>対象</value>
+  </data>
+  <data name="Ui.History.Column.Severity">
+    <value>深刻度</value>
+  </data>
+  <data name="Ui.History.Column.Result">
+    <value>結果</value>
+  </data>
+  <data name="Ui.History.Column.Summary">
+    <value>概要</value>
+  </data>
+  <data name="Ui.History.Empty">
+    <value>履歴はまだありません</value>
+  </data>
+  <data name="Ui.History.Detail.Result">
+    <value>結果: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.Duration">
+    <value>所要時間: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.RepairSummary">
+    <value>修復概要: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.SkipReason">
+    <value>スキップ理由: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.None">
+    <value>なし</value>
+  </data>
+  <data name="Ui.History.Detail.Command">
+    <value>コマンド: {0} {1}</value>
+  </data>
+  <data name="Ui.History.Detail.ExitCode">
+    <value>終了コード: {0} / 所要時間: {1}</value>
+  </data>
+  <data name="Ui.History.Detail.StdOut">
+    <value>標準出力末尾: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.StdErr">
+    <value>標準エラー末尾: {0}</value>
+  </data>
+  <data name="Ui.Settings.Title">
+    <value>設定</value>
+  </data>
+  <data name="Ui.Settings.AutoRepair">
+    <value>自動修復</value>
+  </data>
+  <data name="Ui.Settings.NotificationMode">
+    <value>通知モード</value>
+  </data>
+  <data name="Ui.Settings.ScanInterval">
+    <value>点検間隔（分）</value>
+  </data>
+  <data name="Ui.Settings.Startup">
+    <value>Windows 起動時に開始</value>
+  </data>
+  <data name="Ui.Settings.DryRun">
+    <value>ドライラン</value>
+  </data>
+  <data name="Ui.Settings.DiskWarn">
+    <value>ディスク警告閾値（%）</value>
+  </data>
+  <data name="Ui.Settings.DiskCritical">
+    <value>ディスク重大閾値（%）</value>
+  </data>
+  <data name="Ui.Settings.MemoryWarn">
+    <value>メモリ警告閾値（%）</value>
+  </data>
+  <data name="Ui.Settings.Attempts">
+    <value>1日の修復試行上限</value>
+  </data>
+  <data name="Ui.Settings.HistoryMax">
+    <value>履歴の最大件数</value>
+  </data>
+  <data name="Ui.Settings.Retention">
+    <value>履歴保持日数</value>
+  </data>
+  <data name="Ui.Settings.ComponentCleanup">
+    <value>コンポーネントストア整理を許可</value>
+  </data>
+  <data name="Ui.Settings.Services">
+    <value>監視サービス（1行1件）</value>
+  </data>
+  <data name="Ui.Settings.EnabledChecks">
+    <value>有効な点検</value>
+  </data>
+  <data name="Ui.Settings.Language">
+    <value>言語</value>
+  </data>
+  <data name="Ui.Settings.AutomaticLanguage">
+    <value>自動 (OS 設定)</value>
+  </data>
+  <data name="Ui.Settings.Save">
+    <value>保存</value>
+  </data>
+  <data name="Ui.Settings.Cancel">
+    <value>キャンセル</value>
+  </data>
+  <data name="Ui.Settings.RestartNotice">
+    <value>言語の変更はアプリ再起動後に反映されます。</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.en">
+    <value>English</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ja">
+    <value>日本語</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.zh-Hans">
+    <value>简体中文</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ko">
+    <value>한국어</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.es">
+    <value>Español</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.fr">
+    <value>Français</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.de">
+    <value>Deutsch</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.pt-BR">
+    <value>Português (Brasil)</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ru">
+    <value>Русский</value>
+  </data>
+  <data name="Format.ListSeparator">
+    <value>、</value>
+  </data>
+  <data name="Format.Gigabytes">
+    <value>{0} GB</value>
+  </data>
+  <data name="Status.Healthy">
+    <value>正常</value>
+  </data>
+  <data name="Ui.History.Column.RepairSummary">
+    <value>修復概要</value>
+  </data>
+  <data name="Ui.History.Column.SkipReason">
+    <value>スキップ理由</value>
+  </data>
+  <data name="Ui.History.ExportFailed">
+    <value>履歴 CSV を書き出せませんでした。</value>
+  </data>
 </root>

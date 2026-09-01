@@ -31,7 +31,7 @@ public sealed class SystemProcessRunner : IProcessRunner
     {
         if (!CommandAllowList.IsAllowed(fileName))
         {
-            throw new InvalidOperationException($"許可されていないコマンドです: {fileName}");
+            throw new InvalidOperationException($"The command is not allowed: {fileName}");
         }
 
         using var process = new Process
@@ -54,9 +54,17 @@ public sealed class SystemProcessRunner : IProcessRunner
         process.Start();
         var outputTask = process.StandardOutput.ReadToEndAsync(ct);
         var errorTask = process.StandardError.ReadToEndAsync(ct);
-        var waitTask = process.WaitForExitAsync(ct);
-        var completed = await Task.WhenAny(waitTask, Task.Delay(timeout, ct));
-        if (completed != waitTask)
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
+        timeoutCts.CancelAfter(timeout);
+        try
+        {
+            await process.WaitForExitAsync(timeoutCts.Token);
+        }
+        catch (OperationCanceledException) when (ct.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (OperationCanceledException)
         {
             try
             {
@@ -75,7 +83,6 @@ public sealed class SystemProcessRunner : IProcessRunner
                 TimedOut: true);
         }
 
-        await waitTask;
         return new ProcessRunResult(
             process.ExitCode,
             OutputTail(await outputTask),

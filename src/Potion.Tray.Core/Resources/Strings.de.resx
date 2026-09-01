@@ -1,7 +1,342 @@
-<?xml version="1.0" encoding="utf-8"?><root><resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader><resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
-<data name="Check.DiskSpace.Title"><value>Festplattenspeicher</value></data><data name="Check.DiskSpace.Detail"><value>{0} frei {1} / {2} ({3}%)</value></data><data name="Check.CriticalServices.Title"><value>Kritische Dienste</value></data><data name="Check.CriticalServices.Detail"><value>Beendete Dienste: {0}</value></data><data name="Check.ComponentStore.Title"><value>Komponentenspeicher</value></data><data name="Check.ComponentStore.Detail"><value>Beschädigung des Komponentenspeichers erkannt (reparierbar)</value></data><data name="Check.MemoryPressure.Title"><value>Speicherauslastung</value></data><data name="Check.MemoryPressure.Detail"><value>Verfügbarer Speicher ist knapp ({0}%)</value></data><data name="Check.PendingReboot.Title"><value>Neustart ausstehend</value></data><data name="Check.PendingReboot.Detail"><value>Ein Windows-Neustart ist erforderlich</value></data><data name="Check.Network.Title"><value>Netzwerk</value></data><data name="Check.Network.Detail"><value>Namensauflösung fehlgeschlagen (mögliches DNS-Problem)</value></data>
-<data name="Repair.DiskSpace.Title"><value>Festplattenspeicher bereinigen</value></data><data name="Repair.DiskSpace.FilesSummary"><value>{0} temporäre Dateien / {1} freigegeben</value></data><data name="Repair.DiskSpace.ComponentSummary"><value>Komponentenspeicher bereinigt</value></data><data name="Repair.DiskSpace.NoneSummary"><value>Kein Bereinigungsziel gefunden</value></data><data name="Repair.ServiceRestart.Title"><value>Kritische Dienste neu starten</value></data><data name="Repair.ServiceRestart.Summary"><value>Erfolgreich: {0}; Fehlgeschlagen: {1}</value></data><data name="Repair.ComponentStore.Title"><value>Komponentenspeicher reparieren</value></data><data name="Repair.ComponentStore.RestoreFailed"><value>Reparatur des Komponentenspeichers fehlgeschlagen</value></data><data name="Repair.ComponentStore.Success"><value>Komponentenspeicher und Systemdateien wurden repariert</value></data><data name="Repair.ComponentStore.SfcFailed"><value>Reparatur der Systemdateien fehlgeschlagen</value></data><data name="Repair.DnsFlush.Title"><value>DNS-Cache leeren</value></data><data name="Repair.DnsFlush.Success"><value>DNS-Cache geleert und Namensauflösung bestätigt</value></data><data name="Repair.DnsFlush.Failed"><value>Namensauflösung nach dem Leeren des DNS-Caches weiterhin fehlgeschlagen</value></data>
-<data name="Skip.AutoRepairDisabled"><value>Automatische Reparatur ist deaktiviert</value></data><data name="Skip.DryRun"><value>Im Probelauf nicht ausgeführt</value></data><data name="Skip.AdminRequired"><value>Administratorrechte erforderlich</value></data><data name="Skip.DailyLimit"><value>Tägliches Reparaturlimit erreicht</value></data><data name="Status.Idle"><value>Gesund</value></data><data name="Status.Scanning"><value>Prüfung</value></data><data name="Status.Repairing"><value>Reparatur</value></data><data name="Status.Warning"><value>Warnungen erkannt</value></data><data name="Status.Critical"><value>Kritische Probleme erkannt</value></data><data name="Outcome.Detected"><value>Erkannt</value></data><data name="Outcome.Repaired"><value>Repariert</value></data><data name="Outcome.RepairFailed"><value>Reparatur fehlgeschlagen</value></data><data name="Outcome.Skipped"><value>Übersprungen</value></data><data name="Outcome.ManualActionRequired"><value>Aktion erforderlich</value></data>
-<data name="Ui.Menu.ScanNow"><value>Jetzt prüfen</value></data><data name="Ui.Menu.History"><value>Reparaturverlauf…</value></data><data name="Ui.Menu.Settings"><value>Einstellungen…</value></data><data name="Ui.Menu.AutoRepair"><value>Automatische Reparatur aktivieren</value></data><data name="Ui.Menu.Notifications"><value>Benachrichtigungen</value></data><data name="Ui.Menu.AllNotifications"><value>Alle Benachrichtigungen</value></data><data name="Ui.Menu.RepairsOnly"><value>Nur Reparaturen</value></data><data name="Ui.Menu.FailuresOnly"><value>Nur Fehler</value></data><data name="Ui.Menu.NoNotifications"><value>Keine Benachrichtigungen</value></data><data name="Ui.Menu.RestartAsAdmin"><value>Als Administrator neu starten</value></data><data name="Ui.Menu.Exit"><value>Beenden</value></data>
-<data name="Ui.History.Title"><value>Reparaturverlauf</value></data><data name="Ui.History.Filter"><value>Ergebnis:</value></data><data name="Ui.History.All"><value>Alle</value></data><data name="Ui.History.Repaired"><value>Repariert</value></data><data name="Ui.History.Failed"><value>Fehlgeschlagen</value></data><data name="Ui.History.Skipped"><value>Übersprungen</value></data><data name="Ui.History.Manual"><value>Aktion erforderlich</value></data><data name="Ui.History.Refresh"><value>Aktualisieren</value></data><data name="Ui.History.Export"><value>CSV exportieren</value></data><data name="Ui.History.Column.Timestamp"><value>Zeitstempel (lokal)</value></data><data name="Ui.History.Column.Target"><value>Ziel</value></data><data name="Ui.History.Column.Severity"><value>Schweregrad</value></data><data name="Ui.History.Column.Result"><value>Ergebnis</value></data><data name="Ui.History.Column.Summary"><value>Zusammenfassung</value></data><data name="Ui.History.Empty"><value>Noch kein Verlauf</value></data><data name="Ui.History.Detail.Result"><value>Ergebnis: {0}</value></data><data name="Ui.History.Detail.Duration"><value>Dauer: {0}</value></data><data name="Ui.History.Detail.RepairSummary"><value>Reparaturzusammenfassung: {0}</value></data><data name="Ui.History.Detail.SkipReason"><value>Grund für Überspringen: {0}</value></data><data name="Ui.History.Detail.None"><value>Keine</value></data><data name="Ui.History.Detail.Command"><value>Befehl: {0} {1}</value></data><data name="Ui.History.Detail.ExitCode"><value>Exitcode: {0} / Dauer: {1}</value></data><data name="Ui.History.Detail.StdOut"><value>Standardausgabe (Ende): {0}</value></data><data name="Ui.History.Detail.StdErr"><value>Standardfehler (Ende): {0}</value></data>
-<data name="Ui.Settings.Title"><value>Einstellungen</value></data><data name="Ui.Settings.AutoRepair"><value>Automatische Reparatur</value></data><data name="Ui.Settings.NotificationMode"><value>Benachrichtigungsmodus</value></data><data name="Ui.Settings.ScanInterval"><value>Prüfintervall (Minuten)</value></data><data name="Ui.Settings.Startup"><value>Mit Windows starten</value></data><data name="Ui.Settings.DryRun"><value>Probelauf</value></data><data name="Ui.Settings.DiskWarn"><value>Festplattenwarnschwelle (%)</value></data><data name="Ui.Settings.DiskCritical"><value>Kritische Festplattenschwelle (%)</value></data><data name="Ui.Settings.MemoryWarn"><value>Speicherwarnschwelle (%)</value></data><data name="Ui.Settings.Attempts"><value>Tägliches Reparaturlimit</value></data><data name="Ui.Settings.HistoryMax"><value>Maximale Verlaufseinträge</value></data><data name="Ui.Settings.Retention"><value>Aufbewahrung (Tage)</value></data><data name="Ui.Settings.ComponentCleanup"><value>Bereinigung des Komponentenspeichers erlauben</value></data><data name="Ui.Settings.Services"><value>Überwachte Dienste (einer pro Zeile)</value></data><data name="Ui.Settings.EnabledChecks"><value>Aktive Prüfungen</value></data><data name="Ui.Settings.Language"><value>Sprache</value></data><data name="Ui.Settings.AutomaticLanguage"><value>Automatisch (OS-Einstellung)</value></data><data name="Ui.Settings.Save"><value>Speichern</value></data><data name="Ui.Settings.Cancel"><value>Abbrechen</value></data><data name="Ui.Settings.RestartNotice"><value>Sprachänderungen werden nach einem Neustart wirksam.</value></data><data name="Ui.Settings.LanguageName.en"><value>English</value></data><data name="Ui.Settings.LanguageName.ja"><value>日本語</value></data><data name="Ui.Settings.LanguageName.zh-Hans"><value>简体中文</value></data><data name="Ui.Settings.LanguageName.ko"><value>한국어</value></data><data name="Ui.Settings.LanguageName.es"><value>Español</value></data><data name="Ui.Settings.LanguageName.fr"><value>Français</value></data><data name="Ui.Settings.LanguageName.de"><value>Deutsch</value></data><data name="Ui.Settings.LanguageName.pt-BR"><value>Português (Brasil)</value></data><data name="Ui.Settings.LanguageName.ru"><value>Русский</value></data></root>
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Check.DiskSpace.Title">
+    <value>Festplattenspeicher</value>
+  </data>
+  <data name="Check.DiskSpace.Detail">
+    <value>{0} frei {1} / {2} ({3}%)</value>
+  </data>
+  <data name="Check.CriticalServices.Title">
+    <value>Kritische Dienste</value>
+  </data>
+  <data name="Check.CriticalServices.Detail">
+    <value>Beendete Dienste: {0}</value>
+  </data>
+  <data name="Check.ComponentStore.Title">
+    <value>Komponentenspeicher</value>
+  </data>
+  <data name="Check.ComponentStore.Detail">
+    <value>Beschädigung des Komponentenspeichers erkannt (reparierbar)</value>
+  </data>
+  <data name="Check.MemoryPressure.Title">
+    <value>Speicherauslastung</value>
+  </data>
+  <data name="Check.MemoryPressure.Detail">
+    <value>Verfügbarer Speicher ist knapp ({0}%)</value>
+  </data>
+  <data name="Check.PendingReboot.Title">
+    <value>Neustart ausstehend</value>
+  </data>
+  <data name="Check.PendingReboot.Detail">
+    <value>Ein Windows-Neustart ist erforderlich</value>
+  </data>
+  <data name="Check.Network.Title">
+    <value>Netzwerk</value>
+  </data>
+  <data name="Check.Network.Detail">
+    <value>Namensauflösung fehlgeschlagen (mögliches DNS-Problem)</value>
+  </data>
+  <data name="Repair.DiskSpace.Title">
+    <value>Festplattenspeicher bereinigen</value>
+  </data>
+  <data name="Repair.DiskSpace.FilesSummary">
+    <value>{0} temporäre Dateien / {1} freigegeben</value>
+  </data>
+  <data name="Repair.DiskSpace.ComponentSummary">
+    <value>Komponentenspeicher bereinigt</value>
+  </data>
+  <data name="Repair.DiskSpace.NoneSummary">
+    <value>Kein Bereinigungsziel gefunden</value>
+  </data>
+  <data name="Repair.ServiceRestart.Title">
+    <value>Kritische Dienste neu starten</value>
+  </data>
+  <data name="Repair.ServiceRestart.Summary">
+    <value>Erfolgreich: {0}; Fehlgeschlagen: {1}</value>
+  </data>
+  <data name="Repair.ComponentStore.Title">
+    <value>Komponentenspeicher reparieren</value>
+  </data>
+  <data name="Repair.ComponentStore.RestoreFailed">
+    <value>Reparatur des Komponentenspeichers fehlgeschlagen</value>
+  </data>
+  <data name="Repair.ComponentStore.Success">
+    <value>Komponentenspeicher und Systemdateien wurden repariert</value>
+  </data>
+  <data name="Repair.ComponentStore.SfcFailed">
+    <value>Reparatur der Systemdateien fehlgeschlagen</value>
+  </data>
+  <data name="Repair.DnsFlush.Title">
+    <value>DNS-Cache leeren</value>
+  </data>
+  <data name="Repair.DnsFlush.Success">
+    <value>DNS-Cache geleert und Namensauflösung bestätigt</value>
+  </data>
+  <data name="Repair.DnsFlush.Failed">
+    <value>Namensauflösung nach dem Leeren des DNS-Caches weiterhin fehlgeschlagen</value>
+  </data>
+  <data name="Skip.AutoRepairDisabled">
+    <value>Automatische Reparatur ist deaktiviert</value>
+  </data>
+  <data name="Skip.DryRun">
+    <value>Im Probelauf nicht ausgeführt</value>
+  </data>
+  <data name="Skip.AdminRequired">
+    <value>Administratorrechte erforderlich</value>
+  </data>
+  <data name="Skip.DailyLimit">
+    <value>Tägliches Reparaturlimit erreicht</value>
+  </data>
+  <data name="Status.Idle">
+    <value>Gesund</value>
+  </data>
+  <data name="Status.Scanning">
+    <value>Prüfung</value>
+  </data>
+  <data name="Status.Repairing">
+    <value>Reparatur</value>
+  </data>
+  <data name="Status.Warning">
+    <value>Warnungen erkannt</value>
+  </data>
+  <data name="Status.Critical">
+    <value>Kritische Probleme erkannt</value>
+  </data>
+  <data name="Outcome.Detected">
+    <value>Erkannt</value>
+  </data>
+  <data name="Outcome.Repaired">
+    <value>Repariert</value>
+  </data>
+  <data name="Outcome.RepairFailed">
+    <value>Reparatur fehlgeschlagen</value>
+  </data>
+  <data name="Outcome.Skipped">
+    <value>Übersprungen</value>
+  </data>
+  <data name="Outcome.ManualActionRequired">
+    <value>Aktion erforderlich</value>
+  </data>
+  <data name="Ui.Menu.ScanNow">
+    <value>Jetzt prüfen</value>
+  </data>
+  <data name="Ui.Menu.History">
+    <value>Reparaturverlauf…</value>
+  </data>
+  <data name="Ui.Menu.Settings">
+    <value>Einstellungen…</value>
+  </data>
+  <data name="Ui.Menu.AutoRepair">
+    <value>Automatische Reparatur aktivieren</value>
+  </data>
+  <data name="Ui.Menu.Notifications">
+    <value>Benachrichtigungen</value>
+  </data>
+  <data name="Ui.Menu.AllNotifications">
+    <value>Alle Benachrichtigungen</value>
+  </data>
+  <data name="Ui.Menu.RepairsOnly">
+    <value>Nur Reparaturen</value>
+  </data>
+  <data name="Ui.Menu.FailuresOnly">
+    <value>Nur Fehler</value>
+  </data>
+  <data name="Ui.Menu.NoNotifications">
+    <value>Keine Benachrichtigungen</value>
+  </data>
+  <data name="Ui.Menu.RestartAsAdmin">
+    <value>Als Administrator neu starten</value>
+  </data>
+  <data name="Ui.Menu.Exit">
+    <value>Beenden</value>
+  </data>
+  <data name="Ui.History.Title">
+    <value>Reparaturverlauf</value>
+  </data>
+  <data name="Ui.History.Filter">
+    <value>Ergebnis:</value>
+  </data>
+  <data name="Ui.History.All">
+    <value>Alle</value>
+  </data>
+  <data name="Ui.History.Repaired">
+    <value>Repariert</value>
+  </data>
+  <data name="Ui.History.Failed">
+    <value>Fehlgeschlagen</value>
+  </data>
+  <data name="Ui.History.Skipped">
+    <value>Übersprungen</value>
+  </data>
+  <data name="Ui.History.Manual">
+    <value>Aktion erforderlich</value>
+  </data>
+  <data name="Ui.History.Refresh">
+    <value>Aktualisieren</value>
+  </data>
+  <data name="Ui.History.Export">
+    <value>CSV exportieren</value>
+  </data>
+  <data name="Ui.History.Column.Timestamp">
+    <value>Zeitstempel (lokal)</value>
+  </data>
+  <data name="Ui.History.Column.Target">
+    <value>Ziel</value>
+  </data>
+  <data name="Ui.History.Column.Severity">
+    <value>Schweregrad</value>
+  </data>
+  <data name="Ui.History.Column.Result">
+    <value>Ergebnis</value>
+  </data>
+  <data name="Ui.History.Column.Summary">
+    <value>Zusammenfassung</value>
+  </data>
+  <data name="Ui.History.Empty">
+    <value>Noch kein Verlauf</value>
+  </data>
+  <data name="Ui.History.Detail.Result">
+    <value>Ergebnis: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.Duration">
+    <value>Dauer: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.RepairSummary">
+    <value>Reparaturzusammenfassung: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.SkipReason">
+    <value>Grund für Überspringen: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.None">
+    <value>Keine</value>
+  </data>
+  <data name="Ui.History.Detail.Command">
+    <value>Befehl: {0} {1}</value>
+  </data>
+  <data name="Ui.History.Detail.ExitCode">
+    <value>Exitcode: {0} / Dauer: {1}</value>
+  </data>
+  <data name="Ui.History.Detail.StdOut">
+    <value>Standardausgabe (Ende): {0}</value>
+  </data>
+  <data name="Ui.History.Detail.StdErr">
+    <value>Standardfehler (Ende): {0}</value>
+  </data>
+  <data name="Ui.Settings.Title">
+    <value>Einstellungen</value>
+  </data>
+  <data name="Ui.Settings.AutoRepair">
+    <value>Automatische Reparatur</value>
+  </data>
+  <data name="Ui.Settings.NotificationMode">
+    <value>Benachrichtigungsmodus</value>
+  </data>
+  <data name="Ui.Settings.ScanInterval">
+    <value>Prüfintervall (Minuten)</value>
+  </data>
+  <data name="Ui.Settings.Startup">
+    <value>Mit Windows starten</value>
+  </data>
+  <data name="Ui.Settings.DryRun">
+    <value>Probelauf</value>
+  </data>
+  <data name="Ui.Settings.DiskWarn">
+    <value>Festplattenwarnschwelle (%)</value>
+  </data>
+  <data name="Ui.Settings.DiskCritical">
+    <value>Kritische Festplattenschwelle (%)</value>
+  </data>
+  <data name="Ui.Settings.MemoryWarn">
+    <value>Speicherwarnschwelle (%)</value>
+  </data>
+  <data name="Ui.Settings.Attempts">
+    <value>Tägliches Reparaturlimit</value>
+  </data>
+  <data name="Ui.Settings.HistoryMax">
+    <value>Maximale Verlaufseinträge</value>
+  </data>
+  <data name="Ui.Settings.Retention">
+    <value>Aufbewahrung (Tage)</value>
+  </data>
+  <data name="Ui.Settings.ComponentCleanup">
+    <value>Bereinigung des Komponentenspeichers erlauben</value>
+  </data>
+  <data name="Ui.Settings.Services">
+    <value>Überwachte Dienste (einer pro Zeile)</value>
+  </data>
+  <data name="Ui.Settings.EnabledChecks">
+    <value>Aktive Prüfungen</value>
+  </data>
+  <data name="Ui.Settings.Language">
+    <value>Sprache</value>
+  </data>
+  <data name="Ui.Settings.AutomaticLanguage">
+    <value>Automatisch (OS-Einstellung)</value>
+  </data>
+  <data name="Ui.Settings.Save">
+    <value>Speichern</value>
+  </data>
+  <data name="Ui.Settings.Cancel">
+    <value>Abbrechen</value>
+  </data>
+  <data name="Ui.Settings.RestartNotice">
+    <value>Sprachänderungen werden nach einem Neustart wirksam.</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.en">
+    <value>English</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ja">
+    <value>日本語</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.zh-Hans">
+    <value>简体中文</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ko">
+    <value>한국어</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.es">
+    <value>Español</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.fr">
+    <value>Français</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.de">
+    <value>Deutsch</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.pt-BR">
+    <value>Português (Brasil)</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ru">
+    <value>Русский</value>
+  </data>
+  <data name="Format.ListSeparator">
+    <value>, </value>
+  </data>
+  <data name="Format.Gigabytes">
+    <value>{0} GB</value>
+  </data>
+  <data name="Status.Healthy">
+    <value>Gesund</value>
+  </data>
+  <data name="Ui.History.Column.RepairSummary">
+    <value>Reparaturzusammenfassung</value>
+  </data>
+  <data name="Ui.History.Column.SkipReason">
+    <value>Grund für Überspringen</value>
+  </data>
+  <data name="Ui.History.ExportFailed">
+    <value>Der Verlauf konnte nicht als CSV exportiert werden.</value>
+  </data>
+</root>

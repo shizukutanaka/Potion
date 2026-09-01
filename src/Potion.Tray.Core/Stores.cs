@@ -74,7 +74,7 @@ public sealed class JsonSettingsStore : ISettingsStore
         }
         catch (Exception ex)
         {
-            log.Warn("設定ファイルを読み込めないため、既定値を使用します。", ex);
+            log.Warn("Unable to load settings; using defaults.", ex);
             return NewDefaults();
         }
     }
@@ -96,7 +96,7 @@ public sealed class JsonSettingsStore : ISettingsStore
         }
         catch (Exception ex)
         {
-            log.Warn("設定ファイルを保存できませんでした。", ex);
+            log.Warn("Unable to save settings.", ex);
         }
     }
 
@@ -121,6 +121,9 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
     private readonly int maxEntries;
     private readonly int retentionDays;
     private readonly double compactionThreshold;
+    private readonly ITrayClock clock;
+    private readonly int pruneInterval;
+    private int appendsSincePrune;
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly JsonSerializerOptions options = CreateOptions();
 
@@ -129,7 +132,8 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         ITrayLog? log = null,
         int maxEntries = 1000,
         int retentionDays = 90,
-        double compactionThreshold = 1.2)
+        double compactionThreshold = 1.2,
+        ITrayClock? clock = null)
     {
         this.path = path ?? Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -139,6 +143,8 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         this.maxEntries = Math.Max(1, maxEntries);
         this.retentionDays = Math.Max(1, retentionDays);
         this.compactionThreshold = Math.Max(1.0, compactionThreshold);
+        this.clock = clock ?? new SystemTrayClock();
+        pruneInterval = Math.Max(20, this.maxEntries / 10);
     }
 
     public async Task AppendAsync(HistoryEntry entry, CancellationToken ct)
@@ -158,16 +164,22 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 Encoding.UTF8,
                 ct);
 
-            var lines = await ReadEntriesAsync(ct);
-            if (lines.Count > maxEntries * compactionThreshold ||
-                lines.Any(e => e.TimestampUtc < DateTimeOffset.UtcNow.AddDays(-retentionDays)))
+            appendsSincePrune++;
+            if (appendsSincePrune == 1 || appendsSincePrune >= pruneInterval)
             {
-                await RewriteAsync(Prune(lines), ct);
+                var lines = await ReadEntriesAsync(ct);
+                if (lines.Count > maxEntries * compactionThreshold ||
+                    lines.Any(e => e.TimestampUtc < clock.UtcNow.AddDays(-retentionDays)))
+                {
+                    await RewriteAsync(Prune(lines), ct);
+                }
+
+                appendsSincePrune = 0;
             }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            log.Warn("履歴を保存できませんでした。", ex);
+            log.Warn("Unable to save history.", ex);
         }
         finally
         {
@@ -244,7 +256,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
 
     private List<HistoryEntry> Prune(IEnumerable<HistoryEntry> entries)
     {
-        var cutoff = DateTimeOffset.UtcNow.AddDays(-retentionDays);
+        var cutoff = clock.UtcNow.AddDays(-retentionDays);
         return entries
             .Where(e => e.TimestampUtc >= cutoff)
             .OrderByDescending(e => e.TimestampUtc)

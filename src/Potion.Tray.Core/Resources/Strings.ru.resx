@@ -1,7 +1,342 @@
-<?xml version="1.0" encoding="utf-8"?><root><resheader name="resmimetype"><value>text/microsoft-resx</value></resheader><resheader name="version"><value>2.0</value></resheader><resheader name="reader"><value>System.Resources.ResXResourceReader, System.Windows.Forms</value></resheader><resheader name="writer"><value>System.Resources.ResXResourceWriter, System.Windows.Forms</value></resheader>
-<data name="Check.DiskSpace.Title"><value>Место на диске</value></data><data name="Check.DiskSpace.Detail"><value>{0} свободно {1} / {2} ({3}%)</value></data><data name="Check.CriticalServices.Title"><value>Критические службы</value></data><data name="Check.CriticalServices.Detail"><value>Остановленные службы: {0}</value></data><data name="Check.ComponentStore.Title"><value>Хранилище компонентов</value></data><data name="Check.ComponentStore.Detail"><value>Обнаружено исправимое повреждение хранилища компонентов</value></data><data name="Check.MemoryPressure.Title"><value>Нагрузка на память</value></data><data name="Check.MemoryPressure.Detail"><value>Доступной памяти мало ({0}%)</value></data><data name="Check.PendingReboot.Title"><value>Ожидается перезагрузка</value></data><data name="Check.PendingReboot.Detail"><value>Требуется перезагрузка Windows</value></data><data name="Check.Network.Title"><value>Сеть</value></data><data name="Check.Network.Detail"><value>Не удалось разрешить имя (возможна проблема DNS)</value></data>
-<data name="Repair.DiskSpace.Title"><value>Очистить место на диске</value></data><data name="Repair.DiskSpace.FilesSummary"><value>{0} временных файлов / освобождено {1}</value></data><data name="Repair.DiskSpace.ComponentSummary"><value>хранилище компонентов очищено</value></data><data name="Repair.DiskSpace.NoneSummary"><value>Объекты для очистки не найдены</value></data><data name="Repair.ServiceRestart.Title"><value>Перезапустить критические службы</value></data><data name="Repair.ServiceRestart.Summary"><value>Успешно: {0}; Ошибки: {1}</value></data><data name="Repair.ComponentStore.Title"><value>Восстановить хранилище компонентов</value></data><data name="Repair.ComponentStore.RestoreFailed"><value>Не удалось восстановить хранилище компонентов</value></data><data name="Repair.ComponentStore.Success"><value>Хранилище компонентов и системные файлы восстановлены</value></data><data name="Repair.ComponentStore.SfcFailed"><value>Не удалось восстановить системные файлы</value></data><data name="Repair.DnsFlush.Title"><value>Очистить кэш DNS</value></data><data name="Repair.DnsFlush.Success"><value>Кэш DNS очищен, разрешение имён проверено</value></data><data name="Repair.DnsFlush.Failed"><value>Разрешение имён по-прежнему не работает после очистки кэша DNS</value></data>
-<data name="Skip.AutoRepairDisabled"><value>Автоматическое восстановление отключено</value></data><data name="Skip.DryRun"><value>Не выполнено в режиме пробного запуска</value></data><data name="Skip.AdminRequired"><value>Требуются права администратора</value></data><data name="Skip.DailyLimit"><value>Достигнут дневной лимит попыток восстановления</value></data><data name="Status.Idle"><value>Норма</value></data><data name="Status.Scanning"><value>Проверка</value></data><data name="Status.Repairing"><value>Восстановление</value></data><data name="Status.Warning"><value>Обнаружены предупреждения</value></data><data name="Status.Critical"><value>Обнаружены критические проблемы</value></data><data name="Outcome.Detected"><value>Обнаружено</value></data><data name="Outcome.Repaired"><value>Исправлено</value></data><data name="Outcome.RepairFailed"><value>Ошибка восстановления</value></data><data name="Outcome.Skipped"><value>Пропущено</value></data><data name="Outcome.ManualActionRequired"><value>Требуется действие</value></data>
-<data name="Ui.Menu.ScanNow"><value>Проверить сейчас</value></data><data name="Ui.Menu.History"><value>История восстановления…</value></data><data name="Ui.Menu.Settings"><value>Настройки…</value></data><data name="Ui.Menu.AutoRepair"><value>Включить автоматическое восстановление</value></data><data name="Ui.Menu.Notifications"><value>Уведомления</value></data><data name="Ui.Menu.AllNotifications"><value>Все уведомления</value></data><data name="Ui.Menu.RepairsOnly"><value>Только восстановление</value></data><data name="Ui.Menu.FailuresOnly"><value>Только ошибки</value></data><data name="Ui.Menu.NoNotifications"><value>Не уведомлять</value></data><data name="Ui.Menu.RestartAsAdmin"><value>Перезапустить от имени администратора</value></data><data name="Ui.Menu.Exit"><value>Выход</value></data>
-<data name="Ui.History.Title"><value>История восстановления</value></data><data name="Ui.History.Filter"><value>Результат:</value></data><data name="Ui.History.All"><value>Все</value></data><data name="Ui.History.Repaired"><value>Исправлено</value></data><data name="Ui.History.Failed"><value>Ошибка</value></data><data name="Ui.History.Skipped"><value>Пропущено</value></data><data name="Ui.History.Manual"><value>Требуется действие</value></data><data name="Ui.History.Refresh"><value>Обновить</value></data><data name="Ui.History.Export"><value>Экспорт CSV</value></data><data name="Ui.History.Column.Timestamp"><value>Время (местное)</value></data><data name="Ui.History.Column.Target"><value>Цель</value></data><data name="Ui.History.Column.Severity"><value>Серьёзность</value></data><data name="Ui.History.Column.Result"><value>Результат</value></data><data name="Ui.History.Column.Summary"><value>Сводка</value></data><data name="Ui.History.Empty"><value>Истории пока нет</value></data><data name="Ui.History.Detail.Result"><value>Результат: {0}</value></data><data name="Ui.History.Detail.Duration"><value>Длительность: {0}</value></data><data name="Ui.History.Detail.RepairSummary"><value>Описание восстановления: {0}</value></data><data name="Ui.History.Detail.SkipReason"><value>Причина пропуска: {0}</value></data><data name="Ui.History.Detail.None"><value>Нет</value></data><data name="Ui.History.Detail.Command"><value>Команда: {0} {1}</value></data><data name="Ui.History.Detail.ExitCode"><value>Код выхода: {0} / Длительность: {1}</value></data><data name="Ui.History.Detail.StdOut"><value>Конец стандартного вывода: {0}</value></data><data name="Ui.History.Detail.StdErr"><value>Конец стандартной ошибки: {0}</value></data>
-<data name="Ui.Settings.Title"><value>Настройки</value></data><data name="Ui.Settings.AutoRepair"><value>Автоматическое восстановление</value></data><data name="Ui.Settings.NotificationMode"><value>Режим уведомлений</value></data><data name="Ui.Settings.ScanInterval"><value>Интервал проверки (минуты)</value></data><data name="Ui.Settings.Startup"><value>Запускать вместе с Windows</value></data><data name="Ui.Settings.DryRun"><value>Пробный запуск</value></data><data name="Ui.Settings.DiskWarn"><value>Порог предупреждения диска (%)</value></data><data name="Ui.Settings.DiskCritical"><value>Критический порог диска (%)</value></data><data name="Ui.Settings.MemoryWarn"><value>Порог предупреждения памяти (%)</value></data><data name="Ui.Settings.Attempts"><value>Дневной лимит попыток восстановления</value></data><data name="Ui.Settings.HistoryMax"><value>Максимум записей истории</value></data><data name="Ui.Settings.Retention"><value>Срок хранения истории (дни)</value></data><data name="Ui.Settings.ComponentCleanup"><value>Разрешить очистку хранилища компонентов</value></data><data name="Ui.Settings.Services"><value>Отслеживаемые службы (по одной в строке)</value></data><data name="Ui.Settings.EnabledChecks"><value>Включённые проверки</value></data><data name="Ui.Settings.Language"><value>Язык</value></data><data name="Ui.Settings.AutomaticLanguage"><value>Автоматически (настройка ОС)</value></data><data name="Ui.Settings.Save"><value>Сохранить</value></data><data name="Ui.Settings.Cancel"><value>Отмена</value></data><data name="Ui.Settings.RestartNotice"><value>Изменения языка вступят в силу после перезапуска приложения.</value></data><data name="Ui.Settings.LanguageName.en"><value>English</value></data><data name="Ui.Settings.LanguageName.ja"><value>日本語</value></data><data name="Ui.Settings.LanguageName.zh-Hans"><value>简体中文</value></data><data name="Ui.Settings.LanguageName.ko"><value>한국어</value></data><data name="Ui.Settings.LanguageName.es"><value>Español</value></data><data name="Ui.Settings.LanguageName.fr"><value>Français</value></data><data name="Ui.Settings.LanguageName.de"><value>Deutsch</value></data><data name="Ui.Settings.LanguageName.pt-BR"><value>Português (Brasil)</value></data><data name="Ui.Settings.LanguageName.ru"><value>Русский</value></data></root>
+<?xml version='1.0' encoding='utf-8'?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms</value>
+  </resheader>
+  <data name="Check.DiskSpace.Title">
+    <value>Место на диске</value>
+  </data>
+  <data name="Check.DiskSpace.Detail">
+    <value>{0} свободно {1} / {2} ({3}%)</value>
+  </data>
+  <data name="Check.CriticalServices.Title">
+    <value>Критические службы</value>
+  </data>
+  <data name="Check.CriticalServices.Detail">
+    <value>Остановленные службы: {0}</value>
+  </data>
+  <data name="Check.ComponentStore.Title">
+    <value>Хранилище компонентов</value>
+  </data>
+  <data name="Check.ComponentStore.Detail">
+    <value>Обнаружено исправимое повреждение хранилища компонентов</value>
+  </data>
+  <data name="Check.MemoryPressure.Title">
+    <value>Нагрузка на память</value>
+  </data>
+  <data name="Check.MemoryPressure.Detail">
+    <value>Доступной памяти мало ({0}%)</value>
+  </data>
+  <data name="Check.PendingReboot.Title">
+    <value>Ожидается перезагрузка</value>
+  </data>
+  <data name="Check.PendingReboot.Detail">
+    <value>Требуется перезагрузка Windows</value>
+  </data>
+  <data name="Check.Network.Title">
+    <value>Сеть</value>
+  </data>
+  <data name="Check.Network.Detail">
+    <value>Не удалось разрешить имя (возможна проблема DNS)</value>
+  </data>
+  <data name="Repair.DiskSpace.Title">
+    <value>Очистить место на диске</value>
+  </data>
+  <data name="Repair.DiskSpace.FilesSummary">
+    <value>{0} временных файлов / освобождено {1}</value>
+  </data>
+  <data name="Repair.DiskSpace.ComponentSummary">
+    <value>хранилище компонентов очищено</value>
+  </data>
+  <data name="Repair.DiskSpace.NoneSummary">
+    <value>Объекты для очистки не найдены</value>
+  </data>
+  <data name="Repair.ServiceRestart.Title">
+    <value>Перезапустить критические службы</value>
+  </data>
+  <data name="Repair.ServiceRestart.Summary">
+    <value>Успешно: {0}; Ошибки: {1}</value>
+  </data>
+  <data name="Repair.ComponentStore.Title">
+    <value>Восстановить хранилище компонентов</value>
+  </data>
+  <data name="Repair.ComponentStore.RestoreFailed">
+    <value>Не удалось восстановить хранилище компонентов</value>
+  </data>
+  <data name="Repair.ComponentStore.Success">
+    <value>Хранилище компонентов и системные файлы восстановлены</value>
+  </data>
+  <data name="Repair.ComponentStore.SfcFailed">
+    <value>Не удалось восстановить системные файлы</value>
+  </data>
+  <data name="Repair.DnsFlush.Title">
+    <value>Очистить кэш DNS</value>
+  </data>
+  <data name="Repair.DnsFlush.Success">
+    <value>Кэш DNS очищен, разрешение имён проверено</value>
+  </data>
+  <data name="Repair.DnsFlush.Failed">
+    <value>Разрешение имён по-прежнему не работает после очистки кэша DNS</value>
+  </data>
+  <data name="Skip.AutoRepairDisabled">
+    <value>Автоматическое восстановление отключено</value>
+  </data>
+  <data name="Skip.DryRun">
+    <value>Не выполнено в режиме пробного запуска</value>
+  </data>
+  <data name="Skip.AdminRequired">
+    <value>Требуются права администратора</value>
+  </data>
+  <data name="Skip.DailyLimit">
+    <value>Достигнут дневной лимит попыток восстановления</value>
+  </data>
+  <data name="Status.Idle">
+    <value>Норма</value>
+  </data>
+  <data name="Status.Scanning">
+    <value>Проверка</value>
+  </data>
+  <data name="Status.Repairing">
+    <value>Восстановление</value>
+  </data>
+  <data name="Status.Warning">
+    <value>Обнаружены предупреждения</value>
+  </data>
+  <data name="Status.Critical">
+    <value>Обнаружены критические проблемы</value>
+  </data>
+  <data name="Outcome.Detected">
+    <value>Обнаружено</value>
+  </data>
+  <data name="Outcome.Repaired">
+    <value>Исправлено</value>
+  </data>
+  <data name="Outcome.RepairFailed">
+    <value>Ошибка восстановления</value>
+  </data>
+  <data name="Outcome.Skipped">
+    <value>Пропущено</value>
+  </data>
+  <data name="Outcome.ManualActionRequired">
+    <value>Требуется действие</value>
+  </data>
+  <data name="Ui.Menu.ScanNow">
+    <value>Проверить сейчас</value>
+  </data>
+  <data name="Ui.Menu.History">
+    <value>История восстановления…</value>
+  </data>
+  <data name="Ui.Menu.Settings">
+    <value>Настройки…</value>
+  </data>
+  <data name="Ui.Menu.AutoRepair">
+    <value>Включить автоматическое восстановление</value>
+  </data>
+  <data name="Ui.Menu.Notifications">
+    <value>Уведомления</value>
+  </data>
+  <data name="Ui.Menu.AllNotifications">
+    <value>Все уведомления</value>
+  </data>
+  <data name="Ui.Menu.RepairsOnly">
+    <value>Только восстановление</value>
+  </data>
+  <data name="Ui.Menu.FailuresOnly">
+    <value>Только ошибки</value>
+  </data>
+  <data name="Ui.Menu.NoNotifications">
+    <value>Не уведомлять</value>
+  </data>
+  <data name="Ui.Menu.RestartAsAdmin">
+    <value>Перезапустить от имени администратора</value>
+  </data>
+  <data name="Ui.Menu.Exit">
+    <value>Выход</value>
+  </data>
+  <data name="Ui.History.Title">
+    <value>История восстановления</value>
+  </data>
+  <data name="Ui.History.Filter">
+    <value>Результат:</value>
+  </data>
+  <data name="Ui.History.All">
+    <value>Все</value>
+  </data>
+  <data name="Ui.History.Repaired">
+    <value>Исправлено</value>
+  </data>
+  <data name="Ui.History.Failed">
+    <value>Ошибка</value>
+  </data>
+  <data name="Ui.History.Skipped">
+    <value>Пропущено</value>
+  </data>
+  <data name="Ui.History.Manual">
+    <value>Требуется действие</value>
+  </data>
+  <data name="Ui.History.Refresh">
+    <value>Обновить</value>
+  </data>
+  <data name="Ui.History.Export">
+    <value>Экспорт CSV</value>
+  </data>
+  <data name="Ui.History.Column.Timestamp">
+    <value>Время (местное)</value>
+  </data>
+  <data name="Ui.History.Column.Target">
+    <value>Цель</value>
+  </data>
+  <data name="Ui.History.Column.Severity">
+    <value>Серьёзность</value>
+  </data>
+  <data name="Ui.History.Column.Result">
+    <value>Результат</value>
+  </data>
+  <data name="Ui.History.Column.Summary">
+    <value>Сводка</value>
+  </data>
+  <data name="Ui.History.Empty">
+    <value>Истории пока нет</value>
+  </data>
+  <data name="Ui.History.Detail.Result">
+    <value>Результат: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.Duration">
+    <value>Длительность: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.RepairSummary">
+    <value>Описание восстановления: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.SkipReason">
+    <value>Причина пропуска: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.None">
+    <value>Нет</value>
+  </data>
+  <data name="Ui.History.Detail.Command">
+    <value>Команда: {0} {1}</value>
+  </data>
+  <data name="Ui.History.Detail.ExitCode">
+    <value>Код выхода: {0} / Длительность: {1}</value>
+  </data>
+  <data name="Ui.History.Detail.StdOut">
+    <value>Конец стандартного вывода: {0}</value>
+  </data>
+  <data name="Ui.History.Detail.StdErr">
+    <value>Конец стандартной ошибки: {0}</value>
+  </data>
+  <data name="Ui.Settings.Title">
+    <value>Настройки</value>
+  </data>
+  <data name="Ui.Settings.AutoRepair">
+    <value>Автоматическое восстановление</value>
+  </data>
+  <data name="Ui.Settings.NotificationMode">
+    <value>Режим уведомлений</value>
+  </data>
+  <data name="Ui.Settings.ScanInterval">
+    <value>Интервал проверки (минуты)</value>
+  </data>
+  <data name="Ui.Settings.Startup">
+    <value>Запускать вместе с Windows</value>
+  </data>
+  <data name="Ui.Settings.DryRun">
+    <value>Пробный запуск</value>
+  </data>
+  <data name="Ui.Settings.DiskWarn">
+    <value>Порог предупреждения диска (%)</value>
+  </data>
+  <data name="Ui.Settings.DiskCritical">
+    <value>Критический порог диска (%)</value>
+  </data>
+  <data name="Ui.Settings.MemoryWarn">
+    <value>Порог предупреждения памяти (%)</value>
+  </data>
+  <data name="Ui.Settings.Attempts">
+    <value>Дневной лимит попыток восстановления</value>
+  </data>
+  <data name="Ui.Settings.HistoryMax">
+    <value>Максимум записей истории</value>
+  </data>
+  <data name="Ui.Settings.Retention">
+    <value>Срок хранения истории (дни)</value>
+  </data>
+  <data name="Ui.Settings.ComponentCleanup">
+    <value>Разрешить очистку хранилища компонентов</value>
+  </data>
+  <data name="Ui.Settings.Services">
+    <value>Отслеживаемые службы (по одной в строке)</value>
+  </data>
+  <data name="Ui.Settings.EnabledChecks">
+    <value>Включённые проверки</value>
+  </data>
+  <data name="Ui.Settings.Language">
+    <value>Язык</value>
+  </data>
+  <data name="Ui.Settings.AutomaticLanguage">
+    <value>Автоматически (настройка ОС)</value>
+  </data>
+  <data name="Ui.Settings.Save">
+    <value>Сохранить</value>
+  </data>
+  <data name="Ui.Settings.Cancel">
+    <value>Отмена</value>
+  </data>
+  <data name="Ui.Settings.RestartNotice">
+    <value>Изменения языка вступят в силу после перезапуска приложения.</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.en">
+    <value>English</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ja">
+    <value>日本語</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.zh-Hans">
+    <value>简体中文</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ko">
+    <value>한국어</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.es">
+    <value>Español</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.fr">
+    <value>Français</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.de">
+    <value>Deutsch</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.pt-BR">
+    <value>Português (Brasil)</value>
+  </data>
+  <data name="Ui.Settings.LanguageName.ru">
+    <value>Русский</value>
+  </data>
+  <data name="Format.ListSeparator">
+    <value>, </value>
+  </data>
+  <data name="Format.Gigabytes">
+    <value>{0} ГБ</value>
+  </data>
+  <data name="Status.Healthy">
+    <value>Норма</value>
+  </data>
+  <data name="Ui.History.Column.RepairSummary">
+    <value>Описание восстановления</value>
+  </data>
+  <data name="Ui.History.Column.SkipReason">
+    <value>Причина пропуска</value>
+  </data>
+  <data name="Ui.History.ExportFailed">
+    <value>Не удалось экспортировать историю в CSV.</value>
+  </data>
+</root>

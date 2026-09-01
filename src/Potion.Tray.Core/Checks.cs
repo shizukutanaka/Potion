@@ -44,8 +44,8 @@ public sealed class DiskSpaceHealthCheck : IHealthCheck
             localizer.Format(
                 "Check.DiskSpace.Detail",
                 x.Drive.Name,
-                FormatGb(x.Drive.FreeBytes),
-                FormatGb(x.Drive.TotalBytes),
+                ByteFormatter.Gigabytes(x.Drive.FreeBytes, localizer),
+                ByteFormatter.Gigabytes(x.Drive.TotalBytes, localizer),
                 x.Percent.ToString("0.0", CultureInfo.CurrentUICulture)));
         var metrics = findings.ToDictionary(
             x => x.Drive.Name,
@@ -55,12 +55,10 @@ public sealed class DiskSpaceHealthCheck : IHealthCheck
             Id,
             DisplayName,
             worst,
-            string.Join("、", details),
+            string.Join(localizer.Get("Format.ListSeparator"), details),
             metrics));
     }
 
-    private static string FormatGb(long bytes) =>
-        $"{bytes / (1024d * 1024d * 1024d):0.0} GB";
 }
 
 public sealed class CriticalServiceHealthCheck : IHealthCheck
@@ -89,8 +87,8 @@ public sealed class CriticalServiceHealthCheck : IHealthCheck
                 Id,
                 DisplayName,
                 HealthStatus.Critical,
-                localizer.Format("Check.CriticalServices.Detail", string.Join(", ", stopped)),
-                new Dictionary<string, string> { ["services"] = string.Join(", ", stopped) }));
+                localizer.Format("Check.CriticalServices.Detail", string.Join(localizer.Get("Format.ListSeparator"), stopped)),
+                new Dictionary<string, string> { ["services"] = string.Join(localizer.Get("Format.ListSeparator"), stopped) }));
     }
 }
 
@@ -125,14 +123,14 @@ public sealed class ComponentStoreHealthCheck : IHealthCheck
         }
         catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
         {
-            log.Warn("コンポーネントストアの点検を実行できませんでした。", ex);
+            log.Warn("Unable to inspect the component store.", ex);
             return null;
         }
 
         var output = $"{result.StandardOutput}\n{result.StandardError}";
         if (result.TimedOut)
         {
-            log.Warn("コンポーネントストアの点検がタイムアウトしました。");
+            log.Warn("Component store inspection timed out.");
             return null;
         }
 
@@ -150,7 +148,7 @@ public sealed class ComponentStoreHealthCheck : IHealthCheck
             return null;
         }
 
-        log.Warn($"コンポーネントストアの点検結果を判定できませんでした（終了コード: {result.ExitCode}）。");
+        log.Warn($"Unable to interpret component store inspection output (exit code: {result.ExitCode}).");
         return null;
     }
 
