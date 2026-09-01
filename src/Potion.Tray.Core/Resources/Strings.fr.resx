@@ -354,4 +354,10 @@
   <data name="Ui.Settings.DuplicateSuppression">
     <value>Suppression des doublons (minutes)</value>
   </data>
+  <data name="Ui.Settings.DiskWarnFreeGb">
+    <value>Espace disque libre pour avertissement (Go)</value>
+  </data>
+  <data name="Ui.Settings.DiskCriticalFreeGb">
+    <value>Espace disque libre critique (Go)</value>
+  </data>
 </root>

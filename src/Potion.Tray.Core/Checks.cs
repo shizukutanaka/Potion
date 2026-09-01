@@ -25,9 +25,12 @@ public sealed class DiskSpaceHealthCheck : IHealthCheck
             .Select(d =>
             {
                 var percent = d.FreeBytes * 100d / d.TotalBytes;
-                var status = percent < settings.DiskCriticalPercent
+                var freeGb = d.FreeBytes / (1024d * 1024d * 1024d);
+                var status = percent < settings.DiskCriticalPercent &&
+                             freeGb < settings.DiskCriticalFreeGb
                     ? HealthStatus.Critical
-                    : percent < settings.DiskWarnPercent
+                    : percent < settings.DiskWarnPercent &&
+                      freeGb < settings.DiskWarnFreeGb
                         ? HealthStatus.Warning
                         : HealthStatus.Healthy;
                 return (Drive: d, Percent: percent, Status: status);
@@ -78,7 +81,7 @@ public sealed class CriticalServiceHealthCheck : IHealthCheck
     public Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct)
     {
         var stopped = system.GetServices(settings.MonitoredServices)
-            .Where(s => s.Exists && !s.IsRunning)
+            .Where(s => s.Exists && !s.IsRunning && ServicePolicy.ShouldMonitor(s))
             .Select(s => s.Name)
             .ToList();
         return Task.FromResult<HealthFinding?>(stopped.Count == 0
@@ -117,7 +120,7 @@ public sealed class ComponentStoreHealthCheck : IHealthCheck
         {
             result = await processRunner.RunAsync(
                 "DISM.exe",
-                new[] { "/Online", "/Cleanup-Image", "/CheckHealth" },
+                new[] { "/Online", "/Cleanup-Image", "/CheckHealth", "/English" },
                 TimeSpan.FromMinutes(5),
                 ct);
         }
@@ -134,16 +137,43 @@ public sealed class ComponentStoreHealthCheck : IHealthCheck
             return null;
         }
 
-        if (ContainsRepairable(output))
+        var finding = Interpret(output);
+        if (finding is not null)
         {
-            return new HealthFinding(
-                Id,
-                DisplayName,
-                HealthStatus.Critical,
-                localizer.Get("Check.ComponentStore.Detail"));
+            return finding;
         }
 
-        if (ContainsNoCorruption(output) || result.ExitCode == 0)
+        if (!ContainsNoCorruption(output) && result.ExitCode != 0)
+        {
+            try
+            {
+                result = await processRunner.RunAsync(
+                    "DISM.exe",
+                    new[] { "/Online", "/Cleanup-Image", "/CheckHealth" },
+                    TimeSpan.FromMinutes(5),
+                    ct);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or System.ComponentModel.Win32Exception)
+            {
+                log.Warn("Unable to inspect the component store without English output.", ex);
+                return null;
+            }
+
+            output = $"{result.StandardOutput}\n{result.StandardError}";
+            if (result.TimedOut)
+            {
+                log.Warn("Component store inspection fallback timed out.");
+                return null;
+            }
+
+            finding = Interpret(output);
+            if (finding is not null)
+            {
+                return finding;
+            }
+        }
+
+        if (ContainsNoCorruption(output))
         {
             return null;
         }
@@ -151,6 +181,15 @@ public sealed class ComponentStoreHealthCheck : IHealthCheck
         log.Warn($"Unable to interpret component store inspection output (exit code: {result.ExitCode}).");
         return null;
     }
+
+    private HealthFinding? Interpret(string output) =>
+        ContainsRepairable(output)
+            ? new HealthFinding(
+                Id,
+                DisplayName,
+                HealthStatus.Critical,
+                localizer.Get("Check.ComponentStore.Detail"))
+            : null;
 
     private static bool ContainsRepairable(string output) =>
         output.Contains("repairable", StringComparison.OrdinalIgnoreCase) ||
@@ -190,7 +229,10 @@ public sealed class MemoryPressureHealthCheck : IHealthCheck
                 DisplayName,
                 HealthStatus.Warning,
                 localizer.Format("Check.MemoryPressure.Detail", percent.ToString("0.0", CultureInfo.CurrentUICulture)),
-                new Dictionary<string, string> { ["available"] = $"{percent:0.0}%" })
+                new Dictionary<string, string>
+                {
+                    ["available"] = percent.ToString("0.0", CultureInfo.InvariantCulture) + "%"
+                })
             : null);
     }
 }
@@ -230,7 +272,7 @@ public sealed class NetworkHealthCheck : IHealthCheck
     public string DisplayName => localizer.Get("Check.Network.Title");
 
     public async Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct) =>
-        await system.CanResolveDnsAsync(settings.DnsProbeHost, ct)
+        !system.IsNetworkAvailable || await system.CanResolveDnsAsync(settings.DnsProbeHost, ct)
             ? null
             : new HealthFinding(Id, DisplayName, HealthStatus.Critical, localizer.Get("Check.Network.Detail"));
 }

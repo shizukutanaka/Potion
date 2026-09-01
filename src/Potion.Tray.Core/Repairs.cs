@@ -27,11 +27,12 @@ public sealed class DiskSpaceRepair : IRepairAction
     {
         var cleanup = await cleaner.CleanAsync(ct);
         ProcessRunResult? componentCleanup = null;
+        var cleanupArgs = new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/English" };
         if (settings.AllowComponentCleanup && system.IsElevated)
         {
             componentCleanup = await processRunner.RunAsync(
                 "DISM.exe",
-                new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup" },
+                cleanupArgs,
                 TimeSpan.FromMinutes(30),
                 ct);
         }
@@ -58,7 +59,7 @@ public sealed class DiskSpaceRepair : IRepairAction
             summary,
             componentCleanup is null
                 ? Array.Empty<CommandExecution>()
-                : new[] { CommandExecutionFactory.Create("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup" }, componentCleanup) });
+                : new[] { CommandExecutionFactory.Create("DISM.exe", cleanupArgs, componentCleanup) });
     }
 
 }
@@ -85,7 +86,7 @@ public sealed class ServiceRestartRepair : IRepairAction
     public async Task<RepairOutcome> RepairAsync(HealthFinding finding, TraySettings settings, CancellationToken ct)
     {
         var snapshots = system.GetServices(settings.MonitoredServices)
-            .Where(s => s.Exists && !s.IsRunning)
+            .Where(s => s.Exists && !s.IsRunning && ServicePolicy.ShouldMonitor(s))
             .ToList();
         var commands = new List<CommandExecution>();
         var successful = new List<string>();
@@ -132,7 +133,7 @@ public sealed class ComponentStoreRepair : IRepairAction
     public async Task<RepairOutcome> RepairAsync(HealthFinding finding, TraySettings settings, CancellationToken ct)
     {
         var commands = new List<CommandExecution>();
-        var restoreArgs = new[] { "/Online", "/Cleanup-Image", "/RestoreHealth" };
+        var restoreArgs = new[] { "/Online", "/Cleanup-Image", "/RestoreHealth", "/English" };
         var restore = await processRunner.RunAsync("DISM.exe", restoreArgs, TimeSpan.FromMinutes(60), ct);
         commands.Add(CommandExecutionFactory.Create("DISM.exe", restoreArgs, restore));
         if (restore.ExitCode != 0)

@@ -66,10 +66,24 @@ public class HealthCheckTests
     }
 
     [Fact]
+    public async Task CriticalServiceHealthCheck_IgnoresDisabledStoppedServices()
+    {
+        var system = new FakeSystemInfoProvider
+        {
+            Services = new[]
+            {
+                new ServiceSnapshot("disabled", true, false, ServiceStartType.Disabled)
+            }
+        };
+
+        Assert.Null(await new CriticalServiceHealthCheck(system).InspectAsync(new TraySettings(), default));
+    }
+
+    [Fact]
     public async Task ComponentStoreHealthCheck_RepairableIsCritical()
     {
         var runner = new FakeProcessRunner();
-        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/CheckHealth" },
+        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/CheckHealth", "/English" },
             new ProcessRunResult(0, "The component store is repairable", "", TimeSpan.Zero, false));
         var finding = await new ComponentStoreHealthCheck(runner, new FakeLog())
             .InspectAsync(new TraySettings(), default);
@@ -80,15 +94,31 @@ public class HealthCheckTests
     public async Task ComponentStoreHealthCheck_CleanAndTimeoutReturnNull()
     {
         var runner = new FakeProcessRunner();
-        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/CheckHealth" },
+        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/CheckHealth", "/English" },
             new ProcessRunResult(0, "No component store corruption detected", "", TimeSpan.Zero, false));
         var log = new FakeLog();
         var check = new ComponentStoreHealthCheck(runner, log);
         Assert.Null(await check.InspectAsync(new TraySettings(), default));
-        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/CheckHealth" },
+        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/CheckHealth", "/English" },
             new ProcessRunResult(-1, "The component store is repairable", "", TimeSpan.Zero, true));
         Assert.Null(await check.InspectAsync(new TraySettings(), default));
         Assert.NotEmpty(log.Warnings);
+    }
+
+    [Fact]
+    public async Task ComponentStoreHealthCheck_FallsBackWhenEnglishOptionIsRejected()
+    {
+        var runner = new FakeProcessRunner();
+        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/CheckHealth", "/English" },
+            new ProcessRunResult(87, "unrecognized option", "", TimeSpan.Zero, false));
+        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/CheckHealth" },
+            new ProcessRunResult(0, "No component store corruption detected", "", TimeSpan.Zero, false));
+
+        var finding = await new ComponentStoreHealthCheck(runner, new FakeLog())
+            .InspectAsync(new TraySettings(), default);
+
+        Assert.Null(finding);
+        Assert.Equal(2, runner.Calls.Count);
     }
 
     [Fact]
@@ -111,6 +141,41 @@ public class HealthCheckTests
         var finding = await new NetworkHealthCheck(system).InspectAsync(new TraySettings(), default);
         Assert.Equal(HealthStatus.Critical, finding!.Status);
     }
+
+    [Fact]
+    public async Task NetworkHealthCheck_OfflineReturnsNoFinding()
+    {
+        var system = new FakeSystemInfoProvider { IsNetworkAvailable = false, CanResolveDns = false };
+
+        Assert.Null(await new NetworkHealthCheck(system).InspectAsync(new TraySettings(), default));
+        Assert.Equal(0, system.DnsCalls);
+    }
+
+    [Fact]
+    public async Task DiskSpaceHealthCheck_LargeDriveWithLowPercentageButAmpleSpaceIsHealthy()
+    {
+        const long gibibyte = 1024L * 1024 * 1024;
+        var system = new FakeSystemInfoProvider
+        {
+            Drives = new[] { new DriveSnapshot("C:", 4_000L * gibibyte, 600L * gibibyte) }
+        };
+
+        Assert.Null(await new DiskSpaceHealthCheck(system).InspectAsync(new TraySettings(), default));
+    }
+
+    [Fact]
+    public async Task DiskSpaceHealthCheck_LowPercentageAndAbsoluteSpaceIsCritical()
+    {
+        const long gibibyte = 1024L * 1024 * 1024;
+        var system = new FakeSystemInfoProvider
+        {
+            Drives = new[] { new DriveSnapshot("C:", 64L * gibibyte, 3L * gibibyte) }
+        };
+
+        var finding = await new DiskSpaceHealthCheck(system).InspectAsync(new TraySettings(), default);
+
+        Assert.Equal(HealthStatus.Critical, finding!.Status);
+    }
 }
 
 public class RepairTests
@@ -120,7 +185,7 @@ public class RepairTests
     {
         var cleaner = new FakeTempFileCleaner { Result = new TempCleanupResult(132, 1_500_000_000) };
         var runner = new FakeProcessRunner();
-        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup" },
+        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/English" },
             new ProcessRunResult(0, "", "", TimeSpan.Zero, false));
         var system = new FakeSystemInfoProvider { IsElevated = true };
         var outcome = await new DiskSpaceRepair(cleaner, runner, system).RepairAsync(
@@ -162,10 +227,34 @@ public class RepairTests
     }
 
     [Fact]
+    public async Task ServiceRestartRepair_StartsOnlyAutomaticStoppedServices()
+    {
+        var runner = new FakeProcessRunner();
+        runner.Respond("sc.exe", new[] { "start", "automatic" },
+            new ProcessRunResult(0, "", "", TimeSpan.Zero, false));
+        var system = new FakeSystemInfoProvider
+        {
+            Services = new[]
+            {
+                new ServiceSnapshot("automatic", true, false, ServiceStartType.Automatic),
+                new ServiceSnapshot("disabled", true, false, ServiceStartType.Disabled),
+                new ServiceSnapshot("manual", true, false, ServiceStartType.Manual)
+            }
+        };
+
+        var outcome = await new ServiceRestartRepair(runner, system).RepairAsync(
+            new HealthFinding("critical-services", "services", HealthStatus.Critical, ""), new TraySettings(), default);
+
+        Assert.True(outcome.Success);
+        Assert.Single(runner.Calls);
+        Assert.Equal("automatic", runner.Calls[0].Arguments[1]);
+    }
+
+    [Fact]
     public async Task ComponentStoreRepair_OnlyRunsSfcAfterRestoreSucceeds()
     {
         var runner = new FakeProcessRunner();
-        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/RestoreHealth" },
+        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/RestoreHealth", "/English" },
             new ProcessRunResult(0, "", "", TimeSpan.Zero, false));
         runner.Respond("sfc.exe", new[] { "/scannow" },
             new ProcessRunResult(0, "", "", TimeSpan.Zero, false));
@@ -175,7 +264,7 @@ public class RepairTests
         Assert.Equal(2, outcome.Commands.Count);
 
         runner = new FakeProcessRunner();
-        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/RestoreHealth" },
+        runner.Respond("DISM.exe", new[] { "/Online", "/Cleanup-Image", "/RestoreHealth", "/English" },
             new ProcessRunResult(1, "", "", TimeSpan.Zero, false));
         await new ComponentStoreRepair(runner).RepairAsync(
             new HealthFinding("component-store", "ストア", HealthStatus.Critical, ""), new TraySettings(), default);

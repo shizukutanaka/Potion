@@ -239,6 +239,8 @@ internal sealed class SettingsForm : Form
     private readonly CheckBox dryRun = new() { AutoSize = true };
     private readonly NumericUpDown diskWarn = Numeric(1, 90);
     private readonly NumericUpDown diskCritical = Numeric(1, 90);
+    private readonly NumericUpDown diskWarnFreeGb = Numeric(1, 4096);
+    private readonly NumericUpDown diskCriticalFreeGb = Numeric(1, 4096);
     private readonly NumericUpDown memoryWarn = Numeric(1, 90);
     private readonly NumericUpDown attempts = Numeric(1, 50);
     private readonly NumericUpDown historyMax = Numeric(50, 20000);
@@ -299,6 +301,8 @@ internal sealed class SettingsForm : Form
         Add(table, string.Empty, dryRun);
         Add(table, localizer.Get("Ui.Settings.DiskWarn"), diskWarn);
         Add(table, localizer.Get("Ui.Settings.DiskCritical"), diskCritical);
+        Add(table, localizer.Get("Ui.Settings.DiskWarnFreeGb"), diskWarnFreeGb);
+        Add(table, localizer.Get("Ui.Settings.DiskCriticalFreeGb"), diskCriticalFreeGb);
         Add(table, localizer.Get("Ui.Settings.MemoryWarn"), memoryWarn);
         Add(table, localizer.Get("Ui.Settings.Attempts"), attempts);
         Add(table, localizer.Get("Ui.Settings.HistoryMax"), historyMax);
@@ -331,6 +335,8 @@ internal sealed class SettingsForm : Form
         dryRun.Checked = settings.DryRun;
         diskWarn.Value = settings.DiskWarnPercent;
         diskCritical.Value = settings.DiskCriticalPercent;
+        diskWarnFreeGb.Value = settings.DiskWarnFreeGb;
+        diskCriticalFreeGb.Value = settings.DiskCriticalFreeGb;
         memoryWarn.Value = settings.MemoryWarnPercent;
         attempts.Value = settings.MaxRepairAttemptsPerDay;
         historyMax.Value = settings.HistoryMaxEntries;
@@ -360,6 +366,8 @@ internal sealed class SettingsForm : Form
         settings.DryRun = dryRun.Checked;
         settings.DiskWarnPercent = (int)diskWarn.Value;
         settings.DiskCriticalPercent = (int)diskCritical.Value;
+        settings.DiskWarnFreeGb = (int)diskWarnFreeGb.Value;
+        settings.DiskCriticalFreeGb = (int)diskCriticalFreeGb.Value;
         settings.MemoryWarnPercent = (int)memoryWarn.Value;
         settings.MaxRepairAttemptsPerDay = (int)attempts.Value;
         settings.HistoryMaxEntries = (int)historyMax.Value;

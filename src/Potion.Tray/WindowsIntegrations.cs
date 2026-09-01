@@ -6,6 +6,7 @@ using System.Security.Principal;
 using Microsoft.Win32;
 using Potion.Tray.Core;
 using System.ServiceProcess;
+using System.Net.NetworkInformation;
 
 namespace Potion.Tray;
 
@@ -39,7 +40,16 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
             {
                 using var service = new ServiceController(name);
                 var status = service.Status;
-                return new ServiceSnapshot(name, true, status == ServiceControllerStatus.Running);
+                var startType = service.StartType switch
+                {
+                    ServiceStartMode.Boot => ServiceStartType.Boot,
+                    ServiceStartMode.System => ServiceStartType.System,
+                    ServiceStartMode.Automatic => ServiceStartType.Automatic,
+                    ServiceStartMode.Manual => ServiceStartType.Manual,
+                    ServiceStartMode.Disabled => ServiceStartType.Disabled,
+                    _ => ServiceStartType.Unknown
+                };
+                return new ServiceSnapshot(name, true, status == ServiceControllerStatus.Running, startType);
             }
             catch (InvalidOperationException)
             {
@@ -47,6 +57,8 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
             }
         }).ToList();
     }
+
+    public bool IsNetworkAvailable => NetworkInterface.GetIsNetworkAvailable();
 
     public bool IsRebootPending()
     {

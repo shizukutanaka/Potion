@@ -354,4 +354,10 @@
   <data name="Ui.Settings.DuplicateSuppression">
     <value>Supresión de duplicados (minutos)</value>
   </data>
+  <data name="Ui.Settings.DiskWarnFreeGb">
+    <value>Espacio libre de disco para advertencia (GB)</value>
+  </data>
+  <data name="Ui.Settings.DiskCriticalFreeGb">
+    <value>Espacio libre de disco crítico (GB)</value>
+  </data>
 </root>

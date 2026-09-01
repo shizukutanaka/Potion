@@ -354,4 +354,10 @@
   <data name="Ui.Settings.DuplicateSuppression">
     <value>重複抑制（分）</value>
   </data>
+  <data name="Ui.Settings.DiskWarnFreeGb">
+    <value>ディスク警告空き容量（GB）</value>
+  </data>
+  <data name="Ui.Settings.DiskCriticalFreeGb">
+    <value>ディスク重大空き容量（GB）</value>
+  </data>
 </root>

@@ -354,4 +354,10 @@
   <data name="Ui.Settings.DuplicateSuppression">
     <value>중복 억제(분)</value>
   </data>
+  <data name="Ui.Settings.DiskWarnFreeGb">
+    <value>디스크 경고 여유 공간(GB)</value>
+  </data>
+  <data name="Ui.Settings.DiskCriticalFreeGb">
+    <value>디스크 심각 여유 공간(GB)</value>
+  </data>
 </root>

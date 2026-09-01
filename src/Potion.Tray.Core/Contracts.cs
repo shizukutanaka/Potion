@@ -54,7 +54,21 @@ public interface IProcessRunner
 
 public sealed record DriveSnapshot(string Name, long TotalBytes, long FreeBytes);
 public sealed record MemorySnapshot(long TotalBytes, long AvailableBytes);
-public sealed record ServiceSnapshot(string Name, bool Exists, bool IsRunning);
+public enum ServiceStartType { Unknown, Boot, System, Automatic, Manual, Disabled }
+public sealed record ServiceSnapshot(
+    string Name,
+    bool Exists,
+    bool IsRunning,
+    ServiceStartType StartType = ServiceStartType.Unknown);
+
+internal static class ServicePolicy
+{
+    public static bool ShouldMonitor(ServiceSnapshot service) =>
+        service.StartType is ServiceStartType.Automatic or
+            ServiceStartType.Boot or
+            ServiceStartType.System or
+            ServiceStartType.Unknown;
+}
 
 public interface ISystemInfoProvider
 {
@@ -63,6 +77,7 @@ public interface ISystemInfoProvider
     MemorySnapshot GetMemory();
     IReadOnlyList<ServiceSnapshot> GetServices(IReadOnlyList<string> names);
     bool IsRebootPending();
+    bool IsNetworkAvailable { get; }
     Task<bool> CanResolveDnsAsync(string host, CancellationToken ct);
 }
 
@@ -101,6 +116,8 @@ public sealed class TraySettings
     public bool DryRun { get; set; }
     public int DiskWarnPercent { get; set; } = 15;
     public int DiskCriticalPercent { get; set; } = 7;
+    public int DiskWarnFreeGb { get; set; } = 20;
+    public int DiskCriticalFreeGb { get; set; } = 8;
     public int MemoryWarnPercent { get; set; } = 10;
     public int MaxRepairAttemptsPerDay { get; set; } = 3;
     public int HistoryMaxEntries { get; set; } = 1000;
@@ -131,6 +148,8 @@ public sealed class TraySettings
             DryRun = DryRun,
             DiskWarnPercent = DiskWarnPercent,
             DiskCriticalPercent = DiskCriticalPercent,
+            DiskWarnFreeGb = DiskWarnFreeGb,
+            DiskCriticalFreeGb = DiskCriticalFreeGb,
             MemoryWarnPercent = MemoryWarnPercent,
             MaxRepairAttemptsPerDay = MaxRepairAttemptsPerDay,
             HistoryMaxEntries = HistoryMaxEntries,
@@ -151,6 +170,8 @@ public sealed class TraySettings
         ScanIntervalMinutes = Math.Clamp(ScanIntervalMinutes, 1, 1440);
         DiskWarnPercent = Math.Clamp(DiskWarnPercent, 1, 90);
         DiskCriticalPercent = Math.Clamp(DiskCriticalPercent, 1, DiskWarnPercent);
+        DiskWarnFreeGb = Math.Clamp(DiskWarnFreeGb, 1, 4096);
+        DiskCriticalFreeGb = Math.Clamp(DiskCriticalFreeGb, 1, DiskWarnFreeGb);
         MemoryWarnPercent = Math.Clamp(MemoryWarnPercent, 1, 90);
         MaxRepairAttemptsPerDay = Math.Clamp(MaxRepairAttemptsPerDay, 1, 50);
         HistoryMaxEntries = Math.Clamp(HistoryMaxEntries, 50, 20000);

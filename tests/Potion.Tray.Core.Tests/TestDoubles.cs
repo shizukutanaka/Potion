@@ -30,6 +30,7 @@ internal sealed class FakeSystemInfoProvider : ISystemInfoProvider
     public IReadOnlyList<ServiceSnapshot> Services { get; set; } = Array.Empty<ServiceSnapshot>();
     public bool RebootPending { get; set; }
     public bool CanResolveDns { get; set; } = true;
+    public bool IsNetworkAvailable { get; set; } = true;
     public int DnsCalls { get; private set; }
 
     public IReadOnlyList<DriveSnapshot> GetFixedDrives() => Drives;

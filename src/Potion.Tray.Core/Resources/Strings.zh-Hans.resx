@@ -354,4 +354,10 @@
   <data name="Ui.Settings.DuplicateSuppression">
     <value>重复抑制时间（分钟）</value>
   </data>
+  <data name="Ui.Settings.DiskWarnFreeGb">
+    <value>磁盘警告可用空间（GB）</value>
+  </data>
+  <data name="Ui.Settings.DiskCriticalFreeGb">
+    <value>磁盘严重可用空间（GB）</value>
+  </data>
 </root>

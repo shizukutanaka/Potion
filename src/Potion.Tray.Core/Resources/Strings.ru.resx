@@ -354,4 +354,10 @@
   <data name="Ui.Settings.DuplicateSuppression">
     <value>Подавление дубликатов (минуты)</value>
   </data>
+  <data name="Ui.Settings.DiskWarnFreeGb">
+    <value>Свободное место на диске для предупреждения (ГБ)</value>
+  </data>
+  <data name="Ui.Settings.DiskCriticalFreeGb">
+    <value>Критический объём свободного места на диске (ГБ)</value>
+  </data>
 </root>
