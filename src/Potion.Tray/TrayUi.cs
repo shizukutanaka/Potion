@@ -15,6 +15,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly ILocalizer localizer;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem statusItem;
+    private readonly ToolStripMenuItem lastScanItem;
     private readonly ToolStripMenuItem autoRepairItem;
     private readonly ToolStripMenuItem notificationAllItem;
     private readonly ToolStripMenuItem notificationRepairsItem;
@@ -43,6 +44,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         var settings = settingsStore.Load();
         statusItem = new ToolStripMenuItem(engine.StatusText) { Enabled = false };
+        lastScanItem = new ToolStripMenuItem(engine.LastScanText) { Enabled = false };
         autoRepairItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.AutoRepair"))
         {
             CheckOnClick = true,
@@ -63,6 +65,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         var menu = new ContextMenuStrip();
         menu.Items.Add(statusItem);
+        menu.Items.Add(lastScanItem);
         menu.Items.Add(new ToolStripSeparator());
         var scanItem = menu.Items.Add(localizer.Get("Ui.Menu.ScanNow"));
         scanItem.Click += async (_, _) => await RunScanAsync();
@@ -90,7 +93,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notifyIcon = new NotifyIcon
         {
             Visible = true,
-            Text = Shorten(engine.StatusText),
+            Text = Shorten($"{engine.StatusText} / {engine.LastScanText}"),
             Icon = IconFactory.Create(EngineState.Idle),
             ContextMenuStrip = menu
         };
@@ -187,7 +190,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         uiContext.Post(_ =>
         {
             statusItem.Text = engine.StatusText;
-            notifyIcon.Text = Shorten(engine.StatusText);
+            lastScanItem.Text = engine.LastScanText;
+            notifyIcon.Text = Shorten($"{engine.StatusText} / {engine.LastScanText}");
             var oldIcon = notifyIcon.Icon;
             notifyIcon.Icon = IconFactory.Create(state);
             oldIcon?.Dispose();

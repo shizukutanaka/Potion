@@ -48,26 +48,19 @@ public sealed class SelfHealingEngine
 
     public EngineState State => state;
     public DateTimeOffset? LastCycleCompletedUtc { get; private set; }
-    public string StatusText
+    public string StatusText => state switch
     {
-        get
-        {
-            var status = state switch
-            {
-                EngineState.Scanning => localizer.Get("Status.Scanning"),
-                EngineState.Repairing => localizer.Get("Status.Repairing"),
-                EngineState.Warning => localizer.Get("Status.Warning"),
-                EngineState.Critical => localizer.Get("Status.Critical"),
-                _ => localizer.Get("Status.Idle")
-            };
-            var scan = LastCycleCompletedUtc is { } completed
-                ? localizer.Format(
-                    "Ui.Menu.LastScan",
-                    completed.ToLocalTime().ToString("t", CultureInfo.CurrentCulture))
-                : localizer.Get("Ui.Menu.LastScanNever");
-            return $"{status}{Environment.NewLine}{scan}";
-        }
-    }
+        EngineState.Scanning => localizer.Get("Status.Scanning"),
+        EngineState.Repairing => localizer.Get("Status.Repairing"),
+        EngineState.Warning => localizer.Get("Status.Warning"),
+        EngineState.Critical => localizer.Get("Status.Critical"),
+        _ => localizer.Get("Status.Idle")
+    };
+    public string LastScanText => LastCycleCompletedUtc is { } completed
+        ? localizer.Format(
+            "Ui.Menu.LastScan",
+            completed.ToLocalTime().ToString("t", CultureInfo.CurrentCulture))
+        : localizer.Get("Ui.Menu.LastScanNever");
 
     public event EventHandler? StateChanged;
     public event EventHandler? CycleCompleted;
@@ -100,7 +93,7 @@ public sealed class SelfHealingEngine
                 {
                     finding = await check.InspectAsync(settings, ct);
                 }
-                catch (Exception ex)
+                catch (Exception ex) when (ex is not OperationCanceledException)
                 {
                     log.Error($"Health check {check.DisplayName} failed with an exception.", ex);
                     continue;
@@ -164,13 +157,13 @@ public sealed class SelfHealingEngine
                                     outcome = HistoryOutcome.RepairFailed;
                                 }
                             }
-                            catch (Exception ex)
+                            catch (Exception ex) when (ex is not OperationCanceledException)
                             {
                                 log.Warn($"Unable to verify repair action {repair.DisplayName}; treating it as repaired.", ex);
                             }
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception ex) when (ex is not OperationCanceledException)
                     {
                         log.Error($"Repair action {repair.DisplayName} failed with an exception.", ex);
                         repairOutcome = new RepairOutcome(false, ex.Message, Array.Empty<CommandExecution>());
@@ -226,20 +219,14 @@ public sealed class SelfHealingEngine
                     ? EngineState.Warning
                     : EngineState.Idle;
             SetState(finalState);
+            LastCycleCompletedUtc = clock.UtcNow;
+            CycleCompleted?.Invoke(this, EventArgs.Empty);
             return new CycleResult(entries, finalState);
         }
         finally
         {
             SaveCheckState();
-            LastCycleCompletedUtc = clock.UtcNow;
-            try
-            {
-                CycleCompleted?.Invoke(this, EventArgs.Empty);
-            }
-            finally
-            {
-                cycleGate.Release();
-            }
+            cycleGate.Release();
         }
     }
 

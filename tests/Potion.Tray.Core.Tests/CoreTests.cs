@@ -212,6 +212,22 @@ public class EngineTests
     }
 
     [Fact]
+    public async Task CanceledCycleDoesNotPublishCompletion()
+    {
+        var completed = 0;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+            throw new OperationCanceledException());
+        var engine = Engine(check, new FakeHistoryStore(), new FakeSettingsStore(),
+            new RecordingNotifier(), new FakeSystemInfoProvider(), new FakeClock());
+        engine.CycleCompleted += (_, _) => completed++;
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => engine.RunCycleAsync(default));
+
+        Assert.Null(engine.LastCycleCompletedUtc);
+        Assert.Equal(0, completed);
+    }
+
+    [Fact]
     public async Task SuccessfulRepairIsRecordedAndNotified()
     {
         var history = new FakeHistoryStore();
