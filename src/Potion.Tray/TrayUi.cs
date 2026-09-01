@@ -215,7 +215,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             notifier.Notify(new Notification(
                 localizer.Get("Notify.Welcome.Title"),
                 localizer.Get("Notify.Welcome.Message"),
-                HealthStatus.Warning));
+                HealthStatus.Healthy));
             current.HasSeenWelcome = true;
             changed = true;
         }
