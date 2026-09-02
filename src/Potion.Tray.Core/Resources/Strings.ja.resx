@@ -108,6 +108,12 @@
   <data name="Notify.AdminRequired.Message">
     <value>管理者権限がないため、問題の検知はできても修復は実行できません。トレイメニューの「管理者で再起動」から昇格できます。</value>
   </data>
+  <data name="Notify.ScanBusy.Title">
+    <value>点検はすでに実行中です</value>
+  </data>
+  <data name="Notify.ScanBusy.Message">
+    <value>実行中の点検が完了すると結果が履歴に記録されます</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>自動修復が無効です</value>
   </data>

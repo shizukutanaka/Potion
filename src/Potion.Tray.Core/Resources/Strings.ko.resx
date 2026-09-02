@@ -108,6 +108,12 @@
   <data name="Notify.AdminRequired.Message">
     <value>관리자 권한이 없으면 Potion은 문제를 감지할 수 있지만 복구할 수 없습니다. 트레이 메뉴에서 "관리자 권한으로 다시 시작"을 사용하세요.</value>
   </data>
+  <data name="Notify.ScanBusy.Title">
+    <value>검사가 이미 실행 중입니다</value>
+  </data>
+  <data name="Notify.ScanBusy.Message">
+    <value>실행 중인 검사가 완료되면 결과가 기록에 저장됩니다.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>자동 복구가 비활성화되었습니다</value>
   </data>

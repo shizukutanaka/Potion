@@ -1155,8 +1155,10 @@ public class EngineTests
         await check.Started.Task;
         var second = await engine.RunCycleAsync(default);
         Assert.Empty(second.Entries);
+        Assert.True(second.AlreadyRunning);
         check.Continue.SetResult(true);
-        await first;
+        var firstResult = await first;
+        Assert.False(firstResult.AlreadyRunning);
     }
 }
 

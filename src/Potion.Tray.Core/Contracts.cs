@@ -347,7 +347,7 @@ public interface ICheckStateStore
 
 public enum EngineState { Idle, Scanning, Repairing, Warning, Critical }
 
-public sealed record CycleResult(IReadOnlyList<HistoryEntry> Entries, EngineState State);
+public sealed record CycleResult(IReadOnlyList<HistoryEntry> Entries, EngineState State, bool AlreadyRunning = false);
 
 public sealed record Notification(string Title, string Message, HealthStatus Severity);
 

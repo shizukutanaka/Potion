@@ -74,7 +74,7 @@ public sealed class SelfHealingEngine
     {
         if (!await cycleGate.WaitAsync(0, ct))
         {
-            return new CycleResult(Array.Empty<HistoryEntry>(), State);
+            return new CycleResult(Array.Empty<HistoryEntry>(), State, true);
         }
 
         try

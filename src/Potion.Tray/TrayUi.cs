@@ -36,6 +36,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly SynchronizationContext uiContext;
     private readonly CancellationTokenSource shutdown = new();
     private readonly RegisteredWaitHandle? showHistoryWait;
+    private readonly object scanTrackingGate = new();
     private Task? runningScan;
     private bool historyOpen;
     private DateTimeOffset lastKickUtc;
@@ -86,7 +87,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(new ToolStripSeparator());
         scanItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.ScanNow"));
         menu.Items.Add(scanItem);
-        scanItem.Click += (_, _) => runningScan = Task.Run(RunScanAsync);
+        scanItem.Click += (_, _) =>
+        {
+            var scan = Task.Run(() => RunScanAsync(manual: true));
+            TrackScan(scan);
+        };
         historyItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.History"));
         menu.Items.Add(historyItem);
         historyItem.Click += (_, _) => ShowHistory();
@@ -157,7 +162,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
                 try
                 {
                     var scan = RunScanAsync();
-                    runningScan = scan;
+                    TrackScan(scan);
                     await scan;
                 }
                 catch (Exception ex)
@@ -173,11 +178,17 @@ internal sealed class TrayApplicationContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         shutdown.Cancel();
-        if (runningScan is not null)
+        Task? scanToWait;
+        lock (scanTrackingGate)
+        {
+            scanToWait = runningScan;
+        }
+
+        if (scanToWait is not null)
         {
             try
             {
-                if (!runningScan.Wait(TimeSpan.FromSeconds(5)))
+                if (!scanToWait.Wait(TimeSpan.FromSeconds(5)))
                 {
                     log.Warn("Timed out waiting for the active scan to stop.");
                 }
@@ -269,7 +280,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notificationNoneItem.Checked = mode == NotificationMode.None;
     }
 
-    private async Task RunScanAsync()
+    private async Task RunScanAsync(bool manual = false)
     {
         if (shutdown.IsCancellationRequested)
         {
@@ -278,7 +289,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         try
         {
-            await engine.RunCycleAsync(shutdown.Token).ConfigureAwait(false);
+            var result = await engine.RunCycleAsync(shutdown.Token).ConfigureAwait(false);
+            if (manual && result.AlreadyRunning)
+            {
+                notifier.Notify(new Notification(
+                    localizer.Get("Notify.ScanBusy.Title"),
+                    localizer.Get("Notify.ScanBusy.Message"),
+                    HealthStatus.Healthy));
+            }
         }
         catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
         {
@@ -441,10 +459,23 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         lastKickUtc = now;
         log.Info($"Triggering a scan after {reason}.");
-        runningScan = RunScanAsync();
+        var scan = RunScanAsync();
+        TrackScan(scan);
     }
 
-    private static string Shorten(string text) => text.Length <= 63 ? text : text[..60] + "...";
+    private void TrackScan(Task scan)
+    {
+        lock (scanTrackingGate)
+        {
+            if (runningScan is null || runningScan.IsCompleted)
+            {
+                runningScan = scan;
+            }
+        }
+    }
+
+    private static string Shorten(string text, int maxLength = 63) =>
+        text.Length <= maxLength ? text : text[..(maxLength - 1)] + "…";
 }
 
 internal static class IconFactory
@@ -499,6 +530,11 @@ internal sealed class BalloonNotifier : INotifier
 
     public void Notify(Notification notification)
     {
+        if (string.IsNullOrWhiteSpace(notification.Message))
+        {
+            return;
+        }
+
         (context ??= SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext()).Post(_ =>
         {
             if (notifyIcon is null)
@@ -512,7 +548,14 @@ internal sealed class BalloonNotifier : INotifier
                 HealthStatus.Warning => ToolTipIcon.Warning,
                 _ => ToolTipIcon.Info
             };
-            notifyIcon.ShowBalloonTip(10000, notification.Title, notification.Message, icon);
+            notifyIcon.ShowBalloonTip(
+                10000,
+                Shorten(notification.Title, 63),
+                Shorten(notification.Message, 255),
+                icon);
         }, null);
     }
+
+    private static string Shorten(string text, int maxLength) =>
+        text.Length <= maxLength ? text : text[..(maxLength - 1)] + "…";
 }

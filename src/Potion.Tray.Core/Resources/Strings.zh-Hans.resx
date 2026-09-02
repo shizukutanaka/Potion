@@ -108,6 +108,12 @@
   <data name="Notify.AdminRequired.Message">
     <value>没有管理员权限时，Potion 可以检测问题，但无法修复问题。请使用托盘菜单中的“以管理员身份重新启动”。</value>
   </data>
+  <data name="Notify.ScanBusy.Title">
+    <value>检查已在进行中</value>
+  </data>
+  <data name="Notify.ScanBusy.Message">
+    <value>正在进行的检查完成后，结果将记录到历史记录中。</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>自动修复已禁用</value>
   </data>

@@ -108,6 +108,12 @@
   <data name="Notify.AdminRequired.Message">
     <value>Ohne Administratorrechte kann Potion Probleme erkennen, aber nicht reparieren. Verwenden Sie „Als Administrator neu starten“ im Tray-Menü.</value>
   </data>
+  <data name="Notify.ScanBusy.Title">
+    <value>Eine Prüfung läuft bereits</value>
+  </data>
+  <data name="Notify.ScanBusy.Message">
+    <value>Das Ergebnis wird im Verlauf gespeichert, sobald die laufende Prüfung abgeschlossen ist.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Automatische Reparatur ist deaktiviert</value>
   </data>

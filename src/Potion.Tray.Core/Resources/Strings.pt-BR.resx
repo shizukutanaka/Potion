@@ -108,6 +108,12 @@
   <data name="Notify.AdminRequired.Message">
     <value>Sem direitos de administrador, o Potion pode detectar problemas, mas não pode repará-los. Use "Reiniciar como administrador" no menu da bandeja.</value>
   </data>
+  <data name="Notify.ScanBusy.Title">
+    <value>Já existe uma verificação em andamento</value>
+  </data>
+  <data name="Notify.ScanBusy.Message">
+    <value>O resultado será registrado no histórico quando a verificação em andamento for concluída.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>O reparo automático está desativado</value>
   </data>

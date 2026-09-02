@@ -108,6 +108,12 @@
   <data name="Notify.AdminRequired.Message">
     <value>Без прав администратора Potion может обнаруживать проблемы, но не может их исправлять. Используйте пункт «Перезапустить от имени администратора» в меню трея.</value>
   </data>
+  <data name="Notify.ScanBusy.Title">
+    <value>Проверка уже выполняется</value>
+  </data>
+  <data name="Notify.ScanBusy.Message">
+    <value>Результат будет записан в журнал после завершения текущей проверки.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Автоматическое восстановление отключено</value>
   </data>

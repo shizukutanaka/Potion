@@ -108,6 +108,12 @@
   <data name="Notify.AdminRequired.Message">
     <value>Sans droits d’administrateur, Potion peut détecter les problèmes, mais pas les réparer. Utilisez « Redémarrer en tant qu’administrateur » dans le menu de la zone de notification.</value>
   </data>
+  <data name="Notify.ScanBusy.Title">
+    <value>Une analyse est déjà en cours</value>
+  </data>
+  <data name="Notify.ScanBusy.Message">
+    <value>Le résultat sera enregistré dans l’historique lorsque l’analyse en cours sera terminée.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>La réparation automatique est désactivée</value>
   </data>

@@ -108,6 +108,12 @@
   <data name="Notify.AdminRequired.Message">
     <value>Without administrator rights Potion can detect problems but cannot repair them. Use "Restart as administrator" in the tray menu.</value>
   </data>
+  <data name="Notify.ScanBusy.Title">
+    <value>A scan is already in progress</value>
+  </data>
+  <data name="Notify.ScanBusy.Message">
+    <value>The result will be recorded in history when the running scan completes.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Automatic repair is disabled</value>
   </data>
