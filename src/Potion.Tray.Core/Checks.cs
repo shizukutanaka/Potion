@@ -54,12 +54,18 @@ public sealed class DiskSpaceHealthCheck : IHealthCheck
             x => x.Drive.Name,
             x => $"{x.Percent.ToString("0.0", CultureInfo.InvariantCulture)}%",
             StringComparer.OrdinalIgnoreCase);
+        var signature = string.Join(
+            ",",
+            findings
+                .OrderBy(x => x.Drive.Name, StringComparer.Ordinal)
+                .Select(x => $"{x.Drive.Name}={x.Status}"));
         return Task.FromResult<HealthFinding?>(new HealthFinding(
             Id,
             DisplayName,
             worst,
             string.Join(localizer.Get("Format.ListSeparator"), details),
-            metrics));
+            metrics,
+            signature));
     }
 
 }
@@ -91,7 +97,8 @@ public sealed class CriticalServiceHealthCheck : IHealthCheck
                 DisplayName,
                 HealthStatus.Critical,
                 localizer.Format("Check.CriticalServices.Detail", string.Join(localizer.Get("Format.ListSeparator"), stopped)),
-                new Dictionary<string, string> { ["services"] = string.Join(localizer.Get("Format.ListSeparator"), stopped) }));
+                new Dictionary<string, string> { ["services"] = string.Join(localizer.Get("Format.ListSeparator"), stopped) },
+                string.Join(",", stopped.OrderBy(name => name, StringComparer.Ordinal))));
     }
 }
 
@@ -188,7 +195,8 @@ public sealed class ComponentStoreHealthCheck : IHealthCheck
                 Id,
                 DisplayName,
                 HealthStatus.Critical,
-                localizer.Get("Check.ComponentStore.Detail"))
+                localizer.Get("Check.ComponentStore.Detail"),
+                Signature: "corruption-repairable")
             : null;
 
     private static bool ContainsRepairable(string output) =>
@@ -258,7 +266,8 @@ public sealed class MemoryPressureHealthCheck : IHealthCheck
             new Dictionary<string, string>
             {
                 ["available"] = percent.ToString("0.0", CultureInfo.InvariantCulture) + "%"
-            }));
+            },
+            "low-available-memory"));
     }
 }
 
@@ -278,7 +287,12 @@ public sealed class PendingRebootHealthCheck : IHealthCheck
 
     public Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct) =>
         Task.FromResult<HealthFinding?>(system.IsRebootPending()
-            ? new HealthFinding(Id, DisplayName, HealthStatus.Warning, localizer.Get("Check.PendingReboot.Detail"))
+            ? new HealthFinding(
+                Id,
+                DisplayName,
+                HealthStatus.Warning,
+                localizer.Get("Check.PendingReboot.Detail"),
+                Signature: "reboot-pending")
             : null);
 }
 
@@ -338,6 +352,11 @@ public sealed class NetworkHealthCheck : IHealthCheck
             }
         }
 
-        return new HealthFinding(Id, DisplayName, HealthStatus.Critical, localizer.Get("Check.Network.Detail"));
+        return new HealthFinding(
+            Id,
+            DisplayName,
+            HealthStatus.Critical,
+            localizer.Get("Check.Network.Detail"),
+            Signature: "dns-unresolved");
     }
 }

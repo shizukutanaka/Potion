@@ -9,7 +9,8 @@ public sealed record HealthFinding(
     string Title,
     HealthStatus Status,
     string Detail,
-    IReadOnlyDictionary<string, string>? Metrics = null);
+    IReadOnlyDictionary<string, string>? Metrics = null,
+    string? Signature = null);
 
 public interface IHealthCheck
 {
@@ -328,7 +329,8 @@ public sealed record HistoryEntry(
     string? RepairSummary,
     string? SkipReason,
     TimeSpan Duration,
-    IReadOnlyList<CommandExecution> Commands);
+    IReadOnlyList<CommandExecution> Commands,
+    string? Signature = null);
 
 public interface IHistoryStore
 {

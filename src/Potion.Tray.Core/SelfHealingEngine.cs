@@ -230,7 +230,8 @@ public sealed class SelfHealingEngine
                     repairOutcome?.Summary,
                     skipReason,
                     Stopwatch.GetElapsedTime(started),
-                    repairOutcome?.Commands ?? Array.Empty<CommandExecution>());
+                    repairOutcome?.Commands ?? Array.Empty<CommandExecution>(),
+                    finding.Signature);
                 entries.Add(entry);
                 var append = true;
                 if (entry.Outcome is HistoryOutcome.Skipped or
@@ -241,7 +242,9 @@ public sealed class SelfHealingEngine
                     var previous = await history.FindLastAsync(entry.CheckId, ct);
                     append = previous is null ||
                         previous.Outcome != entry.Outcome ||
-                        !string.Equals(previous.Detail, entry.Detail, StringComparison.Ordinal) ||
+                        (entry.Signature is not null
+                            ? !string.Equals(previous.Signature, entry.Signature, StringComparison.Ordinal)
+                            : !string.Equals(previous.Detail, entry.Detail, StringComparison.Ordinal)) ||
                         !string.Equals(previous.SkipReason, entry.SkipReason, StringComparison.Ordinal) ||
                         HasElapsed(
                             previous.TimestampUtc,

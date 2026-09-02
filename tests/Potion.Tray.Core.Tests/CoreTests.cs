@@ -29,6 +29,30 @@ public class HealthCheckTests
     }
 
     [Fact]
+    public async Task DiskSpaceHealthCheckSignatureUsesAffectedDrivesAndStatuses()
+    {
+        const long gigabyte = 1024L * 1024 * 1024;
+        var system = new FakeSystemInfoProvider
+        {
+            Drives = new[] { new DriveSnapshot(@"C:\", 100 * gigabyte, 5 * gigabyte) }
+        };
+
+        var first = await new DiskSpaceHealthCheck(system).InspectAsync(new TraySettings(), default);
+        system.Drives = new[] { new DriveSnapshot(@"C:\", 100 * gigabyte, 4 * gigabyte) };
+        var second = await new DiskSpaceHealthCheck(system).InspectAsync(new TraySettings(), default);
+        system.Drives = new[]
+        {
+            new DriveSnapshot(@"C:\", 100 * gigabyte, 4 * gigabyte),
+            new DriveSnapshot(@"D:\", 100 * gigabyte, 10 * gigabyte)
+        };
+        var changed = await new DiskSpaceHealthCheck(system).InspectAsync(new TraySettings(), default);
+
+        Assert.Equal(@"C:\=Critical", first!.Signature);
+        Assert.Equal(first.Signature, second!.Signature);
+        Assert.Equal(@"C:\=Critical,D:\=Warning", changed!.Signature);
+    }
+
+    [Fact]
     public async Task DiskSpaceHealthCheck_HealthyReturnsNull()
     {
         var system = new FakeSystemInfoProvider
@@ -53,6 +77,30 @@ public class HealthCheckTests
         var finding = await new CriticalServiceHealthCheck(system).InspectAsync(new TraySettings(), default);
         Assert.NotNull(finding);
         Assert.Equal(new ResourceLocalizer().Format("Check.CriticalServices.Detail", "wuauserv"), finding.Detail);
+    }
+
+    [Fact]
+    public async Task CriticalServiceHealthCheckSignatureUsesSortedStoppedServices()
+    {
+        var system = new FakeSystemInfoProvider
+        {
+            Services = new[]
+            {
+                new ServiceSnapshot("z-service", true, false),
+                new ServiceSnapshot("a-service", true, false)
+            }
+        };
+
+        var first = await new CriticalServiceHealthCheck(system).InspectAsync(new TraySettings(), default);
+        system.Services = new[]
+        {
+            new ServiceSnapshot("a-service", true, true),
+            new ServiceSnapshot("z-service", true, false)
+        };
+        var changed = await new CriticalServiceHealthCheck(system).InspectAsync(new TraySettings(), default);
+
+        Assert.Equal("a-service,z-service", first!.Signature);
+        Assert.Equal("z-service", changed!.Signature);
     }
 
     [Fact]
@@ -605,8 +653,12 @@ public class RepairTests
 
 public class EngineTests
 {
-    private static HealthFinding Finding(string id = "x", HealthStatus status = HealthStatus.Critical) =>
-        new(id, "テスト点検", status, "問題");
+    private static HealthFinding Finding(
+        string id = "x",
+        HealthStatus status = HealthStatus.Critical,
+        string detail = "問題",
+        string? signature = null) =>
+        new(id, "テスト点検", status, detail, Signature: signature);
 
     private static SelfHealingEngine Engine(
         IHealthCheck check,
@@ -882,6 +934,66 @@ public class EngineTests
         Assert.Single(history.Entries);
         Assert.Single(first.Entries);
         Assert.Single(second.Entries);
+    }
+
+    [Fact]
+    public async Task DuplicateSignedEntryIgnoresVolatileDetail()
+    {
+        var settings = new FakeSettingsStore { Settings = new TraySettings { AutoRepairEnabled = false } };
+        var history = new FakeHistoryStore();
+        var check = new SequenceHealthCheck(
+            "x",
+            Finding(detail: "available memory: 5.0%", signature: "low-available-memory"),
+            Finding(detail: "available memory: 4.0%", signature: "low-available-memory"));
+        var engine = Engine(check, history, settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        await engine.RunCycleAsync(default);
+        await engine.RunCycleAsync(default);
+
+        Assert.Single(history.Entries);
+    }
+
+    [Fact]
+    public async Task ChangedSignatureAppendsWithinSuppressionWindow()
+    {
+        var settings = new FakeSettingsStore { Settings = new TraySettings { AutoRepairEnabled = false } };
+        var history = new FakeHistoryStore();
+        var check = new SequenceHealthCheck(
+            "x",
+            Finding(detail: "critical C:", signature: @"C:\=Critical"),
+            Finding(detail: "critical C and warning D", signature: @"C:\=Critical,D:\=Warning"));
+        var engine = Engine(check, history, settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        await engine.RunCycleAsync(default);
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(2, history.Entries.Count);
+    }
+
+    [Fact]
+    public async Task LegacyUnsignedEntryDoesNotSuppressSignedEntry()
+    {
+        var settings = new FakeSettingsStore { Settings = new TraySettings { AutoRepairEnabled = false } };
+        var history = new FakeHistoryStore();
+        var check = new SequenceHealthCheck(
+            "x",
+            Finding(detail: "same detail"),
+            Finding(detail: "same detail", signature: "stable-problem"));
+        var engine = Engine(check, history, settings, new RecordingNotifier(),
+            new FakeSystemInfoProvider(), new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        await engine.RunCycleAsync(default);
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(2, history.Entries.Count);
     }
 
     [Fact]
@@ -1589,6 +1701,31 @@ public class StoreTests
         Assert.Contains(path, log.Warnings[0]);
         Assert.Equal(2, await store.CountRepairAttemptsSinceAsync("a", DateTimeOffset.UtcNow.AddDays(-1), default) +
                          await store.CountRepairAttemptsSinceAsync("b", DateTimeOffset.UtcNow.AddDays(-1), default));
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreRoundTripsSignatureAndReadsLegacyRows()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "history.jsonl");
+        using var store = new JsonlHistoryStore(path, maxEntries: 100, retentionDays: 90);
+        await store.AppendAsync(Entry("signed", HistoryOutcome.Detected) with
+        {
+            Signature = "stable-problem"
+        }, default);
+
+        var signed = Assert.Single(await store.ReadRecentAsync(10, default));
+        Assert.Equal("stable-problem", signed.Signature);
+
+        var serialized = await File.ReadAllTextAsync(path);
+        var legacy = serialized.Replace(
+            ",\"Signature\":\"stable-problem\"",
+            string.Empty,
+            StringComparison.Ordinal);
+        await File.WriteAllTextAsync(path, legacy);
+
+        var loadedLegacy = Assert.Single(await store.ReadRecentAsync(10, default));
+        Assert.Null(loadedLegacy.Signature);
     }
 
     [Fact]
