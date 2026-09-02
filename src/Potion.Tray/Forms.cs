@@ -84,12 +84,33 @@ internal sealed class HistoryForm : Form
         try
         {
             entries = await history.ReadRecentAsync(settings.HistoryMaxEntries, CancellationToken.None);
+            if (history.LastReadFailed)
+            {
+                ShowHistoryUnavailable();
+                return;
+            }
+
             RefreshList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            log.Warn("Unable to load history.", ex);
+            ShowHistoryUnavailable();
         }
         finally
         {
             refresh.Enabled = true;
         }
+    }
+
+    private void ShowHistoryUnavailable()
+    {
+        MessageBox.Show(
+            this,
+            localizer.Get("Notify.HistoryUnavailable.Message"),
+            localizer.Get("Notify.HistoryUnavailable.Title"),
+            MessageBoxButtons.OK,
+            MessageBoxIcon.Error);
     }
 
     private void RefreshList()

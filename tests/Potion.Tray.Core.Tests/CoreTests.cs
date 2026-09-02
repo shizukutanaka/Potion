@@ -1767,6 +1767,81 @@ public class EngineTests
         Assert.Equal(EngineState.Warning, result.State);
     }
 
+    [Fact]
+    public async Task HistoryReadFailureDoesNotAbortCycleAndNotifiesOnce()
+    {
+        var history = new FakeHistoryStore { FailReads = true };
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                DryRun = false,
+                DuplicateSuppressionMinutes = 60,
+                NotificationCooldownMinutes = 60,
+                Notifications = NotificationMode.RepairsOnly
+            }
+        };
+        var notifier = new RecordingNotifier();
+        var firstCalls = 0;
+        var secondCalls = 0;
+        var firstCheck = new DelegateHealthCheck("x", (_, _) =>
+        {
+            firstCalls++;
+            return Task.FromResult<HealthFinding?>(Finding("x"));
+        });
+        var secondCheck = new DelegateHealthCheck("y", (_, _) =>
+        {
+            secondCalls++;
+            return Task.FromResult<HealthFinding?>(null);
+        });
+        var repair = new DelegateRepair("x", false, (_, _, _) =>
+            Task.FromResult(new RepairOutcome(true, "repaired", Array.Empty<CommandExecution>())));
+        var engine = new SelfHealingEngine(
+            new IHealthCheck[] { firstCheck, secondCheck },
+            new[] { repair },
+            history,
+            settings,
+            notifier,
+            new FakeSystemInfoProvider(),
+            new FakeClock(),
+            new FakeLog());
+
+        var first = await engine.RunCycleAsync(default);
+        var second = await engine.RunCycleAsync(default);
+
+        Assert.Equal(4, firstCalls);
+        Assert.Equal(2, secondCalls);
+        Assert.NotEmpty(first.Entries);
+        Assert.NotEmpty(second.Entries);
+        Assert.Equal(2, history.Entries.Count);
+        Assert.Equal(
+            1,
+            notifier.Notifications.Count(notification =>
+                notification.Title == new ResourceLocalizer().Get("Notify.HistoryUnavailable.Title")));
+    }
+
+    [Fact]
+    public async Task SuccessfulHistoryReadsDoNotNotifyHistoryUnavailable()
+    {
+        var history = new FakeHistoryStore();
+        var notifier = new RecordingNotifier();
+        var engine = Engine(
+            new DelegateHealthCheck("x", (_, _) => Task.FromResult<HealthFinding?>(Finding())),
+            history,
+            new FakeSettingsStore(),
+            notifier,
+            new FakeSystemInfoProvider(),
+            new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "repaired", Array.Empty<CommandExecution>()))) });
+
+        await engine.RunCycleAsync(default);
+
+        Assert.DoesNotContain(
+            notifier.Notifications,
+            notification => notification.Title == new ResourceLocalizer().Get("Notify.HistoryUnavailable.Title"));
+    }
+
     [Theory]
     [InlineData(HealthStatus.Warning, HistoryOutcome.ManualActionRequired, EngineState.Warning)]
     [InlineData(HealthStatus.Critical, HistoryOutcome.RepairFailed, EngineState.Critical)]
@@ -2222,6 +2297,54 @@ public class StoreTests
         Assert.Contains(path, log.Warnings[0]);
         Assert.Equal(2, await store.CountRepairAttemptsSinceAsync("a", DateTimeOffset.UtcNow.AddDays(-1), default) +
                          await store.CountRepairAttemptsSinceAsync("b", DateTimeOffset.UtcNow.AddDays(-1), default));
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreReadFailuresDegradeAndResetAfterSuccess()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "history.jsonl");
+        using var store = new JsonlHistoryStore(path, new FakeLog(), maxEntries: 100, retentionDays: 90);
+        await store.AppendAsync(Entry("readable", HistoryOutcome.Detected), default);
+
+        var originalMode = OperatingSystem.IsWindows()
+            ? UnixFileMode.None
+            : File.GetUnixFileMode(path);
+        FileStream? lockStream = null;
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                lockStream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.None);
+            }
+            else
+            {
+                File.SetUnixFileMode(path, UnixFileMode.None);
+            }
+
+            Assert.Empty(await store.ReadRecentAsync(10, default));
+            Assert.True(store.LastReadFailed);
+            Assert.Equal(0, await store.CountRepairAttemptsSinceAsync(
+                "readable", DateTimeOffset.UtcNow.AddDays(-1), default));
+            Assert.True(store.LastReadFailed);
+            Assert.Equal(0, await store.CountConsecutiveRepairFailuresAsync(
+                "readable", DateTimeOffset.UtcNow.AddDays(-1), default));
+            Assert.True(store.LastReadFailed);
+            Assert.Null(await store.FindLastAsync("readable", default));
+            Assert.True(store.LastReadFailed);
+        }
+        finally
+        {
+            lockStream?.Dispose();
+            if (!OperatingSystem.IsWindows())
+            {
+                File.SetUnixFileMode(path, originalMode);
+            }
+        }
+
+        var recent = await store.ReadRecentAsync(10, default);
+        Assert.False(store.LastReadFailed);
+        Assert.Single(recent);
     }
 
     [Fact]

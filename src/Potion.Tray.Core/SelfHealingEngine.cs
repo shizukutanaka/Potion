@@ -151,6 +151,10 @@ public sealed class SelfHealingEngine
                         finding.CheckId,
                         clock.UtcNow - ConsecutiveFailureWindow,
                         ct);
+                    if (history.LastReadFailed)
+                    {
+                        HandleHistoryReadFailure(settings, finding.CheckId);
+                    }
                     if (consecutiveFailures >= settings.MaxRepairAttemptsPerDay)
                     {
                         outcome = HistoryOutcome.ManualActionRequired;
@@ -165,6 +169,10 @@ public sealed class SelfHealingEngine
                     {
                         var since = clock.UtcNow.AddHours(-24);
                         var historyAttempts = await history.CountRepairAttemptsSinceAsync(finding.CheckId, since, ct);
+                        if (history.LastReadFailed)
+                        {
+                            HandleHistoryReadFailure(settings, finding.CheckId);
+                        }
                         var memoryAttempts = CountRecentRepairAttempts(finding.CheckId, since);
                         if (Math.Max(historyAttempts, memoryAttempts) >= settings.MaxRepairAttemptsPerDay)
                         {
@@ -260,6 +268,10 @@ public sealed class SelfHealingEngine
                     settings.DuplicateSuppressionMinutes > 0)
                 {
                     var previous = await history.FindLastAsync(entry.CheckId, ct);
+                    if (history.LastReadFailed)
+                    {
+                        HandleHistoryReadFailure(settings, finding.CheckId);
+                    }
                     append = previous is null ||
                         previous.Outcome != entry.Outcome ||
                         (entry.Signature is not null
@@ -453,6 +465,12 @@ public sealed class SelfHealingEngine
             localizer.Get("Notify.HistoryUnavailable.Message"),
             HealthStatus.Warning));
         lastHistoryFailureNotifiedUtc = clock.UtcNow;
+    }
+
+    private void HandleHistoryReadFailure(TraySettings settings, string checkId)
+    {
+        log.Error($"History read for {checkId} failed; continuing without persisted history.");
+        NotifyHistoryFailure(settings);
     }
 
     private int CountRecentRepairAttempts(string checkId, DateTimeOffset sinceUtc)

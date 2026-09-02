@@ -336,6 +336,7 @@ public sealed record HistoryEntry(
 public interface IHistoryStore
 {
     bool LastAppendFailed { get; }
+    bool LastReadFailed { get; }
     Task AppendAsync(HistoryEntry entry, CancellationToken ct);
     Task<IReadOnlyList<HistoryEntry>> ReadRecentAsync(int max, CancellationToken ct);
     Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct);

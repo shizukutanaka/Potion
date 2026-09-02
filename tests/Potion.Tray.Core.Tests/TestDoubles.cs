@@ -118,7 +118,9 @@ internal sealed class FakeHistoryStore : IHistoryStore
     public List<HistoryEntry> Entries { get; } = new();
     public int Attempts { get; set; }
     public bool FailAppend { get; set; }
+    public bool FailReads { get; set; }
     public bool LastAppendFailed { get; private set; }
+    public bool LastReadFailed { get; private set; }
     public Task AppendAsync(HistoryEntry entry, CancellationToken ct)
     {
         LastAppendFailed = FailAppend;
@@ -129,30 +131,50 @@ internal sealed class FakeHistoryStore : IHistoryStore
         return Task.CompletedTask;
     }
 
-    public Task<IReadOnlyList<HistoryEntry>> ReadRecentAsync(int max, CancellationToken ct) =>
-        Task.FromResult<IReadOnlyList<HistoryEntry>>(Entries.OrderByDescending(e => e.TimestampUtc).Take(max).ToList());
+    public Task<IReadOnlyList<HistoryEntry>> ReadRecentAsync(int max, CancellationToken ct)
+    {
+        LastReadFailed = FailReads;
+        return Task.FromResult<IReadOnlyList<HistoryEntry>>(
+            FailReads
+                ? Array.Empty<HistoryEntry>()
+                : Entries.OrderByDescending(e => e.TimestampUtc).Take(max).ToList());
+    }
 
-    public Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct) =>
-        Task.FromResult(Entries
-            .Select((entry, index) => (entry, index))
-            .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(item => item.entry.TimestampUtc)
-            .ThenByDescending(item => item.index)
-            .Select(item => item.entry)
-            .FirstOrDefault());
+    public Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct)
+    {
+        LastReadFailed = FailReads;
+        return Task.FromResult<HistoryEntry?>(
+            FailReads
+                ? null
+                : Entries
+                    .Select((entry, index) => (entry, index))
+                    .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
+                    .OrderByDescending(item => item.entry.TimestampUtc)
+                    .ThenByDescending(item => item.index)
+                    .Select(item => item.entry)
+                    .FirstOrDefault());
+    }
 
-    public Task<int> CountRepairAttemptsSinceAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct) =>
-        Task.FromResult(Attempts);
+    public Task<int> CountRepairAttemptsSinceAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct)
+    {
+        LastReadFailed = FailReads;
+        return Task.FromResult(FailReads ? 0 : Attempts);
+    }
 
-    public Task<int> CountConsecutiveRepairFailuresAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct) =>
-        Task.FromResult(Entries
-            .Select((entry, index) => (entry, index))
-            .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
-            .OrderByDescending(item => item.entry.TimestampUtc)
-            .ThenByDescending(item => item.index)
-            .TakeWhile(item => item.entry.TimestampUtc >= sinceUtc)
-            .TakeWhile(item => item.entry.Outcome != HistoryOutcome.Repaired)
-            .Count(item => item.entry.Outcome == HistoryOutcome.RepairFailed));
+    public Task<int> CountConsecutiveRepairFailuresAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct)
+    {
+        LastReadFailed = FailReads;
+        return Task.FromResult(FailReads
+            ? 0
+            : Entries
+                .Select((entry, index) => (entry, index))
+                .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(item => item.entry.TimestampUtc)
+                .ThenByDescending(item => item.index)
+                .TakeWhile(item => item.entry.TimestampUtc >= sinceUtc)
+                .TakeWhile(item => item.entry.Outcome != HistoryOutcome.Repaired)
+                .Count(item => item.entry.Outcome == HistoryOutcome.RepairFailed));
+    }
 }
 
 internal sealed class FakeCheckStateStore : ICheckStateStore

@@ -303,6 +303,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
     }
 
     public bool LastAppendFailed { get; private set; }
+    public bool LastReadFailed { get; private set; }
 
     public async Task AppendAsync(HistoryEntry entry, CancellationToken ct)
     {
@@ -348,6 +349,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
 
     public async Task<IReadOnlyList<HistoryEntry>> ReadRecentAsync(int max, CancellationToken ct)
     {
+        LastReadFailed = false;
         await gate.WaitAsync(ct);
         try
         {
@@ -355,6 +357,12 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 .OrderByDescending(e => e.TimestampUtc)
                 .Take(Math.Max(0, max))
                 .ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LastReadFailed = true;
+            log.Error("Unable to read history.", ex);
+            return Array.Empty<HistoryEntry>();
         }
         finally
         {
@@ -364,6 +372,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
 
     public async Task<int> CountRepairAttemptsSinceAsync(string checkId, DateTimeOffset sinceUtc, CancellationToken ct)
     {
+        LastReadFailed = false;
         await gate.WaitAsync(ct);
         try
         {
@@ -373,6 +382,12 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 e.TimestampUtc >= sinceUtc &&
                 e.TimestampUtc <= now &&
                 e.Outcome is HistoryOutcome.Repaired or HistoryOutcome.RepairFailed);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LastReadFailed = true;
+            log.Error("Unable to read history.", ex);
+            return 0;
         }
         finally
         {
@@ -385,6 +400,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         DateTimeOffset sinceUtc,
         CancellationToken ct)
     {
+        LastReadFailed = false;
         await gate.WaitAsync(ct);
         try
         {
@@ -420,6 +436,12 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
 
             return count;
         }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LastReadFailed = true;
+            log.Error("Unable to read history.", ex);
+            return 0;
+        }
         finally
         {
             gate.Release();
@@ -428,6 +450,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
 
     public async Task<HistoryEntry?> FindLastAsync(string checkId, CancellationToken ct)
     {
+        LastReadFailed = false;
         await gate.WaitAsync(ct);
         try
         {
@@ -438,6 +461,12 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 .ThenByDescending(item => item.index)
                 .Select(item => item.entry)
                 .FirstOrDefault();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            LastReadFailed = true;
+            log.Error("Unable to read history.", ex);
+            return null;
         }
         finally
         {
