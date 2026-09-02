@@ -1865,6 +1865,151 @@ public class SettingsAndNotificationTests
 public class StoreTests
 {
     [Fact]
+    public void TempDirectoryCleanerDeletesOldFilesAndKeepsRecentFiles()
+    {
+        using var directory = new TempDirectory();
+        Directory.CreateDirectory(directory.Path);
+        var now = new DateTimeOffset(2030, 1, 15, 0, 0, 0, TimeSpan.Zero);
+        var oldPath = Path.Combine(directory.Path, "old.bin");
+        var recentPath = Path.Combine(directory.Path, "recent.bin");
+        var futurePath = Path.Combine(directory.Path, "future.bin");
+        File.WriteAllBytes(oldPath, new byte[] { 1, 2, 3 });
+        File.WriteAllBytes(recentPath, new byte[] { 4, 5 });
+        File.WriteAllBytes(futurePath, new byte[] { 6 });
+        File.SetLastWriteTimeUtc(oldPath, now.AddDays(-8).UtcDateTime);
+        File.SetLastWriteTimeUtc(recentPath, now.AddDays(-1).UtcDateTime);
+        File.SetLastWriteTimeUtc(futurePath, now.AddDays(1).UtcDateTime);
+
+        var result = new TempDirectoryCleaner(new FakeClock { UtcNow = now })
+            .Clean(new[] { directory.Path }, TimeSpan.FromDays(7), default);
+
+        Assert.Equal(1, result.FilesDeleted);
+        Assert.Equal(3, result.BytesFreed);
+        Assert.False(File.Exists(oldPath));
+        Assert.True(File.Exists(recentPath));
+        Assert.True(File.Exists(futurePath));
+    }
+
+    [Fact]
+    public void TempDirectoryCleanerTraversesRealNestedDirectories()
+    {
+        using var directory = new TempDirectory();
+        var nested = Path.Combine(directory.Path, "nested", "deeper");
+        Directory.CreateDirectory(nested);
+        var path = Path.Combine(nested, "old.bin");
+        File.WriteAllBytes(path, new byte[] { 1, 2, 3, 4 });
+        var now = new DateTimeOffset(2030, 1, 15, 0, 0, 0, TimeSpan.Zero);
+        File.SetLastWriteTimeUtc(path, now.AddDays(-8).UtcDateTime);
+
+        var result = new TempDirectoryCleaner(new FakeClock { UtcNow = now })
+            .Clean(new[] { directory.Path }, TimeSpan.FromDays(7), default);
+
+        Assert.Equal(1, result.FilesDeleted);
+        Assert.Equal(4, result.BytesFreed);
+        Assert.False(File.Exists(path));
+    }
+
+    [Fact]
+    public void TempDirectoryCleanerDoesNotFollowSymlinkedDirectories()
+    {
+        using var outside = new TempDirectory();
+        using var directory = new TempDirectory();
+        Directory.CreateDirectory(outside.Path);
+        Directory.CreateDirectory(directory.Path);
+        var outsidePath = Path.Combine(outside.Path, "outside.bin");
+        var linkPath = Path.Combine(directory.Path, "linked-directory");
+        File.WriteAllBytes(outsidePath, new byte[] { 1, 2, 3 });
+        Directory.CreateSymbolicLink(linkPath, outside.Path);
+        var now = new DateTimeOffset(2030, 1, 15, 0, 0, 0, TimeSpan.Zero);
+        File.SetLastWriteTimeUtc(outsidePath, now.AddDays(-8).UtcDateTime);
+
+        var result = new TempDirectoryCleaner(new FakeClock { UtcNow = now })
+            .Clean(new[] { directory.Path }, TimeSpan.FromDays(7), default);
+
+        Assert.Equal(0, result.FilesDeleted);
+        Assert.Equal(0, result.BytesFreed);
+        Assert.True(File.Exists(outsidePath));
+        Assert.True(Directory.Exists(linkPath));
+    }
+
+    [Fact]
+    public void TempDirectoryCleanerDoesNotDeleteSymlinkedFiles()
+    {
+        using var outside = new TempDirectory();
+        using var directory = new TempDirectory();
+        Directory.CreateDirectory(outside.Path);
+        Directory.CreateDirectory(directory.Path);
+        var outsidePath = Path.Combine(outside.Path, "outside.bin");
+        var linkPath = Path.Combine(directory.Path, "linked-file.bin");
+        File.WriteAllBytes(outsidePath, new byte[] { 1, 2, 3, 4 });
+        File.CreateSymbolicLink(linkPath, outsidePath);
+        var now = new DateTimeOffset(2030, 1, 15, 0, 0, 0, TimeSpan.Zero);
+        File.SetLastWriteTimeUtc(outsidePath, now.AddDays(-8).UtcDateTime);
+
+        var result = new TempDirectoryCleaner(new FakeClock { UtcNow = now })
+            .Clean(new[] { directory.Path }, TimeSpan.FromDays(7), default);
+
+        Assert.Equal(0, result.FilesDeleted);
+        Assert.Equal(0, result.BytesFreed);
+        Assert.True(File.Exists(outsidePath));
+        Assert.True(File.Exists(linkPath));
+    }
+
+    [Fact]
+    public void TempDirectoryCleanerStopsAtFileBound()
+    {
+        using var directory = new TempDirectory();
+        Directory.CreateDirectory(directory.Path);
+        var now = new DateTimeOffset(2030, 1, 15, 0, 0, 0, TimeSpan.Zero);
+        var paths = Enumerable.Range(1, 3)
+            .Select(index => Path.Combine(directory.Path, $"old-{index}.bin"))
+            .ToArray();
+        foreach (var path in paths)
+        {
+            File.WriteAllBytes(path, new byte[] { 1 });
+            File.SetLastWriteTimeUtc(path, now.AddDays(-8).UtcDateTime);
+        }
+
+        var result = new TempDirectoryCleaner(
+                new FakeClock { UtcNow = now },
+                maxFilesPerRoot: 1)
+            .Clean(new[] { directory.Path }, TimeSpan.FromDays(7), default);
+
+        Assert.Equal(1, result.FilesDeleted);
+        Assert.Equal(2, paths.Count(File.Exists));
+    }
+
+    [Fact]
+    public void TempDirectoryCleanerHonorsCancellation()
+    {
+        using var directory = new TempDirectory();
+        Directory.CreateDirectory(directory.Path);
+        var path = Path.Combine(directory.Path, "old.bin");
+        File.WriteAllBytes(path, new byte[] { 1 });
+        File.SetLastWriteTimeUtc(path, DateTime.UtcNow.AddDays(-8));
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+
+        var result = new TempDirectoryCleaner(new FakeClock())
+            .Clean(new[] { directory.Path }, TimeSpan.FromDays(7), cancellation.Token);
+
+        Assert.Equal(0, result.FilesDeleted);
+        Assert.True(File.Exists(path));
+    }
+
+    [Fact]
+    public void TempDirectoryCleanerSkipsMissingRoots()
+    {
+        using var directory = new TempDirectory();
+
+        var result = new TempDirectoryCleaner(new FakeClock())
+            .Clean(new[] { directory.Path }, TimeSpan.FromDays(7), default);
+
+        Assert.Equal(0, result.FilesDeleted);
+        Assert.Equal(0, result.BytesFreed);
+    }
+
+    [Fact]
     public void JsonSettingsStoreSaveFailureIsReportedAndClearedAfterSuccessfulSave()
     {
         using var directory = new TempDirectory();

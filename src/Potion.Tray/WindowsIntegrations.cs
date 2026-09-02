@@ -309,17 +309,16 @@ internal static class CultureConfigurator
 internal sealed class WindowsTempFileCleaner : ITempFileCleaner
 {
     private readonly ISystemInfoProvider system;
+    private readonly TempDirectoryCleaner cleaner;
 
-    public WindowsTempFileCleaner(ISystemInfoProvider system)
+    public WindowsTempFileCleaner(ISystemInfoProvider system, ITrayClock clock)
     {
         this.system = system;
+        cleaner = new TempDirectoryCleaner(clock);
     }
 
     public Task<TempCleanupResult> CleanAsync(TimeSpan minimumAge, CancellationToken ct)
     {
-        var filesDeleted = 0;
-        long bytesFreed = 0;
-        var cutoff = DateTime.UtcNow.Subtract(minimumAge);
         var roots = new[]
         {
             Path.GetTempPath(),
@@ -332,66 +331,7 @@ internal sealed class WindowsTempFileCleaner : ITempFileCleaner
             roots = roots.Take(1);
         }
 
-        foreach (var root in roots.Distinct(StringComparer.OrdinalIgnoreCase))
-        {
-            if (!Directory.Exists(root))
-            {
-                continue;
-            }
-
-            var stopwatch = Stopwatch.StartNew();
-            var scanned = 0;
-            IEnumerator<string> files;
-            try
-            {
-                files = Directory.EnumerateFiles(root, "*", SearchOption.AllDirectories).GetEnumerator();
-            }
-            catch
-            {
-                continue;
-            }
-
-            using (files)
-            {
-                while (scanned < 50_000 &&
-                       stopwatch.Elapsed < TimeSpan.FromSeconds(30) &&
-                       !ct.IsCancellationRequested)
-                {
-                    string file;
-                    try
-                    {
-                        if (!files.MoveNext())
-                        {
-                            break;
-                        }
-
-                        file = files.Current;
-                    }
-                    catch
-                    {
-                        break;
-                    }
-
-                    scanned++;
-                    try
-                    {
-                        var info = new FileInfo(file);
-                        if (info.LastWriteTimeUtc < cutoff)
-                        {
-                            var size = info.Length;
-                            info.Delete();
-                            filesDeleted++;
-                            bytesFreed += size;
-                        }
-                    }
-                    catch
-                    {
-                    }
-                }
-            }
-        }
-
-        return Task.FromResult(new TempCleanupResult(filesDeleted, bytesFreed));
+        return Task.FromResult(cleaner.Clean(roots, minimumAge, ct));
     }
 }
 

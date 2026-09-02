@@ -64,6 +64,7 @@ internal static class Program
         var settings = settingsStore.Load();
         CultureConfigurator.Apply(settings.UiCulture);
         var localizer = new ResourceLocalizer();
+        var clock = new SystemTrayClock();
         StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
         var system = new WindowsSystemInfoProvider();
         var processRunner = new SystemProcessRunner();
@@ -84,7 +85,7 @@ internal static class Program
         };
         var repairs = new IRepairAction[]
         {
-            new DiskSpaceRepair(new WindowsTempFileCleaner(system), processRunner, system, localizer),
+            new DiskSpaceRepair(new WindowsTempFileCleaner(system, clock), processRunner, system, localizer),
             new ServiceRestartRepair(processRunner, system, localizer),
             new ComponentStoreRepair(processRunner, localizer),
             new DnsFlushRepair(processRunner, system, localizer)
@@ -96,7 +97,7 @@ internal static class Program
             settingsStore,
             notifier,
             system,
-            new SystemTrayClock(),
+            clock,
             log,
             localizer,
             checkState);
