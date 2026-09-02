@@ -366,11 +366,11 @@ internal sealed class WindowsTempFileCleaner : ITempFileCleaner
                 ? Path.Combine(windows, "Temp")
                 : null
         }.Where(path => path is not null).Cast<string>();
-        roots = roots.Where(path => DriveScope.Includes(driveRoots, path));
         if (!system.IsElevated)
         {
             roots = roots.Take(1);
         }
+        roots = roots.Where(path => DriveScope.Includes(driveRoots, path));
 
         if (!roots.Any())
         {
