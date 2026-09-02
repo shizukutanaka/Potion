@@ -310,6 +310,7 @@ public sealed class TraySettings
 
 public interface ISettingsStore
 {
+    bool LastSaveFailed { get; }
     TraySettings Load();
     void Save(TraySettings settings);
 }

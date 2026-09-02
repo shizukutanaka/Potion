@@ -109,6 +109,8 @@ public sealed class JsonSettingsStore : ISettingsStore
         this.clock = clock ?? new SystemTrayClock();
     }
 
+    public bool LastSaveFailed { get; private set; }
+
     public TraySettings Load()
     {
         try
@@ -155,6 +157,7 @@ public sealed class JsonSettingsStore : ISettingsStore
 
     public void Save(TraySettings settings)
     {
+        LastSaveFailed = false;
         try
         {
             settings.Normalize();
@@ -170,6 +173,7 @@ public sealed class JsonSettingsStore : ISettingsStore
         }
         catch (Exception ex)
         {
+            LastSaveFailed = true;
             log.Warn("Unable to save settings.", ex);
         }
     }

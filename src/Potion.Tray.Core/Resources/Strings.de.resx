@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>Das Ergebnis wird im Verlauf gespeichert, sobald die laufende Prüfung abgeschlossen ist.</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>Einstellungen konnten nicht gespeichert werden</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>Die Einstellung wurde nicht gespeichert, daher wurde das Menü auf den gespeicherten Wert zurückgesetzt. Prüfen Sie Speicherplatz und Berechtigungen.</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>Aktion konnte nicht abgeschlossen werden</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>Die Aktion konnte nicht abgeschlossen werden. Weitere Informationen finden Sie im Protokoll.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Automatische Reparatur ist deaktiviert</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>Speichern</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>Einstellungen konnten nicht gespeichert werden.</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Abbrechen</value>

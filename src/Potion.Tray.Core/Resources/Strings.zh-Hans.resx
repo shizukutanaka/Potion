@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>正在进行的检查完成后，结果将记录到历史记录中。</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>无法保存设置</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>设置未保存，因此菜单已恢复为已保存的值。请检查磁盘空间和权限。</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>无法完成操作</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>无法完成操作。请查看日志了解详细信息。</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>自动修复已禁用</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>保存</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>无法保存设置。</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>取消</value>

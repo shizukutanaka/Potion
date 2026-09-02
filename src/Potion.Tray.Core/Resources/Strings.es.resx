@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>El resultado se registrará en el historial cuando termine el análisis en curso.</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>No se pudo guardar la configuración</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>La configuración no se guardó, por lo que el menú se restauró al valor guardado. Compruebe el espacio en disco y los permisos.</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>No se pudo completar la acción</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>No se pudo completar la acción. Consulte el registro para obtener más detalles.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>La reparación automática está desactivada</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>Guardar</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>No se pudo guardar la configuración.</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Cancelar</value>

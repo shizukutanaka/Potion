@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>実行中の点検が完了すると結果が履歴に記録されます</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>設定を保存できませんでした</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>設定を保存できなかったため、メニューを保存済みの値に戻しました。ディスク容量と権限を確認してください。</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>操作を完了できませんでした</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>操作を完了できませんでした。詳細はログを確認してください。</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>自動修復が無効です</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>保存</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>設定を保存できませんでした。</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>キャンセル</value>

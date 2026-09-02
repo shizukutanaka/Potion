@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>O resultado será registrado no histórico quando a verificação em andamento for concluída.</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>Não foi possível salvar as configurações</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>A configuração não foi salva, então o menu foi restaurado para o valor salvo. Verifique o espaço em disco e as permissões.</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>Não foi possível concluir a ação</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>Não foi possível concluir a ação. Consulte o registro para obter detalhes.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>O reparo automático está desativado</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>Salvar</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>Não foi possível salvar as configurações.</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Cancelar</value>

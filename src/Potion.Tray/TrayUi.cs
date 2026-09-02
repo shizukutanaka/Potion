@@ -73,6 +73,10 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var current = settingsStore.Load();
             current.AutoRepairEnabled = autoRepairItem.Checked;
             settingsStore.Save(current);
+            if (settingsStore.LastSaveFailed)
+            {
+                RestoreSettingsAfterSaveFailure();
+            }
         };
 
         notificationAllItem = NotificationItem("Ui.Menu.AllNotifications", NotificationMode.All);
@@ -114,7 +118,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             adminItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.RestartAsAdmin"));
             menu.Items.Add(adminItem);
-            adminItem!.Click += (_, _) => AdministratorRestart.Restart(log);
+            adminItem!.Click += (_, _) => AdministratorRestart.Restart(log, notifier);
         }
 
         exitItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.Exit"));
@@ -233,7 +237,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
             var settings = settingsStore.Load();
             settings.Notifications = mode;
             settingsStore.Save(settings);
-            ApplyNotificationChecks(mode);
+            if (settingsStore.LastSaveFailed)
+            {
+                RestoreSettingsAfterSaveFailure();
+            }
+            else
+            {
+                ApplyNotificationChecks(mode);
+            }
         };
         return item;
     }
@@ -417,7 +428,27 @@ internal sealed class TrayApplicationContext : ApplicationContext
         catch (Exception ex)
         {
             log.Warn("Unable to open the Potion data folder.", ex);
+            NotifyActionFailed();
         }
+    }
+
+    private void RestoreSettingsAfterSaveFailure()
+    {
+        notifier.Notify(new Notification(
+            localizer.Get("Notify.SettingsUnavailable.Title"),
+            localizer.Get("Notify.SettingsUnavailable.Message"),
+            HealthStatus.Warning));
+        var saved = settingsStore.Load();
+        autoRepairItem.Checked = saved.AutoRepairEnabled;
+        ApplyNotificationChecks(saved.Notifications);
+    }
+
+    private void NotifyActionFailed()
+    {
+        notifier.Notify(new Notification(
+            localizer.Get("Notify.ActionFailed.Title"),
+            localizer.Get("Notify.ActionFailed.Message"),
+            HealthStatus.Warning));
     }
 
     private void SystemEventsOnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)

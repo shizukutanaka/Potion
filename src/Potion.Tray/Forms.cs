@@ -206,7 +206,7 @@ internal sealed class HistoryForm : Form
                 localizer.Get("Ui.History.ExportFailed"),
                 Text,
                 MessageBoxButtons.OK,
-                MessageBoxIcon.Warning);
+                MessageBoxIcon.Error);
         }
     }
 
@@ -467,6 +467,18 @@ internal sealed class SettingsForm : Form
         }
 
         store.Save(settings);
+        if (store.LastSaveFailed)
+        {
+            MessageBox.Show(
+                this,
+                localizer.Get("Ui.Settings.SaveFailed"),
+                Text,
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+            DialogResult = DialogResult.None;
+            return;
+        }
+
         StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
     }
 

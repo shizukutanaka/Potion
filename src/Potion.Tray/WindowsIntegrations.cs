@@ -8,6 +8,7 @@ using Microsoft.Win32;
 using Potion.Tray.Core;
 using System.ServiceProcess;
 using System.Net.NetworkInformation;
+using Potion.Tray.Core.Resources;
 
 namespace Potion.Tray;
 
@@ -420,7 +421,7 @@ internal static class StartupRegistration
 
 internal static class AdministratorRestart
 {
-    public static void Restart(ITrayLog log)
+    public static void Restart(ITrayLog log, INotifier notifier)
     {
         try
         {
@@ -440,6 +441,11 @@ internal static class AdministratorRestart
         catch (Exception ex)
         {
             log.Warn("Unable to restart as administrator.", ex);
+            var localizer = new ResourceLocalizer();
+            notifier.Notify(new Notification(
+                localizer.Get("Notify.ActionFailed.Title"),
+                localizer.Get("Notify.ActionFailed.Message"),
+                HealthStatus.Warning));
         }
     }
 }

@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>실행 중인 검사가 완료되면 결과가 기록에 저장됩니다.</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>설정을 저장할 수 없습니다</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>설정이 저장되지 않아 메뉴를 저장된 값으로 되돌렸습니다. 디스크 공간과 권한을 확인하세요.</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>작업을 완료할 수 없습니다</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>작업을 완료할 수 없습니다. 자세한 내용은 로그를 확인하세요.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>자동 복구가 비활성화되었습니다</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>저장</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>설정을 저장할 수 없습니다.</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>취소</value>

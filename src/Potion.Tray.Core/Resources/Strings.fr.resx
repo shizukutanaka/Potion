@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>Le résultat sera enregistré dans l’historique lorsque l’analyse en cours sera terminée.</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>Impossible d’enregistrer les paramètres</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>Les paramètres n’ont pas été enregistrés et le menu a été rétabli aux valeurs enregistrées. Vérifiez l’espace disque et les autorisations.</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>Impossible de terminer l’action</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>Impossible de terminer l’action. Consultez le journal pour plus de détails.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>La réparation automatique est désactivée</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>Enregistrer</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>Impossible d’enregistrer les paramètres.</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Annuler</value>

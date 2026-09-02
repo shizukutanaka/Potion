@@ -88,6 +88,8 @@ internal sealed class FakeLog : ITrayLog
 internal sealed class FakeSettingsStore : ISettingsStore
 {
     public TraySettings Settings { get; set; } = new();
+    public bool FailSave { get; set; }
+    public bool LastSaveFailed { get; private set; }
     public int LoadCount { get; private set; }
     public TraySettings Load()
     {
@@ -95,7 +97,14 @@ internal sealed class FakeSettingsStore : ISettingsStore
         return Settings;
     }
 
-    public void Save(TraySettings settings) => Settings = settings;
+    public void Save(TraySettings settings)
+    {
+        LastSaveFailed = FailSave;
+        if (!FailSave)
+        {
+            Settings = settings;
+        }
+    }
 }
 
 internal sealed class FakeHistoryStore : IHistoryStore

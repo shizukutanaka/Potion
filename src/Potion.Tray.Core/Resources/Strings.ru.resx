@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>Результат будет записан в журнал после завершения текущей проверки.</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>Не удалось сохранить настройки</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>Настройки не сохранены, поэтому меню восстановлено до сохранённых значений. Проверьте место на диске и разрешения.</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>Не удалось завершить действие</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>Не удалось завершить действие. Подробности см. в журнале.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Автоматическое восстановление отключено</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>Сохранить</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>Не удалось сохранить настройки.</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Отмена</value>

@@ -1317,6 +1317,22 @@ public class SettingsAndNotificationTests
 public class StoreTests
 {
     [Fact]
+    public void JsonSettingsStoreSaveFailureIsReportedAndClearedAfterSuccessfulSave()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "settings.json");
+        Directory.CreateDirectory(path);
+        var store = new JsonSettingsStore(path, new FakeLog());
+
+        store.Save(new TraySettings());
+        Assert.True(store.LastSaveFailed);
+
+        Directory.Delete(path);
+        store.Save(new TraySettings());
+        Assert.False(store.LastSaveFailed);
+    }
+
+    [Fact]
     public void FileTrayLogPrunesExpiredDailyFiles()
     {
         using var directory = new TempDirectory();

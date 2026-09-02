@@ -114,6 +114,18 @@
   <data name="Notify.ScanBusy.Message">
     <value>The result will be recorded in history when the running scan completes.</value>
   </data>
+  <data name="Notify.SettingsUnavailable.Title">
+    <value>Settings could not be saved</value>
+  </data>
+  <data name="Notify.SettingsUnavailable.Message">
+    <value>The setting was not saved, so the menu was restored to the saved value. Check disk space and permissions.</value>
+  </data>
+  <data name="Notify.ActionFailed.Title">
+    <value>Action could not be completed</value>
+  </data>
+  <data name="Notify.ActionFailed.Message">
+    <value>The action could not be completed. Check the log for details.</value>
+  </data>
   <data name="Skip.AutoRepairDisabled">
     <value>Automatic repair is disabled</value>
   </data>
@@ -317,6 +329,9 @@
   </data>
   <data name="Ui.Settings.Save">
     <value>Save</value>
+  </data>
+  <data name="Ui.Settings.SaveFailed">
+    <value>Could not save the settings.</value>
   </data>
   <data name="Ui.Settings.Cancel">
     <value>Cancel</value>
