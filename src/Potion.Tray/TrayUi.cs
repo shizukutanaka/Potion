@@ -36,6 +36,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly SynchronizationContext uiContext;
     private readonly CancellationTokenSource shutdown = new();
     private readonly RegisteredWaitHandle? showHistoryWait;
+    private readonly bool startupRegistrationFailed;
     private readonly object scanTrackingGate = new();
     private Task? runningScan;
     private bool historyOpen;
@@ -49,7 +50,8 @@ internal sealed class TrayApplicationContext : ApplicationContext
         INotifier notifier,
         ITrayLog log,
         ILocalizer localizer,
-        EventWaitHandle? showHistorySignal = null)
+        EventWaitHandle? showHistorySignal = null,
+        bool startupRegistrationFailed = false)
     {
         this.engine = engine;
         this.history = history;
@@ -58,6 +60,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         this.notifier = notifier;
         this.log = log;
         this.localizer = localizer;
+        this.startupRegistrationFailed = startupRegistrationFailed;
         uiContext = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
 
         var settings = settingsStore.Load();
@@ -251,6 +254,14 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void ShowStartupNotices(TraySettings settings)
     {
+        if (startupRegistrationFailed)
+        {
+            notifier.Notify(new Notification(
+                localizer.Get("Notify.ActionFailed.Title"),
+                localizer.Get("Notify.ActionFailed.Message"),
+                HealthStatus.Warning));
+        }
+
         if (settings.Notifications == NotificationMode.None)
         {
             return;

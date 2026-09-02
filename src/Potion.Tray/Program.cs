@@ -65,15 +65,6 @@ internal static class Program
         CultureConfigurator.Apply(settings.UiCulture);
         var localizer = new ResourceLocalizer();
         var clock = new SystemTrayClock();
-        var notifier = new BalloonNotifier();
-        var startupApplied = StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
-        if (settings.RunAtWindowsStartup && !startupApplied)
-        {
-            notifier.Notify(new Notification(
-                localizer.Get("Notify.ActionFailed.Title"),
-                localizer.Get("Notify.ActionFailed.Message"),
-                HealthStatus.Warning));
-        }
         var system = new WindowsSystemInfoProvider();
         var processRunner = new SystemProcessRunner();
         var history = new JsonlHistoryStore(
@@ -81,6 +72,8 @@ internal static class Program
             retentionDays: settings.HistoryRetentionDays,
             log: log);
         var checkState = new JsonCheckStateStore(log: log);
+        var notifier = new BalloonNotifier();
+        var startupApplied = StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
         var checks = new IHealthCheck[]
         {
             new DiskSpaceHealthCheck(system, localizer),
@@ -117,6 +110,7 @@ internal static class Program
             notifier,
             log,
             localizer,
-            showHistorySignal));
+            showHistorySignal,
+            startupRegistrationFailed: settings.RunAtWindowsStartup && !startupApplied));
     }
 }
