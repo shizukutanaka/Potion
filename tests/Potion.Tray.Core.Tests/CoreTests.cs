@@ -1338,12 +1338,15 @@ public class StoreTests
     {
         using var directory = new TempDirectory();
         var path = Path.Combine(directory.Path, "history.jsonl");
-        using var store = new JsonlHistoryStore(path, maxEntries: 100, retentionDays: 90);
+        var log = new FakeLog();
+        using var store = new JsonlHistoryStore(path, log, maxEntries: 100, retentionDays: 90);
         await store.AppendAsync(Entry("a", HistoryOutcome.Repaired), default);
         await store.AppendAsync(Entry("b", HistoryOutcome.RepairFailed), default);
         await File.AppendAllTextAsync(path, "{broken}\n");
         var recent = await store.ReadRecentAsync(10, default);
         Assert.Equal(2, recent.Count);
+        Assert.Single(log.Warnings);
+        Assert.Contains(path, log.Warnings[0]);
         Assert.Equal(2, await store.CountRepairAttemptsSinceAsync("a", DateTimeOffset.UtcNow.AddDays(-1), default) +
                          await store.CountRepairAttemptsSinceAsync("b", DateTimeOffset.UtcNow.AddDays(-1), default));
     }

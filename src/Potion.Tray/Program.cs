@@ -8,32 +8,54 @@ namespace Potion.Tray;
 
 internal static class Program
 {
+    internal const string ElevatedHandoverArgument = "--elevated-handover";
+
     [STAThread]
     private static void Main()
     {
         const string showHistoryName = @"Local\Potion.Tray.ShowHistory";
+        var elevatedHandover = Array.Exists(
+            Environment.GetCommandLineArgs(),
+            argument => string.Equals(argument, ElevatedHandoverArgument, StringComparison.OrdinalIgnoreCase));
         using var showHistorySignal = new EventWaitHandle(
             false,
             EventResetMode.AutoReset,
             showHistoryName,
             out _);
         using var mutex = new Mutex(true, @"Local\Potion.Tray.SingleInstance", out var created);
+        var log = new FileTrayLog();
         if (!created)
         {
-            if (EventWaitHandle.TryOpenExisting(showHistoryName, out var handle))
+            if (elevatedHandover)
             {
-                using (handle)
+                try
                 {
-                    handle.Set();
+                    if (!mutex.WaitOne(TimeSpan.FromSeconds(20)))
+                    {
+                        log.Error("Unable to acquire the single-instance mutex during administrator handover.");
+                        return;
+                    }
+                }
+                catch (AbandonedMutexException)
+                {
                 }
             }
+            else
+            {
+                if (EventWaitHandle.TryOpenExisting(showHistoryName, out var handle))
+                {
+                    using (handle)
+                    {
+                        handle.Set();
+                    }
+                }
 
-            return;
+                return;
+            }
         }
 
         ApplicationConfiguration.Initialize();
         CultureConfigurator.Apply(string.Empty);
-        var log = new FileTrayLog();
         Application.ThreadException += (_, args) => log.Error("An unhandled UI exception occurred.", args.Exception);
         AppDomain.CurrentDomain.UnhandledException += (_, args) =>
             log.Error("An unhandled exception occurred.", args.ExceptionObject as Exception);

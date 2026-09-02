@@ -421,6 +421,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         }
 
         var entries = new List<HistoryEntry>();
+        var malformedRows = 0;
         await using var stream = File.OpenRead(path);
         using var reader = new StreamReader(stream, Encoding.UTF8);
         while (await reader.ReadLineAsync(ct) is { } line)
@@ -437,10 +438,20 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 {
                     entries.Add(entry);
                 }
+                else
+                {
+                    malformedRows++;
+                }
             }
             catch (JsonException)
             {
+                malformedRows++;
             }
+        }
+
+        if (malformedRows > 0)
+        {
+            log.Warn($"Skipped {malformedRows} malformed history rows in {path}.");
         }
 
         return entries;

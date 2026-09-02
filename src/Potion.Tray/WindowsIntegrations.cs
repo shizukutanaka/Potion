@@ -424,12 +424,14 @@ internal static class AdministratorRestart
     {
         try
         {
-            Process.Start(new ProcessStartInfo
+            var startInfo = new ProcessStartInfo
             {
                 FileName = Application.ExecutablePath,
                 UseShellExecute = true,
                 Verb = "runas"
-            });
+            };
+            startInfo.ArgumentList.Add(Program.ElevatedHandoverArgument);
+            Process.Start(startInfo);
             Application.Exit();
         }
         catch (Win32Exception)
