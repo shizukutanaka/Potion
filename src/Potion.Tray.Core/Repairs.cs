@@ -28,10 +28,13 @@ public sealed class DiskSpaceRepair : IRepairAction
         var minimumAge = finding.Status == HealthStatus.Critical
             ? TimeSpan.FromDays(1)
             : TimeSpan.FromDays(7);
-        var cleanup = await cleaner.CleanAsync(minimumAge, ct);
+        var affectedRoots = finding.Metrics?.Keys.ToArray();
+        var cleanup = await cleaner.CleanAsync(minimumAge, affectedRoots, ct);
         ProcessRunResult? componentCleanup = null;
         var cleanupArgs = new[] { "/Online", "/Cleanup-Image", "/StartComponentCleanup", "/English" };
-        if (settings.AllowComponentCleanup && system.IsElevated)
+        if (settings.AllowComponentCleanup &&
+            system.IsElevated &&
+            DriveScope.Includes(affectedRoots, system.SystemDriveRoot))
         {
             componentCleanup = await processRunner.RunAsync(
                 "DISM.exe",

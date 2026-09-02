@@ -25,6 +25,7 @@ internal sealed class FakeProcessRunner : IProcessRunner
 internal sealed class FakeSystemInfoProvider : ISystemInfoProvider
 {
     public bool IsElevated { get; set; }
+    public string SystemDriveRoot { get; set; } = @"C:\";
     public IReadOnlyList<DriveSnapshot> Drives { get; set; } = Array.Empty<DriveSnapshot>();
     public MemorySnapshot Memory { get; set; } = new(100, 100);
     public IReadOnlyList<ProcessMemorySnapshot> TopMemoryProcesses { get; set; } =
@@ -75,9 +76,14 @@ internal sealed class FakeTempFileCleaner : ITempFileCleaner
 {
     public TempCleanupResult Result { get; set; } = new(0, 0);
     public TimeSpan? MinimumAge { get; private set; }
-    public Task<TempCleanupResult> CleanAsync(TimeSpan minimumAge, CancellationToken ct)
+    public IReadOnlyCollection<string>? DriveRoots { get; private set; }
+    public Task<TempCleanupResult> CleanAsync(
+        TimeSpan minimumAge,
+        IReadOnlyCollection<string>? driveRoots,
+        CancellationToken ct)
     {
         MinimumAge = minimumAge;
+        DriveRoots = driveRoots;
         return Task.FromResult(Result);
     }
 }

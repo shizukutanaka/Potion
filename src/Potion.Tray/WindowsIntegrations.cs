@@ -18,6 +18,17 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
         OperatingSystem.IsWindows() &&
         new WindowsPrincipal(WindowsIdentity.GetCurrent()).IsInRole(WindowsBuiltInRole.Administrator);
 
+    public string SystemDriveRoot
+    {
+        get
+        {
+            var windowsRoot = DriveScope.Root(Environment.GetFolderPath(Environment.SpecialFolder.Windows));
+            return windowsRoot.Length > 0
+                ? windowsRoot
+                : DriveScope.Root(Environment.SystemDirectory);
+        }
+    }
+
     public IReadOnlyList<DriveSnapshot> GetFixedDrives()
     {
         return DriveInfo.GetDrives()
@@ -343,7 +354,10 @@ internal sealed class WindowsTempFileCleaner : ITempFileCleaner
         cleaner = new TempDirectoryCleaner(clock);
     }
 
-    public Task<TempCleanupResult> CleanAsync(TimeSpan minimumAge, CancellationToken ct)
+    public Task<TempCleanupResult> CleanAsync(
+        TimeSpan minimumAge,
+        IReadOnlyCollection<string>? driveRoots,
+        CancellationToken ct)
     {
         var roots = new[]
         {
@@ -352,9 +366,15 @@ internal sealed class WindowsTempFileCleaner : ITempFileCleaner
                 ? Path.Combine(windows, "Temp")
                 : null
         }.Where(path => path is not null).Cast<string>();
+        roots = roots.Where(path => DriveScope.Includes(driveRoots, path));
         if (!system.IsElevated)
         {
             roots = roots.Take(1);
+        }
+
+        if (!roots.Any())
+        {
+            return Task.FromResult(new TempCleanupResult(0, 0));
         }
 
         return Task.FromResult(cleaner.Clean(roots, minimumAge, ct));

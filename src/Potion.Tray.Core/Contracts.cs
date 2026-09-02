@@ -77,6 +77,7 @@ internal static class ServicePolicy
 public interface ISystemInfoProvider
 {
     bool IsElevated { get; }
+    string SystemDriveRoot { get; }
     IReadOnlyList<DriveSnapshot> GetFixedDrives();
     MemorySnapshot GetMemory();
     IReadOnlyList<ProcessMemorySnapshot> GetTopMemoryProcesses(int count);
@@ -106,7 +107,10 @@ public interface ITrayLog
 
 public interface ITempFileCleaner
 {
-    Task<TempCleanupResult> CleanAsync(TimeSpan minimumAge, CancellationToken ct);
+    Task<TempCleanupResult> CleanAsync(
+        TimeSpan minimumAge,
+        IReadOnlyCollection<string>? driveRoots,
+        CancellationToken ct);
 }
 
 public sealed record TempCleanupResult(int FilesDeleted, long BytesFreed);

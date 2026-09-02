@@ -449,6 +449,40 @@ public class StartupRegistrationPolicyTests
     }
 }
 
+public class DriveScopeTests
+{
+    [Theory]
+    [InlineData(@"D:\Temp", @"D:\")]
+    [InlineData(@"d:/temp/x", @"D:\")]
+    [InlineData(null, "")]
+    [InlineData("", "")]
+    [InlineData("   ", "")]
+    public void RootNormalizesWindowsDrivePaths(string? path, string expected)
+    {
+        Assert.Equal(expected, DriveScope.Root(path));
+    }
+
+    [Fact]
+    public void IncludesUnknownScope()
+    {
+        Assert.True(DriveScope.Includes(null, @"C:\Windows\Temp"));
+        Assert.True(DriveScope.Includes(Array.Empty<string>(), @"C:\Windows\Temp"));
+    }
+
+    [Fact]
+    public void IncludesOnlyMatchingDrive()
+    {
+        Assert.False(DriveScope.Includes(new[] { @"D:\" }, @"C:\Windows\Temp"));
+    }
+
+    [Fact]
+    public void IncludesIgnoresCaseAndTrailingSeparators()
+    {
+        Assert.True(DriveScope.Includes(new[] { @"d:/" }, @"D:\Windows\Temp"));
+        Assert.True(DriveScope.Includes(new[] { @"D:\\\\" }, @"d:/Windows/Temp"));
+    }
+}
+
 public class RepairTests
 {
     [Fact]
@@ -464,6 +498,86 @@ public class RepairTests
         Assert.True(outcome.Success);
         Assert.Contains("132", outcome.Summary);
         Assert.Single(runner.Calls);
+    }
+
+    [Fact]
+    public async Task DiskSpaceRepairScopesDataDriveAndSkipsDism()
+    {
+        var cleaner = new FakeTempFileCleaner();
+        var runner = new FakeProcessRunner();
+        var system = new FakeSystemInfoProvider
+        {
+            IsElevated = true,
+            SystemDriveRoot = @"C:\"
+        };
+        var outcome = await new DiskSpaceRepair(cleaner, runner, system).RepairAsync(
+            new HealthFinding(
+                "disk-space",
+                "ディスク",
+                HealthStatus.Critical,
+                "",
+                new Dictionary<string, string> { [@"D:\"] = "5.0%" }),
+            new TraySettings(),
+            default);
+
+        Assert.Equal(new[] { @"D:\" }, cleaner.DriveRoots);
+        Assert.Empty(runner.Calls);
+        Assert.False(outcome.Success);
+        Assert.Equal(new ResourceLocalizer().Get("Repair.DiskSpace.NoneSummary"), outcome.Summary);
+    }
+
+    [Fact]
+    public async Task DiskSpaceRepairRunsDismForSystemDrive()
+    {
+        var cleaner = new FakeTempFileCleaner();
+        var runner = new FakeProcessRunner();
+        var system = new FakeSystemInfoProvider
+        {
+            IsElevated = true,
+            SystemDriveRoot = @"C:\"
+        };
+        var outcome = await new DiskSpaceRepair(cleaner, runner, system).RepairAsync(
+            new HealthFinding(
+                "disk-space",
+                "ディスク",
+                HealthStatus.Warning,
+                "",
+                new Dictionary<string, string> { [@"C:\"] = "5.0%" }),
+            new TraySettings(),
+            default);
+
+        Assert.Equal(new[] { @"C:\" }, cleaner.DriveRoots);
+        Assert.Single(runner.Calls);
+        Assert.True(outcome.Success);
+    }
+
+    [Fact]
+    public async Task DiskSpaceRepairRunsDismWhenSystemDriveIsAmongAffectedDrives()
+    {
+        var cleaner = new FakeTempFileCleaner();
+        var runner = new FakeProcessRunner();
+        var system = new FakeSystemInfoProvider
+        {
+            IsElevated = true,
+            SystemDriveRoot = @"C:\"
+        };
+        var outcome = await new DiskSpaceRepair(cleaner, runner, system).RepairAsync(
+            new HealthFinding(
+                "disk-space",
+                "ディスク",
+                HealthStatus.Warning,
+                "",
+                new Dictionary<string, string>
+                {
+                    [@"C:\"] = "5.0%",
+                    [@"D:\"] = "5.0%"
+                }),
+            new TraySettings(),
+            default);
+
+        Assert.Equal(new[] { @"C:\", @"D:\" }, cleaner.DriveRoots);
+        Assert.Single(runner.Calls);
+        Assert.True(outcome.Success);
     }
 
     [Fact]
