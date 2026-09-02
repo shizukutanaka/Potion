@@ -317,6 +317,7 @@ public sealed class SelfHealingEngine
 
                 lastInspections[item.Key] = item.Value;
             }
+
             if (futureEntries > 0)
             {
                 log.Warn(

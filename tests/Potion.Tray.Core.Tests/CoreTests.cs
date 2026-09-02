@@ -1485,17 +1485,46 @@ public class StoreTests
             maxEntries: 100,
             retentionDays: 90,
             clock: clock);
-        await store.AppendAsync(Entry("current", HistoryOutcome.RepairFailed) with
+        await store.AppendAsync(Entry("x", HistoryOutcome.RepairFailed) with
         {
             TimestampUtc = now.AddMinutes(-1)
         }, default);
-        await store.AppendAsync(Entry("future", HistoryOutcome.RepairFailed) with
+        await store.AppendAsync(Entry("x", HistoryOutcome.RepairFailed) with
         {
             TimestampUtc = now.AddHours(1)
         }, default);
 
         var count = await store.CountConsecutiveRepairFailuresAsync(
-            "current",
+            "x",
+            now.AddDays(-1),
+            default);
+
+        Assert.Equal(1, count);
+    }
+
+    [Fact]
+    public async Task FutureRepairedEntryDoesNotBreakConsecutiveFailures()
+    {
+        using var directory = new TempDirectory();
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeClock { UtcNow = now };
+        using var store = new JsonlHistoryStore(
+            Path.Combine(directory.Path, "history.jsonl"),
+            new FakeLog(),
+            maxEntries: 100,
+            retentionDays: 90,
+            clock: clock);
+        await store.AppendAsync(Entry("x", HistoryOutcome.RepairFailed) with
+        {
+            TimestampUtc = now.AddMinutes(-1)
+        }, default);
+        await store.AppendAsync(Entry("x", HistoryOutcome.Repaired) with
+        {
+            TimestampUtc = now.AddHours(1)
+        }, default);
+
+        var count = await store.CountConsecutiveRepairFailuresAsync(
+            "x",
             now.AddDays(-1),
             default);
 
