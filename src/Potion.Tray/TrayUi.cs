@@ -147,6 +147,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         SystemEvents.PowerModeChanged += SystemEventsOnPowerModeChanged;
         SystemEvents.SessionSwitch += SystemEventsOnSessionSwitch;
         SystemEvents.SessionEnding += SystemEventsOnSessionEnding;
+        SystemEvents.SessionEnded += SystemEventsOnSessionEnded;
         NetworkChange.NetworkAvailabilityChanged += NetworkChangeOnNetworkAvailabilityChanged;
         showHistoryWait = null;
         if (showHistorySignal is not null)
@@ -191,6 +192,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         SystemEvents.PowerModeChanged -= SystemEventsOnPowerModeChanged;
         SystemEvents.SessionSwitch -= SystemEventsOnSessionSwitch;
         SystemEvents.SessionEnding -= SystemEventsOnSessionEnding;
+        SystemEvents.SessionEnded -= SystemEventsOnSessionEnded;
         NetworkChange.NetworkAvailabilityChanged -= NetworkChangeOnNetworkAvailabilityChanged;
         scanTimer.Dispose();
         showHistoryWait?.Unregister(null);
@@ -210,6 +212,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private void CancelAndWaitForScan()
     {
         shutdown.Cancel();
+        WaitForActiveScan();
+    }
+
+    private void WaitForActiveScan()
+    {
         Task? scanToWait;
         lock (scanTrackingGate)
         {
@@ -441,6 +448,12 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     private void SystemEventsOnSessionEnding(object? sender, SessionEndingEventArgs e)
+    {
+        CancelActiveScan("session ending");
+        WaitForActiveScan();
+    }
+
+    private void SystemEventsOnSessionEnded(object? sender, SessionEndedEventArgs e)
     {
         CancelAndWaitForScan();
     }
