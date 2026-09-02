@@ -740,6 +740,47 @@ public class EngineTests
     }
 
     [Fact]
+    public async Task FutureDuplicateEntryDoesNotSuppressNewEntry()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                AutoRepairEnabled = false,
+                DuplicateSuppressionMinutes = 60
+            }
+        };
+        var history = new FakeHistoryStore();
+        history.Entries.Add(new HistoryEntry(
+            "future",
+            clock.UtcNow.AddHours(1),
+            "x",
+            "x",
+            HealthStatus.Critical,
+            HistoryOutcome.Skipped,
+            "問題",
+            null,
+            new ResourceLocalizer().Get("Skip.AutoRepairDisabled"),
+            TimeSpan.Zero,
+            Array.Empty<CommandExecution>()));
+        var repair = new DelegateRepair("x", false, (_, _, _) =>
+            Task.FromResult(new RepairOutcome(true, "unused", Array.Empty<CommandExecution>())));
+        var engine = Engine(
+            new DelegateHealthCheck("x", (_, _) => Task.FromResult<HealthFinding?>(Finding())),
+            history,
+            settings,
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock,
+            new[] { repair });
+
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(2, history.Entries.Count);
+    }
+
+    [Fact]
     public async Task HistoryAppendFailureNotifiesUser()
     {
         var history = new FakeHistoryStore { FailAppend = true };
@@ -1044,6 +1085,42 @@ public class EngineTests
         Assert.Empty(result.Entries);
         Assert.Equal(0, calls);
         Assert.Equal(1, state.SaveCount);
+    }
+
+    [Fact]
+    public async Task FuturePersistedCheckStateIsDiscardedAndCheckRuns()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["x"] = 10 }
+            }
+        };
+        var future = clock.UtcNow.AddHours(1);
+        var state = new FakeCheckStateStore();
+        state.State["x"] = future;
+        var calls = 0;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+        {
+            calls++;
+            return Task.FromResult<HealthFinding?>(null);
+        });
+        var engine = Engine(
+            check,
+            new FakeHistoryStore(),
+            settings,
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock,
+            checkState: state);
+
+        await engine.RunCycleAsync(default);
+
+        Assert.Equal(1, calls);
+        Assert.Equal(clock.UtcNow, state.SavedState!["x"]);
+        Assert.NotEqual(future, state.SavedState["x"]);
     }
 
     [Fact]
@@ -1367,6 +1444,62 @@ public class StoreTests
         Assert.Contains(path, log.Warnings[0]);
         Assert.Equal(2, await store.CountRepairAttemptsSinceAsync("a", DateTimeOffset.UtcNow.AddDays(-1), default) +
                          await store.CountRepairAttemptsSinceAsync("b", DateTimeOffset.UtcNow.AddDays(-1), default));
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreIgnoresFutureRepairAttempts()
+    {
+        using var directory = new TempDirectory();
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeClock { UtcNow = now };
+        using var store = new JsonlHistoryStore(
+            Path.Combine(directory.Path, "history.jsonl"),
+            new FakeLog(),
+            maxEntries: 100,
+            retentionDays: 90,
+            clock: clock);
+        await store.AppendAsync(Entry("future-repaired", HistoryOutcome.Repaired) with
+        {
+            TimestampUtc = now.AddHours(1)
+        }, default);
+        await store.AppendAsync(Entry("future-failed", HistoryOutcome.RepairFailed) with
+        {
+            TimestampUtc = now.AddHours(2)
+        }, default);
+
+        var count = await store.CountRepairAttemptsSinceAsync("future-repaired", now.AddDays(-1), default) +
+                    await store.CountRepairAttemptsSinceAsync("future-failed", now.AddDays(-1), default);
+
+        Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreIgnoresFutureConsecutiveFailures()
+    {
+        using var directory = new TempDirectory();
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeClock { UtcNow = now };
+        using var store = new JsonlHistoryStore(
+            Path.Combine(directory.Path, "history.jsonl"),
+            new FakeLog(),
+            maxEntries: 100,
+            retentionDays: 90,
+            clock: clock);
+        await store.AppendAsync(Entry("current", HistoryOutcome.RepairFailed) with
+        {
+            TimestampUtc = now.AddMinutes(-1)
+        }, default);
+        await store.AppendAsync(Entry("future", HistoryOutcome.RepairFailed) with
+        {
+            TimestampUtc = now.AddHours(1)
+        }, default);
+
+        var count = await store.CountConsecutiveRepairFailuresAsync(
+            "current",
+            now.AddDays(-1),
+            default);
+
+        Assert.Equal(1, count);
     }
 
     [Fact]

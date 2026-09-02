@@ -243,8 +243,9 @@ public sealed class SelfHealingEngine
                         previous.Outcome != entry.Outcome ||
                         !string.Equals(previous.Detail, entry.Detail, StringComparison.Ordinal) ||
                         !string.Equals(previous.SkipReason, entry.SkipReason, StringComparison.Ordinal) ||
-                        clock.UtcNow - previous.TimestampUtc >=
-                        TimeSpan.FromMinutes(settings.DuplicateSuppressionMinutes);
+                        HasElapsed(
+                            previous.TimestampUtc,
+                            TimeSpan.FromMinutes(settings.DuplicateSuppressionMinutes));
                 }
 
                 if (!append)
@@ -304,9 +305,22 @@ public sealed class SelfHealingEngine
         checkStateLoaded = true;
         try
         {
+            var now = clock.UtcNow;
+            var futureEntries = 0;
             foreach (var item in checkState.Load())
             {
+                if (item.Value > now)
+                {
+                    futureEntries++;
+                    continue;
+                }
+
                 lastInspections[item.Key] = item.Value;
+            }
+            if (futureEntries > 0)
+            {
+                log.Warn(
+                    $"Discarded {futureEntries} future-dated check state entries because the clock moved backwards.");
             }
         }
         catch (Exception ex)
@@ -350,7 +364,7 @@ public sealed class SelfHealingEngine
     {
         var key = (entry.CheckId, entry.Outcome);
         if (lastNotifications.TryGetValue(key, out var previous) &&
-            clock.UtcNow - previous < TimeSpan.FromMinutes(settings.NotificationCooldownMinutes))
+            !HasElapsed(previous, TimeSpan.FromMinutes(settings.NotificationCooldownMinutes)))
         {
             return false;
         }
@@ -364,8 +378,9 @@ public sealed class SelfHealingEngine
         if (settings.Notifications == NotificationMode.None ||
             (settings.NotificationCooldownMinutes > 0 &&
              lastHistoryFailureNotifiedUtc != default &&
-             clock.UtcNow - lastHistoryFailureNotifiedUtc <
-             TimeSpan.FromMinutes(settings.NotificationCooldownMinutes)))
+             !HasElapsed(
+                 lastHistoryFailureNotifiedUtc,
+                 TimeSpan.FromMinutes(settings.NotificationCooldownMinutes))))
         {
             return;
         }
@@ -384,7 +399,8 @@ public sealed class SelfHealingEngine
             return 0;
         }
 
-        attempts.RemoveAll(timestamp => timestamp < sinceUtc);
+        var now = clock.UtcNow;
+        attempts.RemoveAll(timestamp => timestamp < sinceUtc || timestamp > now);
         return attempts.Count;
     }
 
@@ -417,7 +433,13 @@ public sealed class SelfHealingEngine
             return false;
         }
 
-        return clock.UtcNow - last < TimeSpan.FromMinutes(minutes);
+        return !HasElapsed(last, TimeSpan.FromMinutes(minutes));
+    }
+
+    private bool HasElapsed(DateTimeOffset since, TimeSpan window)
+    {
+        var now = clock.UtcNow;
+        return since > now || now - since >= window;
     }
 
     private static string BuildMessage(HistoryEntry entry)

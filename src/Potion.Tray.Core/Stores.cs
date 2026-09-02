@@ -345,9 +345,11 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         await gate.WaitAsync(ct);
         try
         {
+            var now = clock.UtcNow;
             return (await ReadEntriesAsync(ct)).Count(e =>
                 e.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase) &&
                 e.TimestampUtc >= sinceUtc &&
+                e.TimestampUtc <= now &&
                 e.Outcome is HistoryOutcome.Repaired or HistoryOutcome.RepairFailed);
         }
         finally
@@ -365,6 +367,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
         try
         {
             var count = 0;
+            var now = clock.UtcNow;
             var entries = (await ReadEntriesAsync(ct))
                 .Select((entry, index) => (entry, index))
                 .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
@@ -375,6 +378,11 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 if (entry.TimestampUtc < sinceUtc)
                 {
                     break;
+                }
+
+                if (entry.TimestampUtc > now)
+                {
+                    continue;
                 }
 
                 if (entry.Outcome == HistoryOutcome.Repaired)
