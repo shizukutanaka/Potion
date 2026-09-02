@@ -1481,6 +1481,220 @@ public class EngineTests
     }
 
     [Fact]
+    public async Task IntervalSkippedCheckRetainsOutstandingWarning()
+    {
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["x"] = 5 }
+            }
+        };
+        var check = new SequenceHealthCheck("x", Finding(status: HealthStatus.Warning));
+        var engine = Engine(
+            check,
+            new FakeHistoryStore(),
+            settings,
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            new FakeClock());
+
+        var first = await engine.RunCycleAsync(default);
+        var second = await engine.RunCycleAsync(default);
+
+        Assert.Equal(EngineState.Warning, first.State);
+        Assert.Empty(second.Entries);
+        Assert.Equal(EngineState.Warning, second.State);
+    }
+
+    [Fact]
+    public async Task HealthyFindingClearsOutstandingProblem()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["x"] = 5 }
+            }
+        };
+        var check = new SequenceHealthCheck("x", Finding(status: HealthStatus.Warning), null);
+        var engine = Engine(
+            check,
+            new FakeHistoryStore(),
+            settings,
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock);
+
+        var first = await engine.RunCycleAsync(default);
+        clock.UtcNow = clock.UtcNow.AddMinutes(5);
+        var second = await engine.RunCycleAsync(default);
+
+        Assert.Equal(EngineState.Warning, first.State);
+        Assert.Equal(EngineState.Idle, second.State);
+    }
+
+    [Fact]
+    public async Task RepairedWarningClearsOutstandingProblemImmediately()
+    {
+        var check = new SequenceHealthCheck("x", Finding(status: HealthStatus.Warning), null);
+        var engine = Engine(
+            check,
+            new FakeHistoryStore(),
+            new FakeSettingsStore(),
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            new FakeClock(),
+            new[] { new DelegateRepair("x", false, (_, _, _) =>
+                Task.FromResult(new RepairOutcome(true, "done", Array.Empty<CommandExecution>()))) });
+
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Equal(HistoryOutcome.Repaired, result.Entries.Single().Outcome);
+        Assert.Equal(EngineState.Idle, result.State);
+    }
+
+    [Fact]
+    public async Task DisablingCheckClearsOutstandingProblem()
+    {
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["x"] = 5 }
+            }
+        };
+        var check = new SequenceHealthCheck("x", Finding(status: HealthStatus.Warning));
+        var engine = Engine(
+            check,
+            new FakeHistoryStore(),
+            settings,
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            new FakeClock());
+
+        await engine.RunCycleAsync(default);
+        settings.Settings.ChecksEnabled["x"] = false;
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Equal(EngineState.Idle, result.State);
+    }
+
+    [Fact]
+    public async Task FailedCheckRetainsPreviousOutstandingProblem()
+    {
+        var clock = new FakeClock();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings
+            {
+                CheckIntervalMinutes = new() { ["x"] = 5 }
+            }
+        };
+        var calls = 0;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+        {
+            calls++;
+            if (calls > 1)
+            {
+                throw new InvalidOperationException("inspection failed");
+            }
+
+            return Task.FromResult<HealthFinding?>(Finding(status: HealthStatus.Warning));
+        });
+        var engine = Engine(
+            check,
+            new FakeHistoryStore(),
+            settings,
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock);
+
+        await engine.RunCycleAsync(default);
+        clock.UtcNow = clock.UtcNow.AddMinutes(5);
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Empty(result.Entries);
+        Assert.Equal(EngineState.Warning, result.State);
+    }
+
+    [Theory]
+    [InlineData(HealthStatus.Warning, HistoryOutcome.ManualActionRequired, EngineState.Warning)]
+    [InlineData(HealthStatus.Critical, HistoryOutcome.RepairFailed, EngineState.Critical)]
+    public async Task OutstandingStateIsSeededFromRecentHistory(
+        HealthStatus status,
+        HistoryOutcome outcome,
+        EngineState expectedState)
+    {
+        var clock = new FakeClock();
+        var inspected = clock.UtcNow.AddHours(-1);
+        var state = new FakeCheckStateStore();
+        state.State["x"] = inspected;
+        var history = new FakeHistoryStore();
+        history.Entries.Add(History("last", "x", outcome, inspected));
+        var calls = 0;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+        {
+            calls++;
+            return Task.FromResult<HealthFinding?>(null);
+        });
+        var engine = Engine(
+            check,
+            history,
+            new FakeSettingsStore
+            {
+                Settings = new TraySettings
+                {
+                    CheckIntervalMinutes = new() { ["x"] = 720 }
+                }
+            },
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock,
+            checkState: state);
+        history.Entries[0] = history.Entries[0] with { Status = status };
+
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Empty(result.Entries);
+        Assert.Equal(expectedState, result.State);
+        Assert.Equal(0, calls);
+    }
+
+    [Fact]
+    public async Task OlderHistoryDoesNotSeedOutstandingState()
+    {
+        var clock = new FakeClock();
+        var inspected = clock.UtcNow.AddHours(-1);
+        var state = new FakeCheckStateStore();
+        state.State["x"] = inspected;
+        var history = new FakeHistoryStore();
+        history.Entries.Add(History("old", "x", HistoryOutcome.ManualActionRequired, inspected.AddMinutes(-1)));
+        var check = new DelegateHealthCheck("x", (_, _) =>
+            Task.FromResult<HealthFinding?>(null));
+        var engine = Engine(
+            check,
+            history,
+            new FakeSettingsStore
+            {
+                Settings = new TraySettings
+                {
+                    CheckIntervalMinutes = new() { ["x"] = 720 }
+                }
+            },
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            clock,
+            checkState: state);
+
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Empty(result.Entries);
+        Assert.Equal(EngineState.Idle, result.State);
+    }
+
+    [Fact]
     public async Task ConcurrentCycleReturnsEmptyResult()
     {
         var check = new BlockingHealthCheck();

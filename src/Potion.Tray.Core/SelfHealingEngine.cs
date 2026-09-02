@@ -21,10 +21,12 @@ public sealed class SelfHealingEngine
     private readonly ICheckStateStore? checkState;
     private readonly SemaphoreSlim cycleGate = new(1, 1);
     private readonly Dictionary<string, DateTimeOffset> lastInspections = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, HealthStatus> outstanding = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, List<DateTimeOffset>> repairAttempts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<(string CheckId, HistoryOutcome Outcome), DateTimeOffset> lastNotifications = new();
     private DateTimeOffset lastHistoryFailureNotifiedUtc;
     private bool checkStateLoaded;
+    private bool outstandingSeeded;
     private EngineState state = EngineState.Idle;
 
     public SelfHealingEngine(
@@ -82,12 +84,19 @@ public sealed class SelfHealingEngine
             var settings = settingsStore.Load();
             settings.Normalize();
             LoadCheckState(settings);
+            await SeedOutstandingAsync(ct);
             SetState(EngineState.Scanning);
             var entries = new List<HistoryEntry>();
             foreach (var check in checks)
             {
                 ct.ThrowIfCancellationRequested();
-                if (!settings.IsCheckEnabled(check.Id) || IsWithinInterval(check.Id, settings))
+                if (!settings.IsCheckEnabled(check.Id))
+                {
+                    outstanding.Remove(check.Id);
+                    continue;
+                }
+
+                if (IsWithinInterval(check.Id, settings))
                 {
                     continue;
                 }
@@ -107,6 +116,7 @@ public sealed class SelfHealingEngine
 
                 if (finding is null)
                 {
+                    outstanding.Remove(check.Id);
                     continue;
                 }
 
@@ -219,6 +229,16 @@ public sealed class SelfHealingEngine
                     }
                 }
 
+                if (finding.Status is HealthStatus.Warning or HealthStatus.Critical &&
+                    outcome != HistoryOutcome.Repaired)
+                {
+                    outstanding[finding.CheckId] = finding.Status;
+                }
+                else
+                {
+                    outstanding.Remove(finding.CheckId);
+                }
+
                 var entry = new HistoryEntry(
                     Guid.NewGuid().ToString("N"),
                     clock.UtcNow,
@@ -280,10 +300,9 @@ public sealed class SelfHealingEngine
                 }
             }
 
-            var finalState = entries.Any(e => e.Status == HealthStatus.Critical &&
-                                              e.Outcome != HistoryOutcome.Repaired)
+            var finalState = outstanding.Values.Any(s => s == HealthStatus.Critical)
                 ? EngineState.Critical
-                : entries.Any(e => e.Status == HealthStatus.Warning)
+                : outstanding.Values.Any(s => s == HealthStatus.Warning)
                     ? EngineState.Warning
                     : EngineState.Idle;
             SetState(finalState);
@@ -295,6 +314,46 @@ public sealed class SelfHealingEngine
         {
             SaveCheckState();
             cycleGate.Release();
+        }
+    }
+
+    private async Task SeedOutstandingAsync(CancellationToken ct)
+    {
+        if (outstandingSeeded)
+        {
+            return;
+        }
+
+        outstandingSeeded = true;
+        foreach (var check in checks)
+        {
+            if (!lastInspections.TryGetValue(check.Id, out var inspected))
+            {
+                continue;
+            }
+
+            try
+            {
+                var last = await history.FindLastAsync(check.Id, ct);
+                if (last is null || last.TimestampUtc < inspected)
+                {
+                    continue;
+                }
+
+                if (last.Outcome == HistoryOutcome.Repaired)
+                {
+                    continue;
+                }
+
+                if (last.Status is HealthStatus.Warning or HealthStatus.Critical)
+                {
+                    outstanding[check.Id] = last.Status;
+                }
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                log.Warn($"Unable to restore the outstanding state for {check.Id}.", ex);
+            }
         }
     }
 
