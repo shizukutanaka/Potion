@@ -93,18 +93,36 @@ public sealed class DiskSpaceRepair : IRepairAction
 
 public sealed class ServiceRestartRepair : IRepairAction
 {
+    private static readonly TimeSpan DefaultStartPollInterval = TimeSpan.FromSeconds(2);
     private readonly IProcessRunner processRunner;
     private readonly ISystemInfoProvider system;
     private readonly ILocalizer localizer;
+    private readonly int maxStartAttempts;
+    private readonly TimeSpan startPollInterval;
 
-    public ServiceRestartRepair(IProcessRunner processRunner, ISystemInfoProvider system, ILocalizer localizer)
+    public ServiceRestartRepair(
+        IProcessRunner processRunner,
+        ISystemInfoProvider system,
+        ILocalizer localizer,
+        int maxStartAttempts = 15,
+        TimeSpan? startPollInterval = null)
     {
         this.processRunner = processRunner;
         this.system = system;
         this.localizer = localizer;
+        this.maxStartAttempts = Math.Max(1, maxStartAttempts);
+        this.startPollInterval = startPollInterval is null
+            ? DefaultStartPollInterval
+            : startPollInterval.Value < TimeSpan.Zero
+                ? TimeSpan.Zero
+                : startPollInterval.Value;
     }
-    public ServiceRestartRepair(IProcessRunner processRunner, ISystemInfoProvider system)
-        : this(processRunner, system, new ResourceLocalizer()) { }
+    public ServiceRestartRepair(
+        IProcessRunner processRunner,
+        ISystemInfoProvider system,
+        int maxStartAttempts = 15,
+        TimeSpan? startPollInterval = null)
+        : this(processRunner, system, new ResourceLocalizer(), maxStartAttempts, startPollInterval) { }
 
     public string CheckId => "critical-services";
     public string DisplayName => localizer.Get("Repair.ServiceRestart.Title");
@@ -118,6 +136,7 @@ public sealed class ServiceRestartRepair : IRepairAction
         var commands = new List<CommandExecution>();
         var successful = new List<string>();
         var failed = new List<string>();
+        var pending = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         foreach (var service in snapshots)
         {
             var args = new[] { "start", service.Name };
@@ -125,7 +144,7 @@ public sealed class ServiceRestartRepair : IRepairAction
             commands.Add(CommandExecutionFactory.Create("sc.exe", args, result));
             if (result.ExitCode == 0 || result.ExitCode == 1056)
             {
-                successful.Add(service.Name);
+                pending.Add(service.Name);
             }
             else
             {
@@ -133,6 +152,24 @@ public sealed class ServiceRestartRepair : IRepairAction
             }
         }
 
+        for (var attempt = 0; pending.Count > 0 && attempt < maxStartAttempts; attempt++)
+        {
+            var current = system.GetServices(settings.MonitoredServices);
+            foreach (var service in current.Where(s => s.IsRunning))
+            {
+                if (pending.Remove(service.Name))
+                {
+                    successful.Add(service.Name);
+                }
+            }
+
+            if (pending.Count > 0 && attempt + 1 < maxStartAttempts)
+            {
+                await Task.Delay(startPollInterval, ct);
+            }
+        }
+
+        failed.AddRange(pending);
         var summary = localizer.Format(
             "Repair.ServiceRestart.Summary",
             successful.Count == 0 ? localizer.Get("Ui.History.Detail.None") : string.Join(localizer.Get("Format.ListSeparator"), successful),

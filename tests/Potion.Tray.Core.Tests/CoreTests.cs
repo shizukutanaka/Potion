@@ -404,8 +404,19 @@ public class RepairTests
         {
             Services = new[] { new ServiceSnapshot("a", true, false), new ServiceSnapshot("b", true, false) }
         };
-        var outcome = await new ServiceRestartRepair(runner, system).RepairAsync(
-            new HealthFinding("critical-services", "サービス", HealthStatus.Critical, ""), new TraySettings(), default);
+        system.ServiceResults.Enqueue(new[]
+        {
+            new ServiceSnapshot("a", true, false),
+            new ServiceSnapshot("b", true, false)
+        });
+        system.ServiceResults.Enqueue(new[] { new ServiceSnapshot("a", true, true) });
+        var outcome = await new ServiceRestartRepair(
+            runner,
+            system,
+            maxStartAttempts: 1,
+            startPollInterval: TimeSpan.Zero).RepairAsync(
+            new HealthFinding("critical-services", "サービス", HealthStatus.Critical, ""), new TraySettings(),
+            default);
         Assert.False(outcome.Success);
         Assert.Equal(2, runner.Calls.Count);
         Assert.Contains("a", outcome.Summary);
@@ -427,13 +438,147 @@ public class RepairTests
                 new ServiceSnapshot("manual", true, false, ServiceStartType.Manual)
             }
         };
+        system.ServiceResults.Enqueue(new[]
+        {
+            new ServiceSnapshot("automatic", true, false, ServiceStartType.Automatic),
+            new ServiceSnapshot("disabled", true, false, ServiceStartType.Disabled),
+            new ServiceSnapshot("manual", true, false, ServiceStartType.Manual)
+        });
+        system.ServiceResults.Enqueue(new[]
+        {
+            new ServiceSnapshot("automatic", true, true, ServiceStartType.Automatic),
+            new ServiceSnapshot("disabled", true, false, ServiceStartType.Disabled),
+            new ServiceSnapshot("manual", true, false, ServiceStartType.Manual)
+        });
 
-        var outcome = await new ServiceRestartRepair(runner, system).RepairAsync(
-            new HealthFinding("critical-services", "services", HealthStatus.Critical, ""), new TraySettings(), default);
+        var outcome = await new ServiceRestartRepair(
+            runner,
+            system,
+            maxStartAttempts: 1,
+            startPollInterval: TimeSpan.Zero).RepairAsync(
+            new HealthFinding("critical-services", "services", HealthStatus.Critical, ""), new TraySettings(),
+            default);
 
         Assert.True(outcome.Success);
         Assert.Single(runner.Calls);
         Assert.Equal("automatic", runner.Calls[0].Arguments[1]);
+    }
+
+    [Fact]
+    public async Task ServiceRestartRepair_WaitsForServiceToRun()
+    {
+        var runner = new FakeProcessRunner();
+        var stopped = new ServiceSnapshot("slow", true, false, ServiceStartType.Automatic);
+        var system = new FakeSystemInfoProvider();
+        system.ServiceResults.Enqueue(new[] { stopped });
+        system.ServiceResults.Enqueue(new[] { stopped });
+        system.ServiceResults.Enqueue(new[] { stopped with { IsRunning = true } });
+
+        var outcome = await new ServiceRestartRepair(
+            runner,
+            system,
+            maxStartAttempts: 3,
+            startPollInterval: TimeSpan.Zero).RepairAsync(
+            new HealthFinding("critical-services", "services", HealthStatus.Critical, ""),
+            new TraySettings { MonitoredServices = new() { "slow" } },
+            default);
+
+        Assert.True(outcome.Success);
+        Assert.Contains("slow", outcome.Summary);
+        Assert.Single(runner.Calls);
+        Assert.Equal(3, system.ServiceCalls);
+    }
+
+    [Fact]
+    public async Task ServiceRestartRepair_FailsWhenServiceDoesNotStartInTime()
+    {
+        var runner = new FakeProcessRunner();
+        var stopped = new ServiceSnapshot("slow", true, false, ServiceStartType.Automatic);
+        var system = new FakeSystemInfoProvider();
+        system.ServiceResults.Enqueue(new[] { stopped });
+        system.ServiceResults.Enqueue(new[] { stopped });
+        system.ServiceResults.Enqueue(new[] { stopped });
+        system.ServiceResults.Enqueue(new[] { stopped });
+
+        var outcome = await new ServiceRestartRepair(
+            runner,
+            system,
+            maxStartAttempts: 3,
+            startPollInterval: TimeSpan.Zero).RepairAsync(
+            new HealthFinding("critical-services", "services", HealthStatus.Critical, ""),
+            new TraySettings { MonitoredServices = new() { "slow" } },
+            default);
+
+        Assert.False(outcome.Success);
+        Assert.Contains("slow", outcome.Summary);
+        Assert.Single(runner.Calls);
+        Assert.Equal(4, system.ServiceCalls);
+    }
+
+    [Fact]
+    public async Task ServiceRestartRepair_AcceptsAlreadyRunningExitCode()
+    {
+        var runner = new FakeProcessRunner();
+        runner.Respond("sc.exe", new[] { "start", "running" },
+            new ProcessRunResult(1056, "", "", TimeSpan.Zero, false));
+        var system = new FakeSystemInfoProvider
+        {
+            Services = new[]
+            {
+                new ServiceSnapshot("running", true, false, ServiceStartType.Automatic)
+            }
+        };
+        system.ServiceResults.Enqueue(new[]
+        {
+            new ServiceSnapshot("running", true, false, ServiceStartType.Automatic)
+        });
+        system.ServiceResults.Enqueue(new[]
+        {
+            new ServiceSnapshot("running", true, true, ServiceStartType.Automatic)
+        });
+
+        var outcome = await new ServiceRestartRepair(
+            runner,
+            system,
+            maxStartAttempts: 1,
+            startPollInterval: TimeSpan.Zero).RepairAsync(
+            new HealthFinding("critical-services", "services", HealthStatus.Critical, ""),
+            new TraySettings { MonitoredServices = new() { "running" } },
+            default);
+
+        Assert.True(outcome.Success);
+        Assert.Contains("running", outcome.Summary);
+        Assert.Single(runner.Calls);
+        Assert.Equal(2, system.ServiceCalls);
+    }
+
+    [Fact]
+    public async Task ServiceRestartRepair_DoesNotPollAfterStartFailure()
+    {
+        var runner = new FakeProcessRunner();
+        runner.Respond("sc.exe", new[] { "start", "failed" },
+            new ProcessRunResult(1, "", "", TimeSpan.Zero, false));
+        var system = new FakeSystemInfoProvider
+        {
+            Services = new[]
+            {
+                new ServiceSnapshot("failed", true, false, ServiceStartType.Automatic)
+            }
+        };
+
+        var outcome = await new ServiceRestartRepair(
+            runner,
+            system,
+            maxStartAttempts: 3,
+            startPollInterval: TimeSpan.Zero).RepairAsync(
+            new HealthFinding("critical-services", "services", HealthStatus.Critical, ""),
+            new TraySettings { MonitoredServices = new() { "failed" } },
+            default);
+
+        Assert.False(outcome.Success);
+        Assert.Contains("failed", outcome.Summary);
+        Assert.Single(runner.Calls);
+        Assert.Equal(1, system.ServiceCalls);
     }
 
     [Fact]
