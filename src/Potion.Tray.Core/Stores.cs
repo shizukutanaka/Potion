@@ -158,6 +158,7 @@ public sealed class JsonSettingsStore : ISettingsStore
     public void Save(TraySettings settings)
     {
         LastSaveFailed = false;
+        var tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
             settings.Normalize();
@@ -167,12 +168,22 @@ public sealed class JsonSettingsStore : ISettingsStore
                 Directory.CreateDirectory(directory);
             }
 
-            var tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             File.WriteAllText(tempPath, JsonSerializer.Serialize(settings, options), Encoding.UTF8);
             File.Move(tempPath, path, overwrite: true);
         }
         catch (Exception ex)
         {
+            try
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+            catch
+            {
+            }
+
             LastSaveFailed = true;
             log.Warn("Unable to save settings.", ex);
         }
@@ -229,6 +240,7 @@ public sealed class JsonCheckStateStore : ICheckStateStore
 
     public void Save(IReadOnlyDictionary<string, DateTimeOffset> lastInspections)
     {
+        var tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
         try
         {
             var directory = Path.GetDirectoryName(path);
@@ -237,12 +249,22 @@ public sealed class JsonCheckStateStore : ICheckStateStore
                 Directory.CreateDirectory(directory);
             }
 
-            var tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
             File.WriteAllText(tempPath, JsonSerializer.Serialize(lastInspections, options), Encoding.UTF8);
             File.Move(tempPath, path, overwrite: true);
         }
         catch (Exception ex)
         {
+            try
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+            catch
+            {
+            }
+
             log.Warn("Unable to save check state.", ex);
         }
     }
@@ -472,23 +494,56 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
     private List<HistoryEntry> Prune(IEnumerable<HistoryEntry> entries)
     {
         var cutoff = clock.UtcNow.AddDays(-retentionDays);
-        return entries
+        var retained = entries
             .Where(e => e.TimestampUtc >= cutoff)
+            .ToList();
+        var actionRows = retained
+            .Where(IsActionRow)
             .OrderByDescending(e => e.TimestampUtc)
-            .Take(maxEntries)
+            .Take(maxEntries);
+        var observationRows = retained
+            .Where(e => !IsActionRow(e))
+            .OrderByDescending(e => e.TimestampUtc)
+            .Take(Math.Max(0, maxEntries - actionRows.Count()));
+
+        return actionRows
+            .Concat(observationRows)
             .OrderBy(e => e.TimestampUtc)
             .ToList();
     }
 
+    private static bool IsActionRow(HistoryEntry entry) =>
+        entry.Outcome is HistoryOutcome.Repaired or
+            HistoryOutcome.RepairFailed or
+            HistoryOutcome.ManualActionRequired;
+
     private async Task RewriteAsync(IEnumerable<HistoryEntry> entries, CancellationToken ct)
     {
         var tempPath = path + "." + Guid.NewGuid().ToString("N") + ".tmp";
-        await File.WriteAllLinesAsync(
-            tempPath,
-            entries.Select(e => JsonSerializer.Serialize(e, options)),
-            Encoding.UTF8,
-            ct);
-        File.Move(tempPath, path, overwrite: true);
+        try
+        {
+            await File.WriteAllLinesAsync(
+                tempPath,
+                entries.Select(e => JsonSerializer.Serialize(e, options)),
+                Encoding.UTF8,
+                ct);
+            File.Move(tempPath, path, overwrite: true);
+        }
+        catch
+        {
+            try
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+            catch
+            {
+            }
+
+            throw;
+        }
     }
 
     private static JsonSerializerOptions CreateOptions() => new()

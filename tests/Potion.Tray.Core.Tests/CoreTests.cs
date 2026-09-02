@@ -1660,10 +1660,24 @@ public class StoreTests
 
         store.Save(new TraySettings());
         Assert.True(store.LastSaveFailed);
+        Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
 
         Directory.Delete(path);
         store.Save(new TraySettings());
         Assert.False(store.LastSaveFailed);
+    }
+
+    [Fact]
+    public void JsonCheckStateStoreSaveFailureLeavesNoTemporaryFile()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "state.json");
+        Directory.CreateDirectory(path);
+        var store = new JsonCheckStateStore(path, new FakeLog());
+
+        store.Save(new Dictionary<string, DateTimeOffset> { ["x"] = DateTimeOffset.UtcNow });
+
+        Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
     }
 
     [Fact]
@@ -1823,6 +1837,119 @@ public class StoreTests
             await store.AppendAsync(Entry(id.ToString(), HistoryOutcome.Detected), default);
         }
         Assert.Equal(2, (await store.ReadRecentAsync(10, default)).Count);
+        Assert.Empty(Directory.GetFiles(directory.Path, "*.tmp"));
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStorePrunesObservationsBeforeActionRows()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "history.jsonl");
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeClock { UtcNow = now };
+        using (var seedStore = new JsonlHistoryStore(
+            path,
+            maxEntries: 5,
+            retentionDays: 90,
+            compactionThreshold: 100,
+            clock: clock))
+        {
+            await seedStore.AppendAsync(EntryAt("repair", HistoryOutcome.Repaired, now.AddMinutes(-10)), default);
+            await seedStore.AppendAsync(EntryAt("failure", HistoryOutcome.RepairFailed, now.AddMinutes(-9)), default);
+            await seedStore.AppendAsync(EntryAt("observation-old", HistoryOutcome.Detected, now.AddMinutes(-8)), default);
+            await seedStore.AppendAsync(EntryAt("observation-2", HistoryOutcome.Skipped, now.AddMinutes(-7)), default);
+            await seedStore.AppendAsync(EntryAt("observation-3", HistoryOutcome.Detected, now.AddMinutes(-6)), default);
+            await seedStore.AppendAsync(EntryAt("observation-4", HistoryOutcome.Skipped, now.AddMinutes(-5)), default);
+        }
+
+        using var store = new JsonlHistoryStore(
+            path,
+            maxEntries: 5,
+            retentionDays: 90,
+            compactionThreshold: 1,
+            clock: clock);
+        await store.AppendAsync(EntryAt("observation-latest", HistoryOutcome.Detected, now), default);
+
+        var entries = await store.ReadRecentAsync(10, default);
+        Assert.Equal(5, entries.Count);
+        Assert.Contains(entries, entry => entry.Id == "repair");
+        Assert.Contains(entries, entry => entry.Id == "failure");
+        Assert.DoesNotContain(entries, entry => entry.Id == "observation-old");
+        Assert.Equal(
+            new[] { "observation-latest", "observation-4", "observation-3", "failure", "repair" },
+            entries.Select(entry => entry.Id));
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreDropsOldestActionRowsWhenActionsExceedLimit()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "history.jsonl");
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeClock { UtcNow = now };
+        using (var seedStore = new JsonlHistoryStore(
+            path,
+            maxEntries: 5,
+            retentionDays: 90,
+            compactionThreshold: 100,
+            clock: clock))
+        {
+            for (var index = 0; index < 8; index++)
+            {
+                await seedStore.AppendAsync(
+                    EntryAt($"action-{index}", HistoryOutcome.RepairFailed, now.AddMinutes(-8 + index)),
+                    default);
+            }
+        }
+
+        using var store = new JsonlHistoryStore(
+            path,
+            maxEntries: 5,
+            retentionDays: 90,
+            compactionThreshold: 1,
+            clock: clock);
+        await store.AppendAsync(EntryAt("action-latest", HistoryOutcome.ManualActionRequired, now), default);
+
+        var entries = await store.ReadRecentAsync(20, default);
+        Assert.Equal(5, entries.Count);
+        Assert.All(
+            entries,
+            entry => Assert.True(
+                entry.Outcome is HistoryOutcome.RepairFailed or HistoryOutcome.ManualActionRequired));
+        Assert.Equal(
+            new[] { "action-latest", "action-7", "action-6", "action-5", "action-4" },
+            entries.Select(entry => entry.Id));
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreRetentionRemovesOldActionRows()
+    {
+        using var directory = new TempDirectory();
+        var path = Path.Combine(directory.Path, "history.jsonl");
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        var clock = new FakeClock { UtcNow = now };
+        using (var seedStore = new JsonlHistoryStore(
+            path,
+            maxEntries: 5,
+            retentionDays: 1,
+            compactionThreshold: 100,
+            clock: clock))
+        {
+            await seedStore.AppendAsync(EntryAt("old-action", HistoryOutcome.Repaired, now.AddDays(-2)), default);
+            await seedStore.AppendAsync(EntryAt("recent-observation", HistoryOutcome.Detected, now.AddMinutes(-1)), default);
+        }
+
+        using var store = new JsonlHistoryStore(
+            path,
+            maxEntries: 5,
+            retentionDays: 1,
+            compactionThreshold: 1,
+            clock: clock);
+        await store.AppendAsync(EntryAt("latest-observation", HistoryOutcome.Skipped, now), default);
+
+        var entries = await store.ReadRecentAsync(10, default);
+        Assert.DoesNotContain(entries, entry => entry.Id == "old-action");
+        Assert.Equal(2, entries.Count);
     }
 
     [Fact]
@@ -1924,6 +2051,9 @@ public class StoreTests
 
     private static HistoryEntry Entry(string id, HistoryOutcome outcome) =>
         new(id, DateTimeOffset.UtcNow, id, id, HealthStatus.Warning, outcome, id, null, null, TimeSpan.Zero, Array.Empty<CommandExecution>());
+
+    private static HistoryEntry EntryAt(string id, HistoryOutcome outcome, DateTimeOffset timestamp) =>
+        Entry(id, outcome) with { TimestampUtc = timestamp };
 }
 
 public class ProcessRunnerTests
