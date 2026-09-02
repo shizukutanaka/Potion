@@ -171,6 +171,10 @@ internal sealed class FakeHistoryStore : IHistoryStore
                 .Where(item => item.entry.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase))
                 .OrderByDescending(item => item.entry.TimestampUtc)
                 .ThenByDescending(item => item.index)
+                .Where(item => !string.Equals(
+                    item.entry.Signature,
+                    HistoryMarkers.RepairInterrupted,
+                    StringComparison.Ordinal))
                 .TakeWhile(item => item.entry.TimestampUtc >= sinceUtc)
                 .TakeWhile(item => item.entry.Outcome != HistoryOutcome.Repaired)
                 .Count(item => item.entry.Outcome == HistoryOutcome.RepairFailed));

@@ -38,6 +38,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
     private readonly RegisteredWaitHandle? showHistoryWait;
     private readonly bool startupRegistrationFailed;
     private readonly object scanTrackingGate = new();
+    private CancellationTokenSource? cycleCancellation;
     private Task? runningScan;
     private bool historyOpen;
     private DateTimeOffset lastKickUtc;
@@ -96,8 +97,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(scanItem);
         scanItem.Click += (_, _) =>
         {
-            var scan = Task.Run(() => RunScanAsync(manual: true));
-            TrackScan(scan);
+            _ = Task.Run(() => StartScan(manual: true));
         };
         historyItem = new ToolStripMenuItem(localizer.Get("Ui.Menu.History"));
         menu.Items.Add(historyItem);
@@ -146,6 +146,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
         engine.CycleCompleted += EngineOnStateChanged;
         SystemEvents.PowerModeChanged += SystemEventsOnPowerModeChanged;
         SystemEvents.SessionSwitch += SystemEventsOnSessionSwitch;
+        SystemEvents.SessionEnding += SystemEventsOnSessionEnding;
         NetworkChange.NetworkAvailabilityChanged += NetworkChangeOnNetworkAvailabilityChanged;
         showHistoryWait = null;
         if (showHistorySignal is not null)
@@ -168,8 +169,7 @@ internal sealed class TrayApplicationContext : ApplicationContext
             {
                 try
                 {
-                    var scan = RunScanAsync();
-                    TrackScan(scan);
+                    var scan = StartScan();
                     await scan;
                 }
                 catch (Exception ex)
@@ -183,6 +183,31 @@ internal sealed class TrayApplicationContext : ApplicationContext
     }
 
     protected override void ExitThreadCore()
+    {
+        CancelAndWaitForScan();
+
+        engine.StateChanged -= EngineOnStateChanged;
+        engine.CycleCompleted -= EngineOnStateChanged;
+        SystemEvents.PowerModeChanged -= SystemEventsOnPowerModeChanged;
+        SystemEvents.SessionSwitch -= SystemEventsOnSessionSwitch;
+        SystemEvents.SessionEnding -= SystemEventsOnSessionEnding;
+        NetworkChange.NetworkAvailabilityChanged -= NetworkChangeOnNetworkAvailabilityChanged;
+        scanTimer.Dispose();
+        showHistoryWait?.Unregister(null);
+        notifyIcon.Visible = false;
+        var icon = notifyIcon.Icon;
+        notifyIcon.Icon = null;
+        notifyIcon.Dispose();
+        icon?.Dispose();
+        shutdown.Dispose();
+        if (history is IDisposable disposable)
+        {
+            disposable.Dispose();
+        }
+        base.ExitThreadCore();
+    }
+
+    private void CancelAndWaitForScan()
     {
         shutdown.Cancel();
         Task? scanToWait;
@@ -207,25 +232,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
             {
             }
         }
-
-        engine.StateChanged -= EngineOnStateChanged;
-        engine.CycleCompleted -= EngineOnStateChanged;
-        SystemEvents.PowerModeChanged -= SystemEventsOnPowerModeChanged;
-        SystemEvents.SessionSwitch -= SystemEventsOnSessionSwitch;
-        NetworkChange.NetworkAvailabilityChanged -= NetworkChangeOnNetworkAvailabilityChanged;
-        scanTimer.Dispose();
-        showHistoryWait?.Unregister(null);
-        notifyIcon.Visible = false;
-        var icon = notifyIcon.Icon;
-        notifyIcon.Icon = null;
-        notifyIcon.Dispose();
-        icon?.Dispose();
-        shutdown.Dispose();
-        if (history is IDisposable disposable)
-        {
-            disposable.Dispose();
-        }
-        base.ExitThreadCore();
     }
 
     private ToolStripMenuItem NotificationItem(string key, NotificationMode mode)
@@ -300,54 +306,6 @@ internal sealed class TrayApplicationContext : ApplicationContext
         notificationRepairsItem.Checked = mode == NotificationMode.RepairsOnly;
         notificationFailuresItem.Checked = mode == NotificationMode.FailuresOnly;
         notificationNoneItem.Checked = mode == NotificationMode.None;
-    }
-
-    private async Task RunScanAsync(bool manual = false)
-    {
-        if (shutdown.IsCancellationRequested)
-        {
-            return;
-        }
-
-        try
-        {
-            var result = await engine.RunCycleAsync(shutdown.Token).ConfigureAwait(false);
-            if (manual && result.AlreadyRunning)
-            {
-                notifier.Notify(new Notification(
-                    localizer.Get("Notify.ScanBusy.Title"),
-                    localizer.Get("Notify.ScanBusy.Message"),
-                    HealthStatus.Healthy));
-            }
-        }
-        catch (OperationCanceledException) when (shutdown.IsCancellationRequested)
-        {
-        }
-        catch (Exception ex)
-        {
-            log.Error("Periodic scan failed with an unhandled exception.", ex);
-        }
-        finally
-        {
-            if (!shutdown.IsCancellationRequested)
-            {
-                try
-                {
-                    var settings = settingsStore.Load();
-                    try
-                    {
-                        scanTimer.Change(TimeSpan.FromMinutes(settings.ScanIntervalMinutes), Timeout.InfiniteTimeSpan);
-                    }
-                    catch (ObjectDisposedException)
-                    {
-                    }
-                }
-                catch (Exception ex)
-                {
-                    log.Error("Unable to schedule the next scan.", ex);
-                }
-            }
-        }
     }
 
     private void EngineOnStateChanged(object? sender, EventArgs e)
@@ -464,7 +422,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
     private void SystemEventsOnPowerModeChanged(object? sender, PowerModeChangedEventArgs e)
     {
-        if (e.Mode == PowerModes.Resume)
+        if (e.Mode == PowerModes.Suspend)
+        {
+            CancelActiveScan("system suspend");
+        }
+        else if (e.Mode == PowerModes.Resume)
         {
             KickScan("power resume");
         }
@@ -476,6 +438,11 @@ internal sealed class TrayApplicationContext : ApplicationContext
         {
             KickScan("session resume");
         }
+    }
+
+    private void SystemEventsOnSessionEnding(object? sender, SessionEndingEventArgs e)
+    {
+        CancelAndWaitForScan();
     }
 
     private void NetworkChangeOnNetworkAvailabilityChanged(object? sender, NetworkAvailabilityEventArgs e)
@@ -501,18 +468,91 @@ internal sealed class TrayApplicationContext : ApplicationContext
 
         lastKickUtc = now;
         log.Info($"Triggering a scan after {reason}.");
-        var scan = RunScanAsync();
-        TrackScan(scan);
+        StartScan();
     }
 
-    private void TrackScan(Task scan)
+    private Task StartScan(bool manual = false)
     {
         lock (scanTrackingGate)
         {
-            if (runningScan is null || runningScan.IsCompleted)
+            var cycleSource = CancellationTokenSource.CreateLinkedTokenSource(shutdown.Token);
+            if (runningScan is not null && !runningScan.IsCompleted)
             {
-                runningScan = scan;
+                return RunScanAsync(manual, cycleSource);
             }
+
+            cycleCancellation?.Dispose();
+            cycleCancellation = cycleSource;
+            runningScan = RunScanAsync(manual, cycleSource);
+            return runningScan;
+        }
+    }
+
+    private async Task RunScanAsync(bool manual, CancellationTokenSource cycleSource)
+    {
+        try
+        {
+            var result = await engine.RunCycleAsync(cycleSource.Token).ConfigureAwait(false);
+            if (manual && result.AlreadyRunning)
+            {
+                notifier.Notify(new Notification(
+                    localizer.Get("Notify.ScanBusy.Title"),
+                    localizer.Get("Notify.ScanBusy.Message"),
+                    HealthStatus.Healthy));
+            }
+        }
+        catch (OperationCanceledException) when (
+            shutdown.IsCancellationRequested ||
+            cycleSource.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            log.Error("Periodic scan failed with an unhandled exception.", ex);
+        }
+        finally
+        {
+            lock (scanTrackingGate)
+            {
+                if (ReferenceEquals(cycleCancellation, cycleSource))
+                {
+                    cycleCancellation = null;
+                }
+            }
+
+            cycleSource.Dispose();
+            if (!shutdown.IsCancellationRequested)
+            {
+                try
+                {
+                    var settings = settingsStore.Load();
+                    try
+                    {
+                        scanTimer.Change(TimeSpan.FromMinutes(settings.ScanIntervalMinutes), Timeout.InfiniteTimeSpan);
+                    }
+                    catch (ObjectDisposedException)
+                    {
+                    }
+                }
+                catch (Exception ex)
+                {
+                    log.Error("Unable to schedule the next scan.", ex);
+                }
+            }
+        }
+    }
+
+    private void CancelActiveScan(string reason)
+    {
+        lock (scanTrackingGate)
+        {
+            if (cycleCancellation is null || cycleCancellation.IsCancellationRequested)
+            {
+                return;
+            }
+
+            log.Info($"Cancelling the active scan before {reason}.");
+            cycleCancellation.Cancel();
         }
     }
 

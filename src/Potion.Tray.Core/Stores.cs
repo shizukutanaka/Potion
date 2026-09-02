@@ -381,6 +381,7 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 e.CheckId.Equals(checkId, StringComparison.OrdinalIgnoreCase) &&
                 e.TimestampUtc >= sinceUtc &&
                 e.TimestampUtc <= now &&
+                !string.Equals(e.Signature, HistoryMarkers.RepairInterrupted, StringComparison.Ordinal) &&
                 e.Outcome is HistoryOutcome.Repaired or HistoryOutcome.RepairFailed);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
@@ -419,6 +420,11 @@ public sealed class JsonlHistoryStore : IHistoryStore, IDisposable
                 }
 
                 if (entry.TimestampUtc > now)
+                {
+                    continue;
+                }
+
+                if (string.Equals(entry.Signature, HistoryMarkers.RepairInterrupted, StringComparison.Ordinal))
                 {
                     continue;
                 }

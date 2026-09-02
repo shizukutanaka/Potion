@@ -896,6 +896,52 @@ public class EngineTests
         var entry = Assert.Single(history.Entries);
         Assert.Equal(HistoryOutcome.RepairFailed, entry.Outcome);
         Assert.Equal(new ResourceLocalizer().Get("Repair.Aborted"), entry.RepairSummary);
+        Assert.Equal(HistoryMarkers.RepairInterrupted, entry.Signature);
+    }
+
+    [Fact]
+    public async Task InterruptedRepairDoesNotConsumeRepairAttempt()
+    {
+        var history = new FakeHistoryStore();
+        var settings = new FakeSettingsStore
+        {
+            Settings = new TraySettings { MaxRepairAttemptsPerDay = 1 }
+        };
+        var inspectionCount = 0;
+        var interruptionPending = true;
+        var check = new DelegateHealthCheck("x", (_, _) =>
+        {
+            inspectionCount++;
+            return Task.FromResult<HealthFinding?>(
+                inspectionCount == 3 ? null : Finding());
+        });
+        var repair = new DelegateRepair("x", false, (_, _, _) =>
+        {
+            if (interruptionPending)
+            {
+                interruptionPending = false;
+                throw new OperationCanceledException();
+            }
+
+            return Task.FromResult(new RepairOutcome(
+                true,
+                "repaired",
+                Array.Empty<CommandExecution>()));
+        });
+        var engine = Engine(
+            check,
+            history,
+            settings,
+            new RecordingNotifier(),
+            new FakeSystemInfoProvider(),
+            new FakeClock(),
+            new[] { repair });
+
+        await Assert.ThrowsAsync<OperationCanceledException>(() => engine.RunCycleAsync(default));
+        var result = await engine.RunCycleAsync(default);
+
+        Assert.Equal(HistoryOutcome.Repaired, Assert.Single(result.Entries).Outcome);
+        Assert.Equal(2, history.Entries.Count);
     }
 
     [Fact]
@@ -2423,6 +2469,56 @@ public class StoreTests
                     await store.CountRepairAttemptsSinceAsync("future-failed", now.AddDays(-1), default);
 
         Assert.Equal(0, count);
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreIgnoresInterruptedRepairRows()
+    {
+        using var directory = new TempDirectory();
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        using var store = new JsonlHistoryStore(
+            Path.Combine(directory.Path, "history.jsonl"),
+            new FakeLog(),
+            maxEntries: 100,
+            retentionDays: 90,
+            clock: new FakeClock { UtcNow = now });
+        await store.AppendAsync(Entry("x", HistoryOutcome.RepairFailed) with
+        {
+            TimestampUtc = now.AddMinutes(-3)
+        }, default);
+        await store.AppendAsync(Entry("x", HistoryOutcome.RepairFailed) with
+        {
+            TimestampUtc = now.AddMinutes(-2),
+            Signature = HistoryMarkers.RepairInterrupted
+        }, default);
+        await store.AppendAsync(Entry("x", HistoryOutcome.RepairFailed) with
+        {
+            TimestampUtc = now.AddMinutes(-1)
+        }, default);
+
+        Assert.Equal(2, await store.CountRepairAttemptsSinceAsync("x", now.AddDays(-1), default));
+        Assert.Equal(2, await store.CountConsecutiveRepairFailuresAsync("x", now.AddDays(-1), default));
+    }
+
+    [Fact]
+    public async Task JsonlHistoryStoreCountsNoInterruptedRowsAsRepairs()
+    {
+        using var directory = new TempDirectory();
+        var now = new DateTimeOffset(2030, 1, 1, 0, 0, 0, TimeSpan.Zero);
+        using var store = new JsonlHistoryStore(
+            Path.Combine(directory.Path, "history.jsonl"),
+            new FakeLog(),
+            maxEntries: 100,
+            retentionDays: 90,
+            clock: new FakeClock { UtcNow = now });
+        await store.AppendAsync(Entry("x", HistoryOutcome.RepairFailed) with
+        {
+            TimestampUtc = now.AddMinutes(-1),
+            Signature = HistoryMarkers.RepairInterrupted
+        }, default);
+
+        Assert.Equal(0, await store.CountRepairAttemptsSinceAsync("x", now.AddDays(-1), default));
+        Assert.Equal(0, await store.CountConsecutiveRepairFailuresAsync("x", now.AddDays(-1), default));
     }
 
     [Fact]

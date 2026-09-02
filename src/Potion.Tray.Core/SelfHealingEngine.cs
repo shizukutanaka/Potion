@@ -196,7 +196,7 @@ public sealed class SelfHealingEngine
                                         localizer.Get("Repair.Aborted"),
                                         Array.Empty<CommandExecution>());
                                 }
-                                finally
+                                if (repairCancellation is null)
                                 {
                                     RecordRepairAttempt(finding.CheckId, clock.UtcNow);
                                 }
@@ -229,6 +229,7 @@ public sealed class SelfHealingEngine
                             }
                             catch (Exception ex) when (ex is not OperationCanceledException)
                             {
+                                RecordRepairAttempt(finding.CheckId, clock.UtcNow);
                                 log.Error($"Repair action {repair.DisplayName} failed with an exception.", ex);
                                 repairOutcome = new RepairOutcome(false, ex.Message, Array.Empty<CommandExecution>());
                                 outcome = HistoryOutcome.RepairFailed;
@@ -259,7 +260,9 @@ public sealed class SelfHealingEngine
                     skipReason,
                     Stopwatch.GetElapsedTime(started),
                     repairOutcome?.Commands ?? Array.Empty<CommandExecution>(),
-                    finding.Signature);
+                    repairCancellation is null
+                        ? finding.Signature
+                        : HistoryMarkers.RepairInterrupted);
                 entries.Add(entry);
                 var append = true;
                 if (entry.Outcome is HistoryOutcome.Skipped or
