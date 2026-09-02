@@ -87,7 +87,7 @@ public sealed class CriticalServiceHealthCheck : IHealthCheck
     public Task<HealthFinding?> InspectAsync(TraySettings settings, CancellationToken ct)
     {
         var stopped = system.GetServices(settings.MonitoredServices)
-            .Where(s => s.Exists && !s.IsRunning && ServicePolicy.ShouldMonitor(s))
+            .Where(s => s.Exists && !s.IsRunning && !s.IsStarting && ServicePolicy.ShouldMonitor(s))
             .Select(s => s.Name)
             .ToList();
         return Task.FromResult<HealthFinding?>(stopped.Count == 0

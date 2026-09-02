@@ -128,6 +128,20 @@ public class HealthCheckTests
     }
 
     [Fact]
+    public async Task CriticalServiceHealthCheck_IgnoresStartingServices()
+    {
+        var system = new FakeSystemInfoProvider
+        {
+            Services = new[]
+            {
+                new ServiceSnapshot("starting", true, false, ServiceStartType.Automatic, true)
+            }
+        };
+
+        Assert.Null(await new CriticalServiceHealthCheck(system).InspectAsync(new TraySettings(), default));
+    }
+
+    [Fact]
     public async Task ComponentStoreHealthCheck_RepairableIsCritical()
     {
         var runner = new FakeProcessRunner();
@@ -312,6 +326,103 @@ public class HealthCheckTests
     }
 }
 
+public class RebootPendingEvaluatorTests
+{
+    private static RebootPendingSignals Signals(
+        bool rebootPending = false,
+        bool rebootInProgress = false,
+        bool packagesPending = false,
+        bool windowsUpdate = false,
+        IReadOnlyList<string>? pendingFileRenameOperations = null,
+        string? activeComputerName = null,
+        string? computerName = null) =>
+        new(
+            rebootPending,
+            rebootInProgress,
+            packagesPending,
+            windowsUpdate,
+            pendingFileRenameOperations,
+            activeComputerName,
+            computerName);
+
+    [Fact]
+    public void NoSignalsAreNotPending()
+    {
+        Assert.False(RebootPendingEvaluator.IsPending(Signals()));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void EachRegistryFlagIndicatesPendingRestart(int flag)
+    {
+        var signals = flag switch
+        {
+            0 => Signals(rebootPending: true),
+            1 => Signals(rebootInProgress: true),
+            2 => Signals(packagesPending: true),
+            _ => Signals(windowsUpdate: true)
+        };
+
+        Assert.True(RebootPendingEvaluator.IsPending(signals));
+    }
+
+    [Theory]
+    [MemberData(nameof(EmptyRenameOperations))]
+    public void EmptyRenameOperationsDoNotIndicatePendingRestart(IReadOnlyList<string>? operations)
+    {
+        Assert.False(RebootPendingEvaluator.IsPending(Signals(
+            pendingFileRenameOperations: operations)));
+    }
+
+    public static IEnumerable<object?[]> EmptyRenameOperations() =>
+        new[]
+        {
+            new object?[] { null },
+            new object?[] { Array.Empty<string>() },
+            new object?[] { new[] { "", " ", "\t" } }
+        };
+
+    [Fact]
+    public void RealRenameOperationIndicatesPendingRestart()
+    {
+        Assert.True(RebootPendingEvaluator.IsPending(Signals(
+            pendingFileRenameOperations: new[] { "", @"C:\old.dll", " " })));
+    }
+
+    [Fact]
+    public void DifferentComputerNamesIndicatePendingRestart()
+    {
+        Assert.True(RebootPendingEvaluator.IsPending(Signals(
+            activeComputerName: "old-name",
+            computerName: "new-name")));
+    }
+
+    [Fact]
+    public void ComputerNameComparisonIsCaseInsensitive()
+    {
+        Assert.False(RebootPendingEvaluator.IsPending(Signals(
+            activeComputerName: "Potion-PC",
+            computerName: "potion-pc")));
+    }
+
+    [Theory]
+    [InlineData(null, "new-name")]
+    [InlineData("", "new-name")]
+    [InlineData("old-name", null)]
+    [InlineData("old-name", "")]
+    public void MissingComputerNameDoesNotIndicatePendingRestart(
+        string? activeComputerName,
+        string? computerName)
+    {
+        Assert.False(RebootPendingEvaluator.IsPending(Signals(
+            activeComputerName: activeComputerName,
+            computerName: computerName)));
+    }
+}
+
 public class RepairTests
 {
     [Fact]
@@ -427,6 +538,43 @@ public class RepairTests
             }, default);
 
         Assert.Equal(localizer.Get("Repair.DiskSpace.NoneSummary"), outcome.Summary);
+    }
+
+    [Fact]
+    public async Task StartingServiceIsNotReportedOrRestarted()
+    {
+        var runner = new FakeProcessRunner();
+        runner.Respond("sc.exe", new[] { "start", "stopped" },
+            new ProcessRunResult(0, "", "", TimeSpan.Zero, false));
+        var system = new FakeSystemInfoProvider
+        {
+            Services = new[]
+            {
+                new ServiceSnapshot("starting", true, false, ServiceStartType.Automatic, true),
+                new ServiceSnapshot("stopped", true, false, ServiceStartType.Automatic)
+            }
+        };
+        system.ServiceResults.Enqueue(system.Services);
+        system.ServiceResults.Enqueue(new[]
+        {
+            new ServiceSnapshot("starting", true, false, ServiceStartType.Automatic, true),
+            new ServiceSnapshot("stopped", true, true, ServiceStartType.Automatic)
+        });
+
+        var outcome = await new ServiceRestartRepair(
+            runner,
+            system,
+            maxStartAttempts: 1,
+            startPollInterval: TimeSpan.Zero).RepairAsync(
+            new HealthFinding("critical-services", "services", HealthStatus.Critical, ""),
+            new TraySettings { MonitoredServices = new() { "starting", "stopped" } },
+            default);
+
+        Assert.True(outcome.Success);
+        Assert.Single(runner.Calls);
+        Assert.Equal("stopped", runner.Calls[0].Arguments[1]);
+        Assert.DoesNotContain("starting", outcome.Summary, StringComparison.Ordinal);
+        Assert.Contains("stopped", outcome.Summary, StringComparison.Ordinal);
     }
 
     [Fact]

@@ -131,7 +131,7 @@ public sealed class ServiceRestartRepair : IRepairAction
     public async Task<RepairOutcome> RepairAsync(HealthFinding finding, TraySettings settings, CancellationToken ct)
     {
         var snapshots = system.GetServices(settings.MonitoredServices)
-            .Where(s => s.Exists && !s.IsRunning && ServicePolicy.ShouldMonitor(s))
+            .Where(s => s.Exists && !s.IsRunning && !s.IsStarting && ServicePolicy.ShouldMonitor(s))
             .ToList();
         var commands = new List<CommandExecution>();
         var successful = new List<string>();

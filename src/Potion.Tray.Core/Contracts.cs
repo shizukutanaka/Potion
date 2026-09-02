@@ -62,7 +62,8 @@ public sealed record ServiceSnapshot(
     string Name,
     bool Exists,
     bool IsRunning,
-    ServiceStartType StartType = ServiceStartType.Unknown);
+    ServiceStartType StartType = ServiceStartType.Unknown,
+    bool IsStarting = false);
 
 internal static class ServicePolicy
 {

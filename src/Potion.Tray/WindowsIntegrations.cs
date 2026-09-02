@@ -220,7 +220,13 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
                     ServiceStartMode.Disabled => ServiceStartType.Disabled,
                     _ => ServiceStartType.Unknown
                 };
-                return new ServiceSnapshot(name, true, status == ServiceControllerStatus.Running, startType);
+                return new ServiceSnapshot(
+                    name,
+                    true,
+                    status == ServiceControllerStatus.Running,
+                    startType,
+                    status is ServiceControllerStatus.StartPending or
+                        ServiceControllerStatus.ContinuePending);
             }
             catch (InvalidOperationException)
             {
@@ -235,12 +241,32 @@ internal sealed class WindowsSystemInfoProvider : ISystemInfoProvider
     {
         try
         {
-            using var cbs = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending");
-            using var update = Registry.LocalMachine.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired");
+            using var cbs = Registry.LocalMachine.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing");
+            using var cbsRebootPending = cbs?.OpenSubKey("RebootPending");
+            using var cbsRebootInProgress = cbs?.OpenSubKey("RebootInProgress");
+            using var cbsPackagesPending = cbs?.OpenSubKey("PackagesPending");
+            using var update = Registry.LocalMachine.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired");
             using var session = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager");
-            return cbs is not null ||
-                   update is not null ||
-                   session?.GetValue("PendingFileRenameOperations") is not null;
+            using var activeComputerName = Registry.LocalMachine.OpenSubKey(
+                @"SYSTEM\CurrentControlSet\Control\ComputerName\ActiveComputerName");
+            using var computerName = Registry.LocalMachine.OpenSubKey(
+                @"SYSTEM\CurrentControlSet\Control\ComputerName\ComputerName");
+            var pendingFileRenameOperations = session?.GetValue("PendingFileRenameOperations") switch
+            {
+                string[] operations => operations,
+                string operation => new[] { operation },
+                _ => null
+            };
+            return RebootPendingEvaluator.IsPending(new RebootPendingSignals(
+                cbsRebootPending is not null,
+                cbsRebootInProgress is not null,
+                cbsPackagesPending is not null,
+                update is not null,
+                pendingFileRenameOperations,
+                activeComputerName?.GetValue("ComputerName") as string,
+                computerName?.GetValue("ComputerName") as string));
         }
         catch
         {
