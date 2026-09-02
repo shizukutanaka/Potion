@@ -2867,12 +2867,106 @@ public class HistoryFormattingTests
     }
 
     [Fact]
+    public void HistorySearchMatchesCommandFileName()
+    {
+        var entry = Entry(
+            "Title",
+            "Detail",
+            null,
+            null,
+            commands: new[]
+            {
+                new CommandExecution("DISM.EXE", "/Online", 0, TimeSpan.Zero, string.Empty, string.Empty)
+            });
+
+        Assert.True(HistorySearch.Matches(entry, "DISM.EXE"));
+    }
+
+    [Fact]
+    public void HistorySearchMatchesCommandArguments()
+    {
+        var entry = Entry(
+            "Title",
+            "Detail",
+            null,
+            null,
+            commands: new[]
+            {
+                new CommandExecution("tool.exe", "/RepairHealth", 0, TimeSpan.Zero, string.Empty, string.Empty)
+            });
+
+        Assert.True(HistorySearch.Matches(entry, "RepairHealth"));
+    }
+
+    [Fact]
+    public void HistorySearchMatchesCommandExitCode()
+    {
+        var entry = Entry(
+            "Title",
+            "Detail",
+            null,
+            null,
+            commands: new[]
+            {
+                new CommandExecution("tool.exe", string.Empty, 1056, TimeSpan.Zero, string.Empty, string.Empty)
+            });
+
+        Assert.True(HistorySearch.Matches(entry, "1056"));
+    }
+
+    [Fact]
+    public void HistorySearchMatchesCheckId()
+    {
+        var entry = Entry(
+            "Title",
+            "Detail",
+            null,
+            null,
+            checkId: "component-store");
+
+        Assert.True(HistorySearch.Matches(entry, "component-store"));
+    }
+
+    [Fact]
+    public void HistorySearchMatchesTechnicalFieldsOrdinallyIgnoringCase()
+    {
+        var entry = Entry(
+            "Title",
+            "Detail",
+            null,
+            null,
+            commands: new[]
+            {
+                new CommandExecution("SFC.EXE", "/scannow", 0, TimeSpan.Zero, string.Empty, string.Empty)
+            });
+
+        Assert.True(HistorySearch.Matches(entry, "sfc.exe"));
+    }
+
+    [Fact]
     public void HistorySearchRejectsNonMatchingTerms()
     {
         var entry = Entry("Disk space warning", "Free space is low", null, "Manual action");
 
         Assert.False(HistorySearch.Matches(entry, "network"));
         Assert.True(HistorySearch.Matches(entry, " \t"));
+    }
+
+    [Fact]
+    public void HistorySearchRejectsTermsAbsentFromTechnicalFields()
+    {
+        var entry = Entry(
+            "Title",
+            "Detail",
+            null,
+            null,
+            checkId: "check",
+            commands: new[]
+            {
+                new CommandExecution("tool.exe", "/safe", 0, TimeSpan.Zero, string.Empty, string.Empty)
+            });
+
+        Assert.False(HistorySearch.Matches(entry, "missing"));
     }
 
     [Fact]
@@ -2909,11 +3003,13 @@ public class HistoryFormattingTests
         string title,
         string detail,
         string? repairSummary,
-        string? skipReason) =>
+        string? skipReason,
+        string checkId = "test",
+        IReadOnlyList<CommandExecution>? commands = null) =>
         new(
             Guid.NewGuid().ToString("N"),
             DateTimeOffset.UtcNow,
-            "test",
+            checkId,
             title,
             HealthStatus.Warning,
             HistoryOutcome.Detected,
@@ -2921,7 +3017,7 @@ public class HistoryFormattingTests
             repairSummary,
             skipReason,
             TimeSpan.Zero,
-            Array.Empty<CommandExecution>());
+            commands ?? Array.Empty<CommandExecution>());
 }
 
 internal sealed class TempDirectory : IDisposable

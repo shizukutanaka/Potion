@@ -62,13 +62,21 @@ public static class HistorySearch
         }
 
         var search = term.Trim();
-        return Contains(entry.Title) ||
-            Contains(entry.Detail) ||
-            Contains(entry.RepairSummary) ||
-            Contains(entry.SkipReason);
+        return ContainsLocalized(entry.Title) ||
+            ContainsLocalized(entry.Detail) ||
+            ContainsLocalized(entry.RepairSummary) ||
+            ContainsLocalized(entry.SkipReason) ||
+            ContainsTechnical(entry.CheckId) ||
+            entry.Commands.Any(command =>
+                ContainsTechnical(command.FileName) ||
+                ContainsTechnical(command.Arguments) ||
+                ContainsTechnical(command.ExitCode.ToString(CultureInfo.InvariantCulture)));
 
-        bool Contains(string? value) =>
+        bool ContainsLocalized(string? value) =>
             value?.Contains(search, StringComparison.CurrentCultureIgnoreCase) == true;
+
+        bool ContainsTechnical(string? value) =>
+            value?.Contains(search, StringComparison.OrdinalIgnoreCase) == true;
     }
 }
 
