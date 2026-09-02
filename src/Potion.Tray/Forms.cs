@@ -500,7 +500,15 @@ internal sealed class SettingsForm : Form
             return;
         }
 
-        StartupRegistration.Apply(settings.RunAtWindowsStartup, log);
+        if (!StartupRegistration.Apply(settings.RunAtWindowsStartup, log))
+        {
+            MessageBox.Show(
+                this,
+                localizer.Get("Notify.ActionFailed.Message"),
+                localizer.Get("Notify.ActionFailed.Title"),
+                MessageBoxButtons.OK,
+                MessageBoxIcon.Error);
+        }
     }
 
     private static void Add(TableLayoutPanel table, string label, Control control)

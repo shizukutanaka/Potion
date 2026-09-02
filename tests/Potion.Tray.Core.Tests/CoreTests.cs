@@ -423,6 +423,32 @@ public class RebootPendingEvaluatorTests
     }
 }
 
+public class StartupRegistrationPolicyTests
+{
+    [Theory]
+    [InlineData(@"C:\Potion\Potion.Tray.exe", @"C:\Potion\Potion.Tray.exe")]
+    [InlineData(@"""C:\Potion\Potion.Tray.exe""", @"C:\Potion\Potion.Tray.exe")]
+    [InlineData(@"c:\potion\POTION.TRAY.EXE", @"C:\Potion\Potion.Tray.exe")]
+    [InlineData(@"  ""C:\Potion\Potion.Tray.exe""  ", @" C:\Potion\Potion.Tray.exe ")]
+    public void MatchesEquivalentCommands(string registeredCommand, string executablePath)
+    {
+        Assert.True(StartupRegistrationPolicy.Matches(registeredCommand, executablePath));
+    }
+
+    [Theory]
+    [InlineData(@"D:\Potion\Potion.Tray.exe", @"C:\Potion\Potion.Tray.exe")]
+    [InlineData(@"""C:\Potion\Potion.Tray.exe"" --startup", @"C:\Potion\Potion.Tray.exe")]
+    [InlineData(null, @"C:\Potion\Potion.Tray.exe")]
+    [InlineData("", @"C:\Potion\Potion.Tray.exe")]
+    [InlineData("   ", @"C:\Potion\Potion.Tray.exe")]
+    [InlineData(@"C:\Potion\Potion.Tray.exe", "")]
+    [InlineData(@"C:\Potion\Potion.Tray.exe", "   ")]
+    public void RejectsNonExactOrEmptyCommands(string? registeredCommand, string executablePath)
+    {
+        Assert.False(StartupRegistrationPolicy.Matches(registeredCommand, executablePath));
+    }
+}
+
 public class RepairTests
 {
     [Fact]

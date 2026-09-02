@@ -363,24 +363,44 @@ internal sealed class WindowsTempFileCleaner : ITempFileCleaner
 
 internal static class StartupRegistration
 {
-    public static void Apply(bool enabled, ITrayLog log)
+    public static bool Apply(bool enabled, ITrayLog log)
     {
         try
         {
             using var key = Registry.CurrentUser.CreateSubKey(
                 @"Software\Microsoft\Windows\CurrentVersion\Run");
+            if (key is null)
+            {
+                log.Warn("Unable to update Windows startup registration.");
+                return false;
+            }
+
             if (enabled)
             {
-                key?.SetValue("PotionTray", $"\"{Application.ExecutablePath}\"");
+                key.SetValue("PotionTray", $"\"{Application.ExecutablePath}\"");
+                if (StartupRegistrationPolicy.Matches(
+                        key.GetValue("PotionTray") as string,
+                        Application.ExecutablePath))
+                {
+                    return true;
+                }
             }
             else
             {
-                key?.DeleteValue("PotionTray", false);
+                key.DeleteValue("PotionTray", false);
+                if (key.GetValue("PotionTray") is null)
+                {
+                    return true;
+                }
             }
+
+            log.Warn("Unable to update Windows startup registration.");
+            return false;
         }
         catch (Exception ex)
         {
             log.Warn("Unable to update Windows startup registration.", ex);
+            return false;
         }
     }
 }
