@@ -66,3 +66,28 @@
   - `ResiliencePipelines.CreateRemediationPipeline` から未使用の `enableChaos` パラメータを削除（Chaos 実装削除の残滓。唯一の呼び出し元 `Startup.cs` はロガーのみ渡していたため外部影響なし）
 - テストプロジェクトの警告も整理: `<Nullable>annotations</Nullable>` 追加（CS8632 解消）＋ `<NoWarn>CA1416;CS1998</NoWarn>`（製品が Windows 専用のため CA1416 は想定内、async テスト骨格の CS1998 も設計意図どおり）
 - `PerformanceTests`: コールドスタート時に Compiled 正規表現/JIT 初期化コストが性能アサーション（0.1ms/回 等）を超過し偶発失敗していたフレイキーを、計測前ウォームアップ（正規表現ベースの3テスト）で根本原因から修正
+
+### Removed (デッドテスト資産の削除)
+
+- 廃止API向けの除外テスト6ファイル（計 ~1,900行・89テスト相当）を削除
+  - `LocalizationTests.cs`: `HealthController`/`LocalizedString` が実装から削除済み（`InternationalizationService` は `InternationalizationServiceTests.cs` が継続カバー）
+  - `BillingTests.cs`/`PerformanceOptimizerTests.cs`/`SystemHealthMonitorTests.cs`/`RemediationSchedulerTests.cs`/`SecurityAndPerformanceTests.cs`: 対象サービスが全て DI 未登録の到達不能コードであり、削除済み・改名済みメンバを参照しコンパイル不能。`SecurityAndPerformanceTests` の `CommandGuardTests`/`PerformanceTests`/`IntegrationTests` は同名クラスとして現行のコンパイル済みテストが網羅済み
+  - 判断基準: DI 登録がないサービス = 実行パスに到達しないため、テスト復元は維持コストのみ増大する無駄（利用者が実際に使わない機能）
+- 不存在 `TestData` ディレクトリへの `<None Update>` エントリを csproj から除去
+
+### Removed (製品側デッドコードの削除)
+
+- DI 登録・テスト参照のいずれからも到達不能なサービス群 **81 ファイル・約 37,700 行** を削除
+  - 到達性解析（DI 登録型＋テスト参照型からの推移閉包）で算出したデッド集合を `git rm` し、全削除後に `dotnet build` が 0 警告・0 エラー・テスト 126/126 成功を維持することを検証済み
+  - 削除対象: 未登録サービス群（Billing/Performance/SystemHealthMonitor/RemediationScheduler/SecurityAuditor/Backup 等）、未使用の `MachineLearning/`/`PersonalPC/`/`Remediation/`/`Scheduling/`/`Security/`/`Storage/`/`Updates/`/`Compliance/`/`Configuration/` ディレクトリ全体、孤立 Options 4 件
+  - 判断基準: 到達不能コードは「利用者が使わない機能」であり維持コストのみ発生するため、リファクタリング条件（重複削除・保守性向上）に基づき削除
+
+### Added (ベンチマーク基盤の実用化)
+
+- `tests/Potion.Service.Benchmarks/` に最小 csproj + エントリポイントを新規作成し、CI の `Run benchmarks` ステップ（`dotnet run --project`）が実際に実行可能に
+  - `BenchmarkDotNet` 0.14.0 を追加（ライブラリ追加の理由: CI にベンチマークステップが既存だが csproj 不在で未実行だったため設計どおりの有効化。性能リグレッションをセキュリティホットパスで検出する標準的手法）
+  - ベンチマーク対象を現行APIに全面書き換え: `CommandGuard.EnsureCommandIsAllowed`/`SanitizeArguments`/`IsValidUrl`（全コマンド実行時に通るセキュリティホットパス）＋ `RateLimiter.CheckRateLimitAsync`。旧対象（SystemHealthMonitor/廃止CommandGuard API/TelemetryRetentionService）は全て廃止・削除済みAPIだった
+  - `SimpleJob` のランタイムモニカー未指定化（`Net80` 固定は .NET 9 環境で実行不可のため、ホストランタイム自動解決で環境非依存に）
+  - `System.Security.Cryptography.Pkcs` 9.0.13 をローカル参照（製品の明示 8.0.1 と SqlClient 7.0.3 推移要件 >=9.0.13 の不整合を解消）
+  - 検証: `--filter "*EnsureCommandIsAllowed*" --job dry` で実計測成功（約29.5ns/op・168B割当）
+- `.gitignore` に `BenchmarkDotNet.Artifacts/` を追加（実行成果物の誤コミット防止）

@@ -7,10 +7,6 @@ Windows 向け自己修復サービス。システムの健全性を監視し、
 - `Program.cs` — Generic Host + WebHost のエントリポイント（Windows サービスとして動作）
 - `Startup.cs` — DI 登録、OpenTelemetry、SignalR ハブ、ミドルウェア構成
 - `Infrastructure/` — 監視・修復・メトリクス・レポート等の基盤サービス
-- `Remediation/` — 修復タスクカタログと実行基盤
-- `Scheduling/` — スケジューリング／イベント駆動修復
-- `MachineLearning/` — ML.NET による異常検知・予測
-- `Hubs/` — SignalR リアルタイム通信
 - `Options/` — 構成オプション（`IOptionsMonitor` 経由）
 
 ## ビルド
