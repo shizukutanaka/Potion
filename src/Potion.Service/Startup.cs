@@ -8,6 +8,7 @@ using OpenTelemetry.Trace;
 using Polly;
 using Potion.Service.Hubs;
 using Potion.Service.Infrastructure;
+using Potion.Service.Options;
 using Potion.Service.Remediation;
 
 namespace Potion.Service;
@@ -131,6 +132,20 @@ public class Startup
         services.AddHttpClient();
         services.AddSingleton<CollaborationService>();
         services.AddOptions<CollaborationOptions>();
+
+        // Self-healing monitoring loop: observation and reporting only.
+        // Repair-execution services (AutoRecoveryManager, PerformanceOptimizer,
+        // PredictiveRemediationService, EventDrivenRemediationService) stay
+        // unregistered pending explicit approval — they run OS-level repairs.
+        services.AddSingleton<ISystemHealthMonitor, SystemHealthMonitor>();
+        services.AddHostedService<MemoryMonitor>();
+        services.AddHostedService<AnomalyDetector>();
+        services.AddHostedService<EventCorrelationService>();
+        services.AddHostedService<ComplianceReportService>();
+        services.AddOptions<MemoryMonitorOptions>();
+        services.AddOptions<PerformanceOptimizerOptions>();
+        services.AddOptions<EventCorrelationOptions>();
+        services.AddOptions<ComplianceOptions>();
 
         var supportedCultures = new[]
         {

@@ -114,3 +114,11 @@
 - `app.UseStaticFiles()` を追加 — `wwwroot/` のダッシュボード（index.html/styles.css/dashboard.js）が配信されるよう有効化
 - Kestrel 証明書設定の実バグ修正 — ベース/開発設定の `Https` エンドポイントは証明書 `Path` が空で全環境で起動失敗していたため HTTP のみに限定。本番設定の `Password` は `${VAR:?}` シェル構文で .NET が展開しない無効プレースホルダだったため除去（本番では環境変数 `Kestrel__Endpoints__Https__Certificate__Password` で注入する方式に）
 - **初のランタイム起動検証成功**（macOS・Development 環境）: `dotnet run` で `Now listening on: http://localhost:5000` / `Application started` まで到達し、実 HTTP レスポンスを確認 — `index.html`/`swagger`/`metrics`/`/collaboration/negotiate` が全て 200（SignalR Hub の DI 修正が実行時にも検証済み）
+
+### Added (自己修復監視ループの有効化)
+
+- 観測・レポート専用の BackgroundService を `AddHostedService` で有効化 — これまで自己修復監視ループは一度も起動していなかった（`AddHostedService` 登録ゼロ）
+  - `MemoryMonitor`（メモリ統計・GC/ワーキングセット最適化）、`AnomalyDetector`（MLベース異常検知）、`EventCorrelationService`（イベント相関）、`ComplianceReportService`（コンプライアンスレポート）
+  - 依存 `ISystemHealthMonitor`→`SystemHealthMonitor` と各 `IOptions`/`IOptionsMonitor` を登録
+- 起動検証: MemoryMonitor/AnomalyDetector が起動ログを出力し、EventCorrelation/Compliance は各オプションの `Enabled=false` で適切に待機 — 観測ループのみ動作
+- 修復実行系（`AutoRecoveryManager`/`PerformanceOptimizer`/`PredictiveRemediationService`/`EventDrivenRemediationService`/`RemediationTaskExecutor`）は OS 修復を自律実行するため未登録のまま温存 — 有効化は明示的な製品判断が必要
