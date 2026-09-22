@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (RemediationPolicy のオプションバインドクラッシュ — env: 記法の未対応)
+
+- **`"MaxConcurrency": "env:POTION_MAX_CONCURRENCY:default:4"` が初回オプション読取で `InvalidOperationException` を投げる休眠バグ** — .NET の設定プロバイダは `env:` 補間を解釈せずリテラル文字列のまま int へ変換失敗（実機検証済み）。`FeatureFlags:RepairExecutionEnabled` 有効時、CommandValidator 等が `CurrentValue` を初回アクセスした時点でクラッシュ。値を `4` に修正（環境変数オーバーライドは .NET の標準 `RemediationPolicy__MaxConcurrency` 形式で既に可能）
+- 新規テスト `OptionsBindingTests`（4件・107→111）: 実 appsettings.json/Production/Development に対し Startup が bind する全オプションクラスが例外無しでバインドされることを検証する回帰ガード
+
 ### Fixed (SystemIntegrityMetrics の最終スタブ実測化)
 
 - **`IntegrityCheckPassed` が `true` 固定値** — OS の保留中修復状態に関係なく常に「整合性OK」を報告。`SystemMetricsSampler.HasPendingRepairs()` を新設し Windows レジストリで実測: `Component Based Servicing\RebootPending`・`WindowsUpdate\Auto Update\RebootRequired`・`Session Manager\PendingFileRenameOperations` のいずれか存在時は保留中修復あり → `IntegrityCheckPassed=false`（保留中修復=前回整合性作業が未コミットの意味）。非Windows は保留中修復の概念が無いため passed を維持（検出不能を偽装しない — 保留中修復が検出されない場合のみ true）。レジストリ読取のみ・全OS安全
