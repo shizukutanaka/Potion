@@ -7,6 +7,19 @@ using Microsoft.Extensions.Logging;
 
 namespace Potion.Service.Infrastructure;
 
+/// <summary>
+/// ログレベル
+/// </summary>
+public enum LogLevel
+{
+    Trace,
+    Debug,
+    Information,
+    Warning,
+    Error,
+    Critical
+}
+
 public interface IErrorHandler
 {
     void HandleError(Exception exception, string context, LogLevel logLevel = LogLevel.Error);
