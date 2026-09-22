@@ -81,6 +81,7 @@ public class Startup
         services.AddHostedService<AnomalyDetector>();
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();
+        services.AddHealthChecks();
         services.AddOptions<MemoryMonitorOptions>();
         services.AddOptions<PerformanceOptimizerOptions>();
         services.AddOptions<EventCorrelationOptions>();
@@ -186,6 +187,7 @@ public class Startup
         app.UseEndpoints(endpoints =>
         {
             endpoints.MapHub<CollaborationHub>("/collaboration");
+            endpoints.MapHealthChecks("/health");
 
             // Prometheus metrics endpoint for scraping
             endpoints.MapPrometheusScrapingEndpoint();
