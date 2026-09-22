@@ -16,11 +16,14 @@ public class RemediationTaskExecutorTests
 {
     private readonly Mock<ILogger<RemediationTaskExecutor>> _logger = new();
     private readonly Mock<IProcessRunner> _runner = new();
+    private readonly Mock<ICommandValidator> _validator = new();
     private readonly RemediationTaskExecutor _executor;
 
     public RemediationTaskExecutorTests()
     {
-        _executor = new RemediationTaskExecutor(_logger.Object, _runner.Object);
+        _validator.Setup(v => v.EnsureCommandIsAllowed(It.IsAny<string>()))
+            .Returns((string c) => c);
+        _executor = new RemediationTaskExecutor(_logger.Object, _runner.Object, _validator.Object);
     }
 
     private static RemediationTaskDescriptor Descriptor(RemediationTaskOption? option = null) =>
@@ -111,6 +114,20 @@ public class RemediationTaskExecutorTests
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception?>(),
                 It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_BlockedCommand_ThrowsBeforeSpawn()
+    {
+        _validator.Setup(v => v.EnsureCommandIsAllowed(It.IsAny<string>()))
+            .Throws(new InvalidOperationException("not allowed"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            _executor.ExecuteAsync(Descriptor(), CancellationToken.None));
+
+        _runner.Verify(
+            r => r.RunAsync(It.IsAny<ProcessStartInfo>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 
