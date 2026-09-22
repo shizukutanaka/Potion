@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Security (Webhook レート制限)
+
+- **`POST /api/health/alerts/webhook` が無制限だった問題** — 唯一の匿名書き込みエンドポイントにスロットリングが無く、異常な投稿元がサービスをフラッディングできた。.NET 組み込み `AddRateLimiter`（固定ウィンドウ・60リクエスト/分・429応答）を webhook のみに適用
+
 ### Fixed (Webhook 堅牢性)
 
 - **`POST /api/health/alerts/webhook` が不正JSONで500を返していた** — `JsonDocument.ParseAsync` の `JsonException` が未処理で500応答（Alertmanager からの malformed ペイロードでも500 → リトライ嵐の要因）。`JsonException` を捕捉し `400 BadRequest` を返すように修正

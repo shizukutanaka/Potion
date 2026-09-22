@@ -3,7 +3,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
 using OpenTelemetry.Metrics;
@@ -88,6 +90,18 @@ public class Startup
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();
         services.AddHealthChecks();
+        services.AddRateLimiter(options =>
+        {
+            // The alertmanager webhook is the only anonymous write endpoint;
+            // bound it so a misbehaving poster cannot flood the service.
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddFixedWindowLimiter("webhook", limiter =>
+            {
+                limiter.PermitLimit = 60;
+                limiter.Window = TimeSpan.FromMinutes(1);
+                limiter.QueueLimit = 0;
+            });
+        });
         services.Configure<MemoryMonitorOptions>(Configuration.GetSection(MemoryMonitorOptions.SectionName));
         services.Configure<PerformanceOptimizerOptions>(Configuration.GetSection(PerformanceOptimizerOptions.SectionName));
         services.Configure<EventCorrelationOptions>(Configuration.GetSection("EventCorrelation"));
@@ -195,6 +209,7 @@ public class Startup
         app.UseStaticFiles();
         app.UseMiddleware<RequestMetricsMiddleware>();
         app.UseRouting();
+        app.UseRateLimiter();
 
         // Map Prometheus metrics endpoint (OpenTelemetry export)
         app.UseEndpoints(endpoints =>
@@ -285,7 +300,7 @@ public class Startup
                 }
 
                 return Results.Ok(new { received });
-            });
+            }).RequireRateLimiting("webhook");
 
             // Prometheus metrics endpoint for scraping
             endpoints.MapPrometheusScrapingEndpoint();
