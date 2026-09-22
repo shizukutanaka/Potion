@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (ナビゲーション全体が初回クリックで全滅するバグ — UI変更: バグ修正のみ、見た目・レイアウト変更なし)
+
+- `showSection()` のナビハイライトが2重に壊れていた:
+  - active 解除ループが不存在の `.dashboard-nav li` を指定（実体は `.side-nav-link`）→ 前のセクションの active が消えず複数同時ハイライト
+  - セレクタ `[onclick="showSection('X')"]` の完全一致に対し、実 HTML は `onclick="showSection('X'); return false;"` → `querySelector` が `null` を返し `.classList` で **TypeError。init 内の `showSection('overview')` も例外となり初期化が中断**（`initializeCharts` 以降未到達）
+  - `*=`（部分一致）セレクタに修正 — `switchTab`/`filterAlerts`/`setTimeFilter` は onclick が完全一致のため実害なしと確認済み
+- 副次的に dead コード削除: `.dashboard-nav li` へのリスナ登録（マッチゼロ＋二重発火の原因）、`.dropdown` 系一式（`setupDropdowns`/`toggleDropdown`/`closeAllDropdowns`/`dropdownStates` — `.dropdown` 要素が HTML・JS のどこにも存在しない完全な死サブシステム）
+
 ### Fixed (ダッシュボード ID 不整合 — アラート一覧が常に非表示・更新ごとに例外)
 
 - `updateAlertsBadge` が存在しない `#alerts-count` を参照 — `updateAlertsDisplay` 内で毎回 NPE となり **アラート一覧が例外で表示されなかった**。実在する `#alerts-count-side`（サイドナビバッジ）に修正

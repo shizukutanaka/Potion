@@ -6,7 +6,6 @@ class PotionDashboard {
         this.refreshInterval = 30000; // 30 seconds
         this.autoRefreshTimer = null;
         this.modalStack = [];
-        this.dropdownStates = new Map();
 
         // Advanced features properties
         this.selectedAlerts = new Set();
@@ -28,7 +27,6 @@ class PotionDashboard {
     async init() {
         this.setupEventListeners();
         this.setupKeyboardNavigation();
-        this.setupDropdowns();
         this.setupTooltips();
         this.setupDragAndDrop();
         this.setupInlineEditing();
@@ -138,14 +136,6 @@ class PotionDashboard {
     }
 
     setupEventListeners() {
-        // Navigation
-        document.querySelectorAll('.dashboard-nav li').forEach(item => {
-            item.addEventListener('click', () => {
-                const section = item.getAttribute('onclick').match(/'([^']+)'/)[1];
-                this.showSection(section);
-            });
-        });
-
         // Modal close handlers
         document.addEventListener('click', (e) => {
             if (e.target.classList.contains('modal-overlay')) {
@@ -191,24 +181,6 @@ class PotionDashboard {
         });
     }
 
-    setupDropdowns() {
-        document.addEventListener('click', (e) => {
-            // Close all dropdowns when clicking outside
-            if (!e.target.closest('.dropdown')) {
-                this.closeAllDropdowns();
-            }
-        });
-
-        // Setup dropdown toggles
-        document.querySelectorAll('.dropdown-toggle').forEach(toggle => {
-            toggle.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const dropdown = toggle.closest('.dropdown');
-                this.toggleDropdown(dropdown);
-            });
-        });
-    }
-
     setupTooltips() {
         // Tooltips are handled via CSS :hover, but we can enhance with JS if needed
         document.querySelectorAll('.tooltip').forEach(tooltip => {
@@ -233,25 +205,6 @@ class PotionDashboard {
 
     hideLoadingState() {
         // Loading state is automatically replaced by real content
-    }
-
-    toggleDropdown(dropdown) {
-        const menu = dropdown.querySelector('.dropdown-menu');
-        const isActive = menu.classList.contains('active');
-
-        this.closeAllDropdowns();
-
-        if (!isActive) {
-            menu.classList.add('active');
-            this.dropdownStates.set(dropdown, true);
-        }
-    }
-
-    closeAllDropdowns() {
-        document.querySelectorAll('.dropdown-menu.active').forEach(menu => {
-            menu.classList.remove('active');
-        });
-        this.dropdownStates.clear();
     }
 
     showModal(content, options = {}) {
@@ -335,10 +288,10 @@ class PotionDashboard {
 
     showSection(sectionName) {
         // Update navigation
-        document.querySelectorAll('.dashboard-nav li').forEach(item => {
+        document.querySelectorAll('.side-nav-link').forEach(item => {
             item.classList.remove('active');
         });
-        document.querySelector(`[onclick="showSection('${sectionName}')"]`).classList.add('active');
+        document.querySelector(`[onclick*="showSection('${sectionName}')"]`).classList.add('active');
 
         // Update content sections
         document.querySelectorAll('.content-section').forEach(section => {
