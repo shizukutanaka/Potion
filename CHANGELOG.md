@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (認証なしの `UseAuthorization` ミドルウェア)
+
+- `app.UseAuthorization()` を削除 — `AddAuthentication`/`AddAuthorization` 登録も `[Authorize]` 属性も存在せず、何もしないデッドミドルウェアだった
+- `src/Potion.Service/README.md` を実態へ更新 — `Scheduling/`・`Remediation/`・`Resources/`・`wwwroot/` を構成節に追加、エンドポイント一覧（`/health`・`/metrics`・`/collaboration`）を新設、`dotnet run` は simple.csproj 削除により `--project` 不要になった点と修復フラグを記載
+- 検証: 0警告0エラー
+
 ### Fixed (オプションが設定バインドされていなかった問題 — 監視サービスの閾値を調整可能に)
 
 - `AddOptions<T>()` 単独呼出し（5件）を `Configure<T>(GetSection(...))` へ変更 — Options クラスは `SectionName`/Enabled・閾値等を持つ設計だったが**設定が一切バインドされておらず**、コード既定値のみで動作し運用者の調整手段がなかった（RemediationPolicyOptions と同じ「バインド忘れ」クラス）
