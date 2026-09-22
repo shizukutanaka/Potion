@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボードのモックデータ実バグ2件)
+
+- **Performance ドロワーがハードコードのモック値を表示していた実バグ** — `updatePerformanceDrawer()` が CPU 45%・メモリ16GB・負荷0.8等の固定値を表示。`/api/health/metrics` の実測値へ修正（コア数/プロセス数・実メモリ・実ディスク/ネットワーク速度）
+- **Event Logs テーブルが150件の捏造ログを表示していた実バグ** — `generateMockLogs()` がランダムな仮想イベントを生成。実データ源はヘルスアラートのみのため `/api/health` の実アラートをテーブルへ表示（Level/Source/Event ID/Message 列を実データへマッピング）
+
 ### Fixed (/metrics が potion_* メトリクスを全く出力しなかった実ギャップ)
 
 - **Prometheus 監視が空転していた実ギャップ** — `PotionMetrics` は無消費の static クラスで、計器は初アクセス時にのみ生成されるため `/metrics` は `process_*` 実行時メトリクスのみ（potion_* ゼロ）。`SystemHealthMonitor` の実測値（CPU/メモリ/ディスク/ヘルススコア）をゲージへ配線、`RecordAnomaly`・`RecordRemediationTask`・`RecordSelfHealingAttempt` を各経路へ接続、起動時に計器を必ず生成する初期化を追加 — 実検証で `potion_system_health_score`/`cpu_usage`/`memory_usage`/`disk_available_gigabytes` 等が実値出力を確認（OTel はドット→アンダースコア変換）

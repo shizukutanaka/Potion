@@ -1168,52 +1168,20 @@ class PotionDashboard {
 
     async loadLogsData() {
         try {
-            // In a real implementation, this would call an API endpoint
-            // For demo purposes, we'll simulate log data
-            const mockLogs = this.generateMockLogs();
-            this.logsData = mockLogs;
+            // Real event stream: health alerts raised by the monitor.
+            const response = await fetch(`${this.apiBaseUrl}/api/health`);
+            const data = await response.json();
+            this.logsData = (data.alerts || []).map(a => ({
+                timestamp: new Date(a.timestamp),
+                level: (a.severity || 'info').toLowerCase(),
+                source: 'HealthMonitor',
+                eventId: a.component || '-',
+                message: `${a.title}: ${a.message}`
+            }));
             this.renderLogsTable();
         } catch (error) {
             console.error('Failed to load logs data:', error);
         }
-    }
-
-    generateMockLogs() {
-        const logs = [];
-        const now = new Date();
-
-        const sources = ['System', 'Application', 'Security'];
-        const levels = ['Information', 'Warning', 'Error', 'Critical'];
-        const messages = [
-            'The system has recovered from a bugcheck.',
-            'The Windows Defender service entered the running state.',
-            'A user account was created.',
-            'Windows successfully loaded the device driver.',
-            'The system has started up.',
-            'A process has exited.',
-            'Windows Firewall service started successfully.',
-            'User logon successful.',
-            'System time changed.',
-            'Disk cleanup completed successfully.'
-        ];
-
-        for (let i = 0; i < 150; i++) {
-            const timestamp = new Date(now.getTime() - Math.random() * 24 * 60 * 60 * 1000);
-            const source = sources[Math.floor(Math.random() * sources.length)];
-            const level = levels[Math.floor(Math.random() * levels.length)];
-            const eventId = Math.floor(Math.random() * 10000) + 1000;
-            const message = messages[Math.floor(Math.random() * messages.length)];
-
-            logs.push({
-                timestamp: timestamp,
-                level: level.toLowerCase(),
-                source: source,
-                eventId: eventId,
-                message: message
-            });
-        }
-
-        return logs.sort((a, b) => b.timestamp - a.timestamp);
     }
 
     renderLogsTable() {
@@ -1753,28 +1721,43 @@ class PotionDashboard {
         drawer.classList.remove('open');
     }
 
-    updatePerformanceDrawer() {
-        // In a real implementation, this would fetch detailed metrics
-        // For demo purposes, we'll use mock data
-        document.getElementById('cpu-usage-detail').textContent = '45%';
-        document.getElementById('cpu-load-1m').textContent = '0.8';
-        document.getElementById('cpu-load-5m').textContent = '0.6';
-        document.getElementById('cpu-load-15m').textContent = '0.7';
+    async updatePerformanceDrawer() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/health/metrics`);
+            const metrics = await response.json();
+            this.renderPerformanceDrawer(metrics);
+        } catch (error) {
+            console.error('Failed to load performance drawer data:', error);
+        }
+    }
 
-        document.getElementById('memory-total').textContent = '16.0 GB';
-        document.getElementById('memory-available').textContent = '8.5 GB';
-        document.getElementById('memory-used').textContent = '7.5 GB';
-        document.getElementById('memory-usage-percent').textContent = '47%';
+    renderPerformanceDrawer(metrics) {
+        const set = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        const gb = bytes => (bytes / (1024 ** 3)).toFixed(1) + ' GB';
 
-        document.getElementById('disk-read-rate').textContent = '2.3 MB/s';
-        document.getElementById('disk-write-rate').textContent = '1.8 MB/s';
-        document.getElementById('disk-queue-length').textContent = '0.02';
-        document.getElementById('disk-total-size').textContent = '500 GB';
+        set('cpu-usage-detail', `${metrics.cpu.usagePercent.toFixed(1)}%`);
+        // Windows does not expose Unix-style load averages; show core/process counts.
+        set('cpu-load-1m', `${metrics.cpu.coreCount} cores`);
+        set('cpu-load-5m', `${metrics.cpu.processCount} processes`);
+        set('cpu-load-15m', '-');
 
-        document.getElementById('network-sent').textContent = '1.2 MB/s';
-        document.getElementById('network-received').textContent = '0.8 MB/s';
-        document.getElementById('network-connections').textContent = '24';
-        document.getElementById('network-utilization').textContent = '8%';
+        set('memory-total', gb(metrics.memory.totalBytes));
+        set('memory-available', gb(metrics.memory.availableBytes));
+        set('memory-used', gb(metrics.memory.usedBytes));
+        set('memory-usage-percent', `${metrics.memory.usedPercent.toFixed(1)}%`);
+
+        set('disk-read-rate', `${this.formatBytes(metrics.disk.readBytesPerSec)}/s`);
+        set('disk-write-rate', `${this.formatBytes(metrics.disk.writeBytesPerSec)}/s`);
+        set('disk-queue-length', '-');
+        set('disk-total-size', gb(metrics.disk.totalBytes));
+
+        set('network-sent', `${this.formatBytes(metrics.network.bytesSentPerSec)}/s`);
+        set('network-received', `${this.formatBytes(metrics.network.bytesReceivedPerSec)}/s`);
+        set('network-connections', `${metrics.network.activeConnections}`);
+        set('network-utilization', '-');
     }
 
     // Advanced Search Functionality
