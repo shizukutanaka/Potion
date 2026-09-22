@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Removed (未使用 NuGet パッケージ15件 — ライブラリ削除の説明)
+
+- 製品 csproj から14件: 全て**ソース内参照ゼロ**を確認済み（`using`/型利用なし・NuGet restore のみに存在し PublishTrimmed の肥大化要因）
+  - `Microsoft.ML`/`Microsoft.ML.TimeSeries`/`Microsoft.ML.FastTree` — "ML-based" と称する AnomalyDetector は統計的手法（平均・分散・トレンド）で ML.NET は一切未使用
+  - `System.IdentityModel.Tokens.Jwt`/`Microsoft.IdentityModel.Tokens` — 認証コード不存在で未使用
+  - `NuGet.Versioning`/`MathNet.Numerics`/`System.Reactive`/`System.Security.Cryptography.Pkcs`/`System.Security.Principal.Windows`/`System.Diagnostics.TraceSource`/`System.Diagnostics.EventLog`/`Polly.Extensions`/`Polly.Testing`（製品 csproj に誤配置のテスト用パッケージ）
+  - `System.Diagnostics.EventLog`/`System.Security.Principal.Windows` は `Serilog.Sinks.EventLog`/`System.Management` が推移的に供給するため直接参照の削除のみ
+- ベンチマーク csproj から1件: `System.Security.Cryptography.Pkcs` 9.0.13 ピン — 製品側の Pkcs 8.0.1 明示参照との NU1605 衝突回避用だったが、製品側の参照自体を削除したため不要化
+- 検証: ソリューション 0警告0エラー・DI/Scheduler テスト 8/8
+
 ### Fixed (性能テストのフレイク根本修正 — `CommandGuard_UrlValidation_Performance`)
 
 - 閾値 `0.01ms/検証` の平均値アサートが CI の GC・スケジューリング外れ値で断続失敗していた（本セッションでも再現）。絶対速度の厳密保証ではなく退行検出が目的のため、**5ラウンドの中央値比較**へ変更し外れ値耐性を持たせつつ閾値は 0.03ms（約3倍の猶予でも10倍超の退行は捕捉）

@@ -85,37 +85,23 @@
 
     <!-- Polly - Resilience Patterns (Phase 1) -->
     <PackageReference Include="Polly" Version="8.8.0" />
-    <PackageReference Include="Polly.Extensions" Version="8.8.0" />
-    <PackageReference Include="Polly.Testing" Version="8.8.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
     <PackageReference Include="Polly.RateLimiting" Version="8.8.0" />
 
-    <!-- ML.NET - Predictive Maintenance (Phase 3) -->
-    <PackageReference Include="Microsoft.ML" Version="5.0.0" />
-    <PackageReference Include="Microsoft.ML.TimeSeries" Version="5.0.0" />
-    <PackageReference Include="Microsoft.ML.FastTree" Version="5.0.0" />
+    <!-- ML.NET packages removed: no code references Microsoft.ML (anomaly detection is statistical, not ML.NET-based). Re-add when a real ML.NET pipeline lands. -->
 
     <!-- Core Infrastructure -->
     <PackageReference Include="System.Management" Version="8.0.0" />
-    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
-    <PackageReference Include="System.Security.Principal.Windows" Version="5.0.0" />
     <PackageReference Include="System.Threading.Channels" Version="9.0.4" />
-    <PackageReference Include="System.Reactive" Version="6.0.1" />
-    <PackageReference Include="System.Diagnostics.TraceSource" Version="4.3.0" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.12" />
-    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.12" />
 
     <!-- Web API -->
     <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.31" />
 
     <!-- Security / Data -->
-    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
-    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.16.0" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.3" />
-    <PackageReference Include="NuGet.Versioning" Version="7.0.0" />
 
     <!-- Analysis Libraries -->
-    <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
 
   </ItemGroup>
 
