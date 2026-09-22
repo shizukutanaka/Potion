@@ -343,7 +343,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
             new SecurityContextMetrics(Environment.UserName, elevated, elevated, !Environment.UserInteractive),
             new RuntimePerformanceMetrics(perf.Rps, perf.AverageLatencyMs, perf.ErrorRate, currentProcess.Threads.Count,
-                OperatingSystem.IsWindows() ? currentProcess.HandleCount : 0),
+                OperatingSystem.IsWindows() ? currentProcess.HandleCount : _sampler.OpenDescriptorCount()),
             new ResourceMonitoringMetrics(currentProcess.TotalProcessorTime.TotalSeconds, ioOpsRate,
                 GC.CollectionCount(0) + GC.CollectionCount(1) + GC.CollectionCount(2)),
             new ResourcePressureMetrics(
@@ -500,6 +500,25 @@ internal sealed class SystemMetricsSampler
             // thermal provider often unavailable — fall through to honest unknown
         }
         return 0.0;
+    }
+
+    // Open file descriptors — the Unix analogue of the Windows handle count,
+    // useful for catching descriptor leaks. Linux reads /proc/self/fd; macOS
+    // has no cheap equivalent — returns 0 there (honest unknown).
+    public int OpenDescriptorCount()
+    {
+        try
+        {
+            if (OperatingSystem.IsLinux() && Directory.Exists("/proc/self/fd"))
+            {
+                return Directory.EnumerateFileSystemEntries("/proc/self/fd").Count();
+            }
+        }
+        catch
+        {
+            // fall through to honest unknown
+        }
+        return 0;
     }
 
     // OS page cache — Linux /proc/meminfo "Cached:". Windows/macOS have no

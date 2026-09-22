@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (HandleCount の非Windows固定0を実測化)
+
+- **`RuntimePerformanceMetrics.HandleCount` が非Windowsで固定0だった** — Linux で `/proc/self/fd` のオープンFD数を実測（Unix のハンドル数相当・ディスクリプタリーク検出に有効）。macOS は安価な取得経路なし → 0＝計測不可の正直な値
+
 ### Fixed (CpuMetrics/MemoryMetrics の固定0フィールド実測化)
 
 - **`ProcessCount` が `ProcessorCount`（CPUコア数）を転記していた誤値** — プロセス数ではなくコア数を報告していた。`Process.GetProcesses().Length` の実測へ
