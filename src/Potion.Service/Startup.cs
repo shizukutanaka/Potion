@@ -98,6 +98,7 @@ public class Startup
         {
             services.Configure<RemediationPolicyOptions>(Configuration.GetSection("RemediationPolicy"));
             services.AddSingleton<IProcessRunner, ProcessRunner>();
+            services.AddSingleton<ICommandValidator, CommandValidator>();
             services.AddSingleton<IRemediationTaskExecutor, RemediationTaskExecutor>();
             services.AddSingleton<RemediationScheduler>();
             services.AddSingleton<IRemediationScheduler>(sp => sp.GetRequiredService<RemediationScheduler>());

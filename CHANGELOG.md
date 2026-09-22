@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Security (修復コマンドのアローリスト強制 — CommandValidator 接続)
+
+- `CommandValidator`/`ICommandValidator` は実装済みだったが**どこからも呼ばれていなかった** — 修復パイプラインは `descriptor.Option.Command` を検証なしでそのまま `ProcessRunner` へ渡していた（フラグ有効化時、設定した任意コマンドが無検査で実行される状態）
+- `RemediationTaskExecutor.ExecuteAsync` でプロセス生成直前に `EnsureCommandIsAllowed(option.Command)` を強制（最終ホップで防御 — 上流からのバイパス経路を塞ぐ）。`ICommandValidator`→`CommandValidator` をフラグブロックに登録
+- 検証: 0警告0エラー・関連テスト 11/11・新規「ブロック済みコマンドは spawn 前に失敗」テスト追加
+
 ### Added (RemediationTaskExecutor ユニットテスト — 134→139)
 
 - `Remediation/RemediationTaskExecutorTests` 新規5件 — 修復実行の最終段（実プロセス実行への橋渡し）の振る舞いを `IProcessRunner` モックで検証:

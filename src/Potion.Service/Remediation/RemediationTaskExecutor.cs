@@ -21,13 +21,16 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
 {
     private readonly ILogger<RemediationTaskExecutor> _logger;
     private readonly IProcessRunner _processRunner;
+    private readonly ICommandValidator _commandValidator;
 
     public RemediationTaskExecutor(
         ILogger<RemediationTaskExecutor> logger,
-        IProcessRunner processRunner)
+        IProcessRunner processRunner,
+        ICommandValidator commandValidator)
     {
         _logger = logger;
         _processRunner = processRunner;
+        _commandValidator = commandValidator;
     }
 
     public async Task ExecuteAsync(RemediationTaskDescriptor descriptor, CancellationToken cancellationToken)
@@ -36,6 +39,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         var option = descriptor.Option;
         var startUtc = DateTimeOffset.UtcNow;
 
+        _commandValidator.EnsureCommandIsAllowed(option.Command);
         _logger.LogInformation("Executing remediation task: {TaskName}", option.Name);
 
         try
