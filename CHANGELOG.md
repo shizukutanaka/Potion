@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (起動不能の compose 派生2ファイル)
+
+- `docker-compose.enterprise.yml`（201行）削除 — 参照する `./nginx.conf`・`./prometheus.yml`（ルート）・`./fluentd.conf`・`./redis-data`・`./postgres-data` 等が全て不存在で起動不能。`potion/enterprise:latest` イメージもビルド経路なし。postgres/redis/elasticsearch はアプリ未使用の死依存
+- `docker-compose.monitoring.yml`（220行）削除 — 同様に `./scripts/init.sql`・`./monitoring/grafana/*`・`./monitoring/loki-config.yml`・`./monitoring/tempo-config.yml`・`./monitoring/k6` 等の不存在参照が半数超。ベースの `docker-compose.yml`（前項で修復済みの最小構成）が代替
+- 残置: `k8s/`・`helm/`・`kubernetes-enterprise.yml` は「存在しないイメージを前提とした将来デプロイ用ひな形」で種類が異なるため保持（Windows 専用サービスの k8s 運用は別途判断要）
+- 検証: 削除対象の参照不存在を全件確認済み
+
 ### Fixed (docker-compose.yml を実際に起動できる最小構成へ修復)
 
 - 従来ファイルは参照先欠落で**半分のサービスが起動不能**だった:
