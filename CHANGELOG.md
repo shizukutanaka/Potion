@@ -134,3 +134,26 @@
 - 到達性解析（DI登録型＋テスト参照型を起点に型参照の推移閉包）で到達不能と確定した18ファイルを削除 — `AdvancedAuthenticationService`/`DeviceTrustService`/`NotificationService`/`RateLimitingService`/`RemoteManagementClient`/`SecureCommunicator`/`SecurityPolicyEngine`/`TenantService`/`UserBehaviorAnalyzer`/`ZeroTrustSecurityService`（全て DI 未登録）と、削除済みサービスの孤立 Options 8件（Backup/Billing/CloudIntegration/LogCompression/RemoteManagementConfigValidator/Report/SystemDiagnostics/WindowsRepair）
 - `ZeroTrustSecurityService` は削除済み依存（DeviceTrust/UserBehavior/SecurityPolicyEngine）に依存しており非修復系のため同様に削除
 - 削除後検証: `dotnet build` 0警告0エラー・126/126テスト — 実行時動作への影響なし
+
+### Removed (消費者ゼロの死登録とその実装 — 15登録・10ファイル)
+
+- 「DI 登録済みだが消費者がゼロ」＝見た目は稼働、実際は何もしない誤認登録15件を削除（ctor 注入・`GetService` 動的解決・修復実行系からの参照も全て監査し消費者ゼロを確認）:
+  `ISelfHealingCollectionsService`/`IPerformanceOptimizationService`/`IReactiveEventSystem`/`IFunctionalErrorHandlingService`/`IObservabilityService`/`IMetricsCollectionService`/`IFeatureFlagService`/`IChaosEngineeringService`/`IServiceMeshService`/`IAnomalyDetectionService`/`IAuditTrailService`/`IKubernetesOperatorService`/`IKubernetesHealthService`/`IGitOpsService`/`IIacService`/`IPerformanceAnalyticsService`
+- 登録削除により到達不能となった実装ファイル10件を削除: `AnomalyDetectionService`/`AuditTrailService`/`ChaosEngineeringService`/`KubernetesService`/`ObservabilityService`/`PerformanceAnalyticsService`/`ReactiveEventSystem`/`SelfHealingCollectionsService`/`AutomatedRemediationOrchestrator`/`DefenderAtpManager`
+- `IConfigurationHotReloadService`（ConfigurationManagementService が消費）と `ISystemHealthMonitor`（監視ループが消費）は存続
+- 削除後検証: 0警告0エラー・126/126テスト・起動＋`/collaboration` 200 維持
+
+### Removed (live ファイル内の死メンバ整理)
+
+- `ServiceMeshService.cs` を削除 — 前サイクルの登録削除で13型が死型化。唯一の生存型 `HealthStatus` enum は `ServiceSupportTypes.cs`（利用者 `HealthCheckResult` の所在）へ移行
+- `ConfigurationManagementService.cs` 末尾の死ブロック削除 — `IFeatureFlagService`/`FeatureFlagInfo`/`FeatureFlagService`（消費者ゼロ、登録削除済み）
+- `ServiceSupportTypes.cs` の `IFunctionalErrorHandlingService`/`FunctionalErrorHandlingService` を削除（同上）
+- 削除後検証: 0警告0エラー・126/126テスト
+
+### Added (DI 回帰テスト)
+
+- `DependencyInjectionTests` 新規追加（3テスト）— 本セッションで繰り返し発生した DI 破損クラス（未登録依存の注入）の回帰防止:
+  - `AllRegistrations_ResolveAtBuildTime`: `Startup.ConfigureServices` の全登録を `ValidateOnBuild` 付きで構築し解決不能を検出（ホスト提供の `IHostApplicationLifetime` はモック注入）
+  - `MonitoringLoop_IsWiredAsHostedServices`: 監視ループ4サービスが `IHostedService` として登録済みであることを検証
+  - `CollaborationHubDependency_IsRegistered`: Hub 依存の登録存在を検証
+- テスト総数 126→129

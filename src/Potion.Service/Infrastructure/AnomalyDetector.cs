@@ -397,7 +397,7 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
 
             for (int i = 1; i < recentPatterns.Length; i++)
             {
-                var correlation = CalculateCorrelation(recentPatterns[i-1], recentPatterns[i]);
+                var correlation = CalculateCorrelation(recentPatterns[i - 1], recentPatterns[i]);
                 stabilityScores.Add(correlation);
             }
 

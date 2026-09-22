@@ -12,28 +12,28 @@ namespace Potion.Service.Infrastructure;
 public interface IGarbageCollectionService
 {
     /// <summary>
-/// Configure GC settings for optimal performance
-/// </summary>
+    /// Configure GC settings for optimal performance
+    /// </summary>
     Task ConfigureGcSettingsAsync(GcConfiguration configuration, CancellationToken cancellationToken);
 
     /// <summary>
-/// Monitor GC performance metrics
-/// </summary>
+    /// Monitor GC performance metrics
+    /// </summary>
     Task<GcMetrics> GetGcMetricsAsync(CancellationToken cancellationToken);
 
     /// <summary>
-/// Trigger optimized garbage collection
-/// </summary>
+    /// Trigger optimized garbage collection
+    /// </summary>
     Task TriggerOptimizedGcAsync(GcTriggerReason reason, CancellationToken cancellationToken);
 
     /// <summary>
-/// Analyze memory usage patterns
-/// </summary>
+    /// Analyze memory usage patterns
+    /// </summary>
     Task<MemoryAnalysisResult> AnalyzeMemoryUsageAsync(CancellationToken cancellationToken);
 
     /// <summary>
-/// Setup memory pressure monitoring
-/// </summary>
+    /// Setup memory pressure monitoring
+    /// </summary>
     Task SetupMemoryPressureMonitoringAsync(CancellationToken cancellationToken);
 }
 
@@ -474,8 +474,8 @@ public class GarbageCollectionService : IGarbageCollectionService
 public static class GcTuningUtilities
 {
     /// <summary>
-/// Set GC performance hints for specific scenarios
-/// </summary>
+    /// Set GC performance hints for specific scenarios
+    /// </summary>
     public static void SetGcPerformanceHint(GcPerformanceHint hint)
     {
         switch (hint)
@@ -497,8 +497,8 @@ public static class GcTuningUtilities
     }
 
     /// <summary>
-/// Optimize for specific workload patterns
-/// </summary>
+    /// Optimize for specific workload patterns
+    /// </summary>
     public static void OptimizeForWorkload(WorkloadPattern pattern)
     {
         switch (pattern)

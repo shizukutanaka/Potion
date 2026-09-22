@@ -589,8 +589,8 @@ public class AdvancedAlertSystem : IAdvancedAlertSystem, IDisposable
     }
 
     /// <summary>
-/// アラートシステムヘルパー
-/// </summary>
+    /// アラートシステムヘルパー
+    /// </summary>
     public static class AlertSystemHelpers
     {
         public static async Task<Alert> CreateSystemAlertAsync(IAdvancedAlertSystem alertSystem, string message, AlertSeverity severity = AlertSeverity.Warning)

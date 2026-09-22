@@ -23,8 +23,6 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
-
-
         // OpenTelemetry observability (Phase 1 enhancement)
         services.AddOpenTelemetry()
             .WithMetrics(metrics =>
@@ -70,10 +68,6 @@ public class Startup
             var logger = sp.GetRequiredService<ILogger<Startup>>();
             return ResiliencePipelines.CreateDiagnosticPipeline(logger);
         });
-
-
-
-
 
         services.AddSignalR();
         services.AddHttpClient();
@@ -163,23 +157,7 @@ public class Startup
             return new InternationalizationService(localizer, cache);
         });
         services.AddSingleton<CircuitBreakerService>();
-        services.AddSingleton<ISelfHealingCollectionsService, SelfHealingCollectionsService>();
-        services.AddSingleton<IPerformanceOptimizationService, PerformanceOptimizationService>();
-        services.AddSingleton<IReactiveEventSystem, ReactiveEventSystem>();
-        services.AddSingleton<IFunctionalErrorHandlingService, FunctionalErrorHandlingService>();
-        services.AddSingleton<IObservabilityService, ObservabilityService>();
-        services.AddSingleton<IMetricsCollectionService, MetricsCollectionService>();
         services.AddSingleton<IConfigurationHotReloadService, ConfigurationHotReloadService>();
-        services.AddSingleton<IFeatureFlagService, FeatureFlagService>();
-        services.AddSingleton<IChaosEngineeringService, ChaosEngineeringService>();
-        services.AddSingleton<IServiceMeshService, ServiceMeshService>();
-        services.AddSingleton<IAnomalyDetectionService, AnomalyDetectionService>();
-        services.AddSingleton<IAuditTrailService, AuditTrailService>();
-        services.AddSingleton<IKubernetesOperatorService, KubernetesOperatorService>();
-        services.AddSingleton<IKubernetesHealthService, KubernetesHealthService>();
-        services.AddSingleton<IGitOpsService, GitOpsService>();
-        services.AddSingleton<IIacService, IacService>();
-        services.AddSingleton<IPerformanceAnalyticsService, PerformanceAnalyticsService>();
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)

@@ -402,8 +402,8 @@ public class MetricsCollector : IMetricsCollector, IDisposable
     }
 
     /// <summary>
-/// メトリクスヘルパー
-/// </summary>
+    /// メトリクスヘルパー
+    /// </summary>
     public static class MetricsHelpers
     {
         private static readonly MetricsCollector _instance = new MetricsCollector(

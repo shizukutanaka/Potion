@@ -4,12 +4,12 @@ A production-grade Windows system automation and monitoring service with autonom
 
 ## Features
 
-- **Autonomous Remediation**: Automatically execute approved remediation commands
-- **System Monitoring**: Real-time health monitoring and diagnostics
-- **Security**: Signature validation, command allowlist, network security
-- **Performance**: Optimized concurrency control and resource management
-- **Reliability**: Circuit breaker patterns, retry policies, error handling
-- **Observability**: Comprehensive logging and telemetry
+- **System Monitoring**: Real-time health monitoring via hosted services (memory statistics, ML-based anomaly detection, event correlation, compliance reporting)
+- **Security**: Command allowlist, argument sanitization, SQL-injection guards, rate limiting
+- **Reliability**: Polly circuit-breaker/retry resilience pipelines, dependency injection validated at startup
+- **Observability**: Serilog logging, OpenTelemetry metrics + traces, Prometheus `/metrics` endpoint
+- **Collaboration**: SignalR hub at `/collaboration` and a static dashboard (`wwwroot/`)
+- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk) through the allowlist — the autonomous repair-execution services are present but not wired into DI pending an explicit product decision (see CHANGELOG)
 
 ## Quick Start
 
@@ -19,30 +19,44 @@ A production-grade Windows system automation and monitoring service with autonom
 - .NET 8.0 runtime
 - Administrator privileges
 
-### Installation
+### Build & Run
 
 ```powershell
-# Clone the repository
-git clone https://github.com/yourusername/Potion.git
+git clone https://github.com/shizukutanaka/Potion.git
 cd Potion
-
-# Build
 dotnet build src/Potion.Service/Potion.Service.csproj -c Release
+dotnet run --project src/Potion.Service/Potion.Service.csproj
+```
 
-# Install as Windows Service
+The service listens on `http://localhost:5000` by default and serves:
+
+- `GET /index.html` — dashboard
+- `GET /metrics` — Prometheus metrics
+- `POST /collaboration/negotiate` — SignalR hub
+
+Production HTTPS requires the certificate configured in `appsettings.Production.json` (`Kestrel:Endpoints:Https:Certificate`); inject the PFX password via the `Kestrel__Endpoints__Https__Certificate__Password` environment variable.
+
+### Install as Windows Service
+
+```powershell
 sc.exe create "PotionService" binPath="C:\Path\To\Potion.Service.exe"
-
-# Start service
 sc.exe start "PotionService"
 ```
 
 ### Configuration
 
-Edit `appsettings.json` to configure:
-- Command allowlist
-- Maintenance windows
-- Monitoring thresholds
-- Security audit settings
+Bound sections in `appsettings.json` (unbound sections were removed — see CHANGELOG):
+
+- `RemediationPolicy` — repair command allowlist and remediation policy options
+- `TelemetryRetention` — telemetry retention settings
+- `FeatureFlags` — feature toggles consumed by `ConfigurationManagementService`
+- `Serilog`, `AllowedHosts`, `Kestrel` — framework settings
+
+## Tests
+
+```powershell
+dotnet test Potion.sln   # 126/126 tests
+```
 
 ## License
 
