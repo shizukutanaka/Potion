@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (MemoryCachedBytes・IoOpsRate の Windows 実測化)
+
+- **`MemoryCachedBytes` が Windows で固定0だった** — `PerformanceCounter("Memory","Cache Bytes")` の実測へ（主対象OSでのキャッシュメモリ可視化）
+- **`IoOpsRate` が Windows で固定0だった** — `PerformanceCounter("Process","IO Data Operations/sec")`（レート型カウンタ・self インスタンス）の実測へ
+
 ### Fixed (ServiceMetrics・Firewall の macOS 実測化)
 
 - **`ServiceMetrics` が macOS で全て固定0だった** — `launchctl list` で実測（PID=running・`"-"`=stopped・非0 exit status=failed）。実機で total=502/running=217 を確認。30秒キャッシュ済み

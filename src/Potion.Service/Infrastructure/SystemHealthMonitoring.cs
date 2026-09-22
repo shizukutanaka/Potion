@@ -387,6 +387,8 @@ internal sealed class SystemMetricsSampler
     private PerformanceCounter? _cpuCounter;
     private PerformanceCounter? _diskReadCounter;
     private PerformanceCounter? _diskWriteCounter;
+    private PerformanceCounter? _cacheBytesCounter;
+    private PerformanceCounter? _ioOpsCounter;
     private bool _windowsCountersTried;
     private long[]? _lastLinuxCpu;
     private double _linuxCpuPercent;
@@ -607,12 +609,17 @@ internal sealed class SystemMetricsSampler
     [DllImport("libproc")]
     private static extern int proc_pidinfo(int pid, int flavor, ulong arg, IntPtr buffer, int bufferSize);
 
-    // OS page cache — Linux /proc/meminfo "Cached:". Windows/macOS have no
-    // cheap equivalent — returns 0 there (honest unknown).
+    // OS page cache — Windows "Memory\Cache Bytes" perf counter, Linux
+    // /proc/meminfo "Cached:". macOS has no cheap equivalent (honest 0).
     public long MemoryCachedBytes()
     {
         try
         {
+            if (OperatingSystem.IsWindows())
+            {
+                EnsureWindowsCounters();
+                return (long)(_cacheBytesCounter?.NextValue() ?? 0);
+            }
             if (OperatingSystem.IsLinux())
             {
                 foreach (var line in File.ReadLines("/proc/meminfo"))
@@ -1422,10 +1429,25 @@ internal sealed class SystemMetricsSampler
 
     private (long Ops, DateTimeOffset At)? _lastIoSample;
 
-    // Process I/O ops/sec from /proc/self/io (syscr+syscw delta). Windows has no cheap
-    // per-process I/O counter without instance-name fragility; returns 0 off-Linux.
+    // Process I/O ops/sec — Windows "Process\IO Data Operations/sec" perf
+    // counter (a rate counter — NextValue is already ops/sec); Linux reads
+    // /proc/self/io (syscr+syscw delta). macOS exposes only byte counts —
+    // honest 0 rather than mislabeled units.
     public double IoOpsRate()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                EnsureWindowsCounters();
+                return _ioOpsCounter?.NextValue() ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         if (!OperatingSystem.IsLinux())
         {
             return 0;
@@ -1535,6 +1557,9 @@ internal sealed class SystemMetricsSampler
             _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true);
             _diskReadCounter = new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total", readOnly: true);
             _diskWriteCounter = new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total", readOnly: true);
+            _cacheBytesCounter = new PerformanceCounter("Memory", "Cache Bytes", readOnly: true);
+            _ioOpsCounter = new PerformanceCounter("Process", "IO Data Operations/sec",
+                Process.GetCurrentProcess().ProcessName, readOnly: true);
             _ = _cpuCounter.NextValue(); // prime the counter — first sample is always 0
         }
         catch
@@ -1542,6 +1567,8 @@ internal sealed class SystemMetricsSampler
             _cpuCounter = null;
             _diskReadCounter = null;
             _diskWriteCounter = null;
+            _cacheBytesCounter = null;
+            _ioOpsCounter = null;
         }
     }
 
