@@ -292,6 +292,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var elevated = _sampler.IsElevated();
         var (evtTotal, evtErrors, evtSecurity, evtCritical, evtLast) = _sampler.WindowsEventCounts();
         var restorePoint = _sampler.RestorePointAvailable();
+        var pendingRepairs = _sampler.HasPendingRepairs();
         var ioOpsRate = _sampler.IoOpsRate();
         var perf = _requestMetrics.Snapshot();
         var currentProcess = Process.GetCurrentProcess();
@@ -304,7 +305,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast == DateTimeOffset.MinValue ? now : evtLast),
             new ServiceMetrics(services.Total, services.Running, services.Stopped, services.Failed, services.FailedNames),
             new SecurityMetrics(security.Defender, security.Firewall, security.ActiveThreats, security.SecureBoot, security.LastScan),
-            new SystemIntegrityMetrics(true, 0, 0, restorePoint, now),
+            new SystemIntegrityMetrics(!pendingRepairs, 0, 0, restorePoint, now),
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
             new SecurityContextMetrics(Environment.UserName, elevated, elevated, true),
             new RuntimePerformanceMetrics(perf.Rps, perf.AverageLatencyMs, perf.ErrorRate, currentProcess.Threads.Count,
@@ -729,6 +730,40 @@ internal sealed class SystemMetricsSampler
             using var searcher = new ManagementObjectSearcher(@"root\DEFAULT", "SELECT SequenceNumber FROM SystemRestore");
             using var results = searcher.Get();
             return results.Count > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// Pending OS repair/reboot state means the last integrity work has not
+    /// finished committing — the integrity check cannot be reported as passed.
+    public bool HasPendingRepairs()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        try
+        {
+            if (Microsoft.Win32.Registry.LocalMachine
+                .OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") is not null)
+            {
+                return true;
+            }
+
+            if (Microsoft.Win32.Registry.LocalMachine
+                .OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired") is not null)
+            {
+                return true;
+            }
+
+            var pendingRename = Microsoft.Win32.Registry.LocalMachine
+                .OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager")
+                ?.GetValue("PendingFileRenameOperations");
+            return pendingRename is string[] { Length: > 0 };
         }
         catch
         {

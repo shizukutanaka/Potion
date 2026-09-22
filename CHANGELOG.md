@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (SystemIntegrityMetrics の最終スタブ実測化)
+
+- **`IntegrityCheckPassed` が `true` 固定値** — OS の保留中修復状態に関係なく常に「整合性OK」を報告。`SystemMetricsSampler.HasPendingRepairs()` を新設し Windows レジストリで実測: `Component Based Servicing\RebootPending`・`WindowsUpdate\Auto Update\RebootRequired`・`Session Manager\PendingFileRenameOperations` のいずれか存在時は保留中修復あり → `IntegrityCheckPassed=false`（保留中修復=前回整合性作業が未コミットの意味）。非Windows は保留中修復の概念が無いため passed を維持（検出不能を偽装しない — 保留中修復が検出されない場合のみ true）。レジストリ読取のみ・全OS安全
+
 ### Fixed (ComplianceReportService の暗号化チェック偽装)
 
 - GDPR「Data Encryption」チェックが `Compliant = true` 固定値で「暗号化あり」と常時報告 — HTTP のみで運用していても準拠と判定する偽装。`IConfiguration` を注入し `Kestrel:Endpoints` に HTTPS エンドポイントが設定されているかを実測して判定（本番設定は HTTPS+cert、開発設定は HTTP のみ → 正直に非準拠を報告）。Details も実測値ベースの説明に置換
