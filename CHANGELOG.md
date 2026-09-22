@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボードが `/` で開けない実バグ + validate-system.sh の偽装検証)
+
+- **`GET /` が 404 でダッシュボードが root で開けなかった** — `UseDefaultFiles()` 欠落により `/index.html` でしかアクセス不可。ルートで dashboard を配信するよう修正（ダッシュボードの主入口として実稼働影響あり）
+- **`scripts/validate-system.sh` 全面書換** — ~20超のチェック対象の大半が不存在エンドポイント（`/api/health/detailed`・`liveness`・`events/stream`・`ml/predictions`・`chaos/experiments` 等）を指す常時失敗スクリプトかつ、結果に関係なく固定の全PASSED レポートを書き exit 0 する偽装成功スクリプトだった。実在する全エンドポイント（`/health`・`/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary`・`/metrics`・`/`・webhook 405・SignalR negotiate）のみ検証する9項目の正直なスモークテストへ置換 — 実実行で 9/9 通過を確認
+
 ### Fixed (k8s/deployment.yaml の CrashLoop 確定破損 — 不存在エンドポイント probe)
 
 - **liveness/readiness/startup probe が全て不存在パス**（`/api/health/liveness`・`/api/health/readiness`）を指し、デプロイした全 Pod が probe 失敗で CrashLoop 確定 — 実在する `/health` へ修正

@@ -186,6 +186,7 @@ public class Startup
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
         app.UseRequestLocalization();
+        app.UseDefaultFiles();
         app.UseStaticFiles();
         app.UseMiddleware<RequestMetricsMiddleware>();
         app.UseRouting();
