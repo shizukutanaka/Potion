@@ -2,6 +2,38 @@
 
 ## Unreleased
 
+### Fixed (dependabot.yml の構文破損)
+
+- `.github/dependabot.yml` — `automerge`/`with`/`key`/`restore-keys` 等の Dependabot に存在しないキー（CI キャッシュ設定の混入）を除去し、本来の `nuget` エコシステム定義を追加。従来はバリデーション不備で NuGet 更新 PR が一切発行されない構成だった
+
+### Removed (ビルド不能なインストーラ・ツール群と恒常失敗の検証スクリプト)
+
+- `setup/` 削除 — WiX 定義 `Potion.wxs` が存在しない `Potion.Service.Installer.dll`（カスタムアクション DLL のプロジェクト自体が無い）と `License.rtf`/`Dialog.bmp`/`Banner.bmp`（ファイル未同梱）を必須参照するためビルド不可。`install.cmd` はその MSI を実行、`PotionSetupUI.cs` は存在しない `Potion.ConfigTool.exe` を生成する手順を持つ
+- `tools/Potion.ConfigTool.cs` 削除 — プロジェクトファイルなし・`Potion.Service.Options`（内部型）参照でコンパイル不能な孤立ファイル（tools/ は空に）
+- `scripts/validate-system.sh` 削除 — 削除済みコントローラの `/api/health/system/comprehensive` 等15件の不存在エンドポイントを叩くため恒常失敗
+- いずれも CI・他スクリプト・ドキュメントから参照なし。残存スクリプト（`build-release.ps1`/`deploy-windows.ps1`/`package-installer.ps1`/`deploy.sh`）は sc.exe/MSI 非依存の実用経路
+
+### Removed (消費者ゼロの i18n スタック全体 — サービス+resx+パッケージ+ツール)
+
+- `InternationalizationService` — DI 登録済みだが消費者ゼロ（Startup の登録以外、本番・ダッシュボード・API のどこからも参照されない）。登録・`UseRequestLocalization`・`AddLocalization`/`AddMemoryCache`・46言語の `supportedCultures` ブロックを削除（`IMemoryCache` の唯一の利用者も同サービス）
+- `Resources/` 配下の resx 48ファイル削除 — `ControllerStrings.*.resx` は削除済みコントローラ向けの文言で、上記サービス経由でしか読まれない
+- `Microsoft.Extensions.Localization` パッケージ除去 — 唯一の利用者が同サービス（ライブラリ削除: 唯一消費者の消失に伴う。将来 i18n が必要になれば resx ごと git 履歴から復元可能）
+- `InternationalizationServiceTests`・`tools/TranslationManager.cs`/`.csx` 削除 — resx を検査するためだけのツール群
+- テスト総数 41→29
+
+### Fixed (README の実態整合)
+
+- 機能一覧の `argument sanitization, SQL-injection guards, rate limiting` を除去 — 全て削除済みのテスト専用コードだった（実効セキュリティは `CommandValidator` 許可リスト + シェルレス起動）
+- テスト数 `134/134` → `41/41`（削除分は全て死コード専用テスト）
+- `src/Potion.Service/README.md` に `/api/health*` エンドポイント一覧を追記
+
+### Removed (テスト専用サービス第2弾 — 約2,300行)
+
+- `AdvancedCacheService`・`DatabaseOptimizationService`・`ErrorHandler`(+`IErrorHandler`/`LogLevel`/`ErrorType`/`ErrorSeverity`/`ErrorRecoveryAction` 等の付属型) — いずれも DI 未登録・本番参照ゼロで、対応するテストファイルだけが参照していた
+- 上記専用テスト3件を削除: `AdvancedCacheServiceTests`・`DatabaseOptimizationServiceTests`・`ErrorHandlerTests`
+- `Microsoft.Data.SqlClient` 7.0.3 を csproj から除去 — 唯一の利用者が `DatabaseOptimizationService` だった（ライブラリ削除: 唯一消費者の消失に伴う。将来 SQL アクセスが必要になれば再追加で復元可能）
+- テスト総数 90→41。残存テストは全て live コードを対象
+
 ### Removed (テスト専用バリデータクラスタ — 本番未接続、約2,900行)
 
 - `CommandGuard`/`ICommandGuard`（76行）— 本番で一度もインスタンス化・DI登録されていないファサード。実際の許可リスト強制は `ICommandValidator`/`CommandValidator` が担う（PR #32 で executor に配線済み）
