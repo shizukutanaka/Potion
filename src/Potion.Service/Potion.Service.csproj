@@ -95,13 +95,6 @@
     <PackageReference Include="System.Threading.Channels" Version="9.0.4" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.12" />
 
-    <!-- Web API -->
-    <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.31" />
-
-    <!-- Security / Data -->
-
-    <!-- Analysis Libraries -->
-
   </ItemGroup>
 
   <ItemGroup>

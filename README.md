@@ -57,7 +57,7 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 41/41 tests — every test targets live code
+dotnet test Potion.sln   # 29/29 tests — every test targets live code
 ```
 
 ## License

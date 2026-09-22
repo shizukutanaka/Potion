@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Removed (消費者ゼロの i18n スタック全体 — サービス+resx+パッケージ+ツール)
+
+- `InternationalizationService` — DI 登録済みだが消費者ゼロ（Startup の登録以外、本番・ダッシュボード・API のどこからも参照されない）。登録・`UseRequestLocalization`・`AddLocalization`/`AddMemoryCache`・46言語の `supportedCultures` ブロックを削除（`IMemoryCache` の唯一の利用者も同サービス）
+- `Resources/` 配下の resx 48ファイル削除 — `ControllerStrings.*.resx` は削除済みコントローラ向けの文言で、上記サービス経由でしか読まれない
+- `Microsoft.Extensions.Localization` パッケージ除去 — 唯一の利用者が同サービス（ライブラリ削除: 唯一消費者の消失に伴う。将来 i18n が必要になれば resx ごと git 履歴から復元可能）
+- `InternationalizationServiceTests`・`tools/TranslationManager.cs`/`.csx` 削除 — resx を検査するためだけのツール群
+- テスト総数 41→29
+
 ### Fixed (README の実態整合)
 
 - 機能一覧の `argument sanitization, SQL-injection guards, rate limiting` を除去 — 全て削除済みのテスト専用コードだった（実効セキュリティは `CommandValidator` 許可リスト + シェルレス起動）

@@ -1,10 +1,6 @@
 using System;
-using System.Globalization;
 using System.Linq;
 using System.Threading;
-using Microsoft.AspNetCore.Localization;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Localization;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Polly;
@@ -109,80 +105,11 @@ public class Startup
             services.AddHostedService<PredictiveRemediationService>();
         }
 
-        var supportedCultures = new[]
-        {
-            new CultureInfo("en"),
-            new CultureInfo("ja"),
-            new CultureInfo("es"),
-            new CultureInfo("fr"),
-            new CultureInfo("de"),
-            new CultureInfo("ko"),
-            new CultureInfo("zh"),
-            new CultureInfo("ru"),
-            new CultureInfo("ar"),
-            new CultureInfo("hi"),
-            new CultureInfo("bn"),
-            new CultureInfo("ur"),
-            new CultureInfo("id"),
-            new CultureInfo("it"),
-            new CultureInfo("nl"),
-            new CultureInfo("pt"),
-            new CultureInfo("vi"), // Vietnamese
-            new CultureInfo("th"), // Thai
-            new CultureInfo("tr"), // Turkish
-            new CultureInfo("pl"), // Polish
-            new CultureInfo("uk"), // Ukrainian
-            new CultureInfo("cs"), // Czech
-            new CultureInfo("hu"), // Hungarian
-            new CultureInfo("sv"), // Swedish
-            new CultureInfo("no"), // Norwegian
-            new CultureInfo("da"), // Danish
-            new CultureInfo("fi"), // Finnish
-            new CultureInfo("el"), // Greek
-            new CultureInfo("he"), // Hebrew
-            new CultureInfo("fa"), // Persian
-            new CultureInfo("ms"), // Malay
-            new CultureInfo("tl"), // Tagalog
-            new CultureInfo("my"), // Myanmar
-            new CultureInfo("km"), // Khmer
-            new CultureInfo("lo"), // Lao
-            new CultureInfo("mn"), // Mongolian
-            new CultureInfo("sw"), // Swahili
-            new CultureInfo("af"), // Afrikaans
-            new CultureInfo("ca"), // Catalan
-            new CultureInfo("eu"), // Basque
-            new CultureInfo("gl"), // Galician
-            new CultureInfo("cy"), // Welsh
-            new CultureInfo("gd"), // Scottish Gaelic
-            new CultureInfo("ga"), // Irish
-            new CultureInfo("ne"), // Nepali
-            new CultureInfo("si"), // Sinhala
-            new CultureInfo("ta"), // Tamil
-            new CultureInfo("te")  // Telugu
-        };
-        services.Configure<RequestLocalizationOptions>(options =>
-        {
-            options.DefaultRequestCulture = new RequestCulture("en");
-            options.SupportedCultures = supportedCultures;
-            options.SupportedUICultures = supportedCultures;
-            options.RequestCultureProviders.Clear();
-            options.RequestCultureProviders.Add(new AcceptLanguageHeaderRequestCultureProvider());
-        });
-
-        services.AddLocalization(options => options.ResourcesPath = "Resources");
-        services.AddMemoryCache();
-        services.AddSingleton<InternationalizationService>(sp =>
-        {
-            var localizer = sp.GetRequiredService<IStringLocalizer<InternationalizationService>>();
-            var cache = sp.GetRequiredService<IMemoryCache>();
-            return new InternationalizationService(localizer, cache);
-        });
         services.AddSingleton<CircuitBreakerService>();
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
-        app.UseRequestLocalization();
         app.UseStaticFiles();
         app.UseRouting();
 
