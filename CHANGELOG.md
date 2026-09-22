@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (ビルド不能なインストーラ・ツール群と恒常失敗の検証スクリプト)
+
+- `setup/` 削除 — WiX 定義 `Potion.wxs` が存在しない `Potion.Service.Installer.dll`（カスタムアクション DLL のプロジェクト自体が無い）と `License.rtf`/`Dialog.bmp`/`Banner.bmp`（ファイル未同梱）を必須参照するためビルド不可。`install.cmd` はその MSI を実行、`PotionSetupUI.cs` は存在しない `Potion.ConfigTool.exe` を生成する手順を持つ
+- `tools/Potion.ConfigTool.cs` 削除 — プロジェクトファイルなし・`Potion.Service.Options`（内部型）参照でコンパイル不能な孤立ファイル（tools/ は空に）
+- `scripts/validate-system.sh` 削除 — 削除済みコントローラの `/api/health/system/comprehensive` 等15件の不存在エンドポイントを叩くため恒常失敗
+- いずれも CI・他スクリプト・ドキュメントから参照なし。残存スクリプト（`build-release.ps1`/`deploy-windows.ps1`/`package-installer.ps1`/`deploy.sh`）は sc.exe/MSI 非依存の実用経路
+
 ### Removed (消費者ゼロの i18n スタック全体 — サービス+resx+パッケージ+ツール)
 
 - `InternationalizationService` — DI 登録済みだが消費者ゼロ（Startup の登録以外、本番・ダッシュボード・API のどこからも参照されない）。登録・`UseRequestLocalization`・`AddLocalization`/`AddMemoryCache`・46言語の `supportedCultures` ブロックを削除（`IMemoryCache` の唯一の利用者も同サービス）
