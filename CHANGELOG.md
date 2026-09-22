@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボードUIの死ハンドラ3件 — UI変更: バグ修正のみ、見た目・レイアウト変更なし)
+
+- `openPerformanceDrawer`・`toggleAdvancedSearch`・`applyAdvancedFilters` — HTML の `onclick`/`onchange` から参照されるがグローバル関数が未定義で、押下のたびに `ReferenceError` が発生し何も動作しなかった（メソッド本体は `dashboard` オブジェクト上に実装済み・対象 DOM も存在 — ラッパー欠落のみ）
+- 他グローバル関数と同型の `window.dashboard` 委譲ラッパーを3件追加
+- 検証: `node --check` パス・対象要素4点の存在確認
+
 ### Fixed (残留プレースホルダ・死シードキー)
 
 - `CONTRIBUTING.md` のクローン URL `yourusername` プレースホルダ → `shizukutanaka` 実URL（README で前回同型修正済みの漏れ）
