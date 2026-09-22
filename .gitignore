@@ -19,3 +19,7 @@ __pycache__/
 bin/
 obj/
 BenchmarkDotNet.Artifacts/
+
+# local dev logs (Serilog dev sink writes repo-relative logs/)
+logs/
+*.log

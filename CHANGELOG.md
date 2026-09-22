@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Added (ヘルスプローブ `/health`)
+
+- `AddHealthChecks` + `MapHealthChecks("/health")` を追加 — Dockerfile の `HEALTHCHECK` が不存在エンドポイントを指して削除済みだった経緯があり、稼働中サービスに死活監視用エンドポイントが存在しなかった。`GET /health` は 200 `Healthy` を返す（ASP.NET Core 標準機構・新規パッケージ不要）
+- 検証: 0警告0エラー・起動後 `/health` 200、`/metrics`・`/collaboration` 併存確認
+- `.gitignore` に `logs/`・`*.log` 追加 — Serilog 開発シンクがリポジトリ相対 `logs/` に出力するようになったため
+
 ### Added (IRemediationScheduler 実装 — 予防修復ループの完成)
 
 - `Scheduling/RemediationScheduler.cs` 新規実装 — `PredictiveRemediationService` が依存する `IRemediationScheduler` の実装が存在しなかったため、予知修復がフラグ配下でも起動できなかった問題を解消:
