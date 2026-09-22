@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added (修復実行ティアの FeatureFlags ゲート付き有効化)
+
+- 修復実行系サービスを `FeatureFlags:RepairExecutionEnabled`（既定 OFF）で登録可能に — 運用者が設定変更のみで製品中核の自律修復ループを起動できるようになった（コード変更不要）。フラグ ON で以下が起動:
+  - `AutoRecoveryManager`（ヘルスチェック失敗時の自律復旧アクション実行）
+  - `PerformanceOptimizer`（メモリ・パフォーマンス最適化）
+  - `EventDrivenRemediationService`（イベント駆動修復トリガー）
+  - 依存登録: `IProcessRunner`→`ProcessRunner`、`IRemediationTaskExecutor`→`RemediationTaskExecutor`、`RemediationPolicyOptions` バインド
+- `PredictiveRemediationService` は `IRemediationScheduler` の実装が存在しないため登録対象外（実装追加まで温存）
+- 有効化方法: `appsettings.json` で `FeatureFlags:RepairExecutionEnabled: true`、または環境変数 `FeatureFlags__RepairExecutionEnabled=true`
+- DI 回帰テストを2件追加（フラグ OFF で未登録・フラグ ON で全登録が `ValidateOnBuild` 下で解決可能を検証）— テスト総数 129→131
+- 検証: 0警告0エラー・131/131テスト・フラグ ON での起動実確認（全修復サービスの起動ログと自律修復アクション実行を確認）
+
 ### Fixed
 
 - `src/Potion.Service` がコンパイルエラー 0 件でビルドできるように修正（340+ 件のコンパイルエラーを解消）
