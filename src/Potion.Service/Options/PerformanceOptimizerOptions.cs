@@ -69,6 +69,10 @@ public sealed class PerformanceOptimizerOptions
     [Required, Range(30, 1800)]
     public int OptimizationTimeoutSeconds { get; set; } = 300;
 
+    /// <summary>メモリ使用率の閾値（%）</summary>
+    [Range(1, 100)]
+    public double MemoryThresholdPercent { get; set; } = 80.0;
+
     /// <summary>
     /// ネットワーク最適化を有効にする
     /// </summary>

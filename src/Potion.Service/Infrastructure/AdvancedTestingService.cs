@@ -19,8 +19,8 @@ public interface IAdvancedTestingService
     Task<FuzzTestResult> RunFuzzTestsAsync(string targetEndpoint, int durationMinutes = 5);
     Task<ContractTestResult> RunContractTestsAsync(string serviceName);
     Task<ChaosTestResult> RunChaosTestsAsync(string experimentName);
-    Task<TestCoverageReport> GetTestCoverageAsync();
-    Task<IEnumerable<TestFailure>> GetRecentFailuresAsync(int count = 10);
+    Task<AdvancedTestCoverageReport> GetTestCoverageAsync();
+    Task<IEnumerable<AdvancedTestFailure>> GetRecentFailuresAsync(int count = 10);
 }
 
 /// <summary>
@@ -154,7 +154,7 @@ public class ChaosTestResult
 /// <summary>
 /// テストカバレッジレポート
 /// </summary>
-public class TestCoverageReport
+public class AdvancedTestCoverageReport
 {
     public double OverallCoverage { get; set; }
     public Dictionary<string, double> CoverageByModule { get; set; } = new();
@@ -167,7 +167,7 @@ public class TestCoverageReport
 /// <summary>
 /// テスト失敗
 /// </summary>
-public record TestFailure(
+public record AdvancedTestFailure(
     string TestName,
     string TestType,
     string ErrorMessage,
@@ -180,7 +180,7 @@ public record TestFailure(
 public class AdvancedTestingService : IAdvancedTestingService
 {
     private readonly ILogger<AdvancedTestingService> _logger;
-    private readonly List<TestFailure> _recentFailures = new();
+    private readonly List<AdvancedTestFailure> _recentFailures = new();
     private readonly object _failuresLock = new();
     private readonly Random _random = new();
 
@@ -377,9 +377,9 @@ public class AdvancedTestingService : IAdvancedTestingService
         return result;
     }
 
-    public async Task<TestCoverageReport> GetTestCoverageAsync()
+    public async Task<AdvancedTestCoverageReport> GetTestCoverageAsync()
     {
-        return new TestCoverageReport
+        return new AdvancedTestCoverageReport
         {
             OverallCoverage = 85.7,
             CoverageByModule = new Dictionary<string, double>
@@ -401,7 +401,7 @@ public class AdvancedTestingService : IAdvancedTestingService
         };
     }
 
-    public async Task<IEnumerable<TestFailure>> GetRecentFailuresAsync(int count = 10)
+    public async Task<IEnumerable<AdvancedTestFailure>> GetRecentFailuresAsync(int count = 10)
     {
         lock (_failuresLock)
         {

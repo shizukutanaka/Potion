@@ -198,7 +198,7 @@ public class IntegrationTestStep
     public IntegrationStepType Type { get; set; }
     public Dictionary<string, object> Request { get; set; } = new();
     public Dictionary<string, object> ExpectedResponse { get; set; } = new();
-    public List<ValidationRule> ValidationRules { get; set; } = new();
+    public List<IntegrationValidationRule> ValidationRules { get; set; } = new();
 }
 
 /// <summary>
@@ -218,7 +218,7 @@ public enum IntegrationStepType
 /// <summary>
 /// 検証ルール
 /// </summary>
-public class ValidationRule
+public class IntegrationValidationRule
 {
     public string Field { get; set; } = string.Empty;
     public ValidationRuleType Type { get; set; }

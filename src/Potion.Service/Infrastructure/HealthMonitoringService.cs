@@ -72,7 +72,7 @@ public sealed class HealthMonitoringService : BackgroundService, IDisposable
             snapshot.Metrics.Cpu.UsagePercent,
             snapshot.Metrics.Memory.UsedPercent,
             snapshot.Metrics.Disk.UsedPercent,
-            snapshot.Metrics.Network.BytesReceivedPerSec + snapshot.Metrics.Network.BytesSentPerSec,
+            (long)(snapshot.Metrics.Network.BytesReceivedPerSec + snapshot.Metrics.Network.BytesSentPerSec),
             snapshot.Alerts.Count);
 
         _history.Enqueue(healthSnapshot);
@@ -234,7 +234,7 @@ public sealed class HealthMonitoringService : BackgroundService, IDisposable
                 _ => LogLevel.Information
             };
 
-            _logger.Log(logLevel, "[HEALTH ALERT] {Level}: {Message}", level, message);
+            _logger.Log((Microsoft.Extensions.Logging.LogLevel)logLevel, "[HEALTH ALERT] {Level}: {Message}", level, message);
 
             // Future: Send to external alerting system (email, webhook, SIEM, etc.)
         }

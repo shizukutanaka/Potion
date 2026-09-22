@@ -199,7 +199,7 @@ public class BenchmarkService : IHostedService, IDisposable
         {
             for (int i = 0; i < 100; i++)
             {
-                await fileStream.ReadAsync(buffer);
+                await fileStream.ReadExactlyAsync(buffer);
             }
         }
         stopwatch.Stop();

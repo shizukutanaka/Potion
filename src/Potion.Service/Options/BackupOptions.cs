@@ -57,6 +57,13 @@ public sealed class BackupOptions
     [Required, Range(0, 10)]
     public int MaxRetryAttempts { get; set; } = 3;
 
+    /// <summary>保持するバックアップの最大数</summary>
+    [Range(1, 365)]
+    public int MaxBackupCount { get; set; } = 10;
+
+    /// <summary>バックアップ対象パス</summary>
+    public List<string> PathsToBackup { get; set; } = new();
+
     /// <summary>
     /// バックアップ失敗時の再試行間隔（秒単位）
     /// </summary>

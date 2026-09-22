@@ -1,6 +1,10 @@
 using System.IO.Compression;
+using System.Reactive.Linq;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Potion.Service.Options;
+using System.Reactive.Subjects;
 
 namespace Potion.Service.Infrastructure;
 

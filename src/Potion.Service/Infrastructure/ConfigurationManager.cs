@@ -573,11 +573,17 @@ public sealed class ConfigurationManager : IConfigurationManager
             }
 
             string decodedPathAndQuery;
+            bool invalidPath = false;
             try
             {
                 decodedPathAndQuery = Uri.UnescapeDataString(uri.PathAndQuery);
             }
             catch (Exception)
+            {
+                invalidPath = true;
+                decodedPathAndQuery = string.Empty;
+            }
+            if (invalidPath)
             {
                 yield return $"Configuration key '{entry.Key}' contains an invalid URL path.";
                 continue;

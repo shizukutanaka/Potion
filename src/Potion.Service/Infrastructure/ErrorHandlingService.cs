@@ -556,68 +556,6 @@ catch (Exception ex)
             _ => issue.CurrentCode
         };
     }
-
-    /// <summary>
-/// エラーハンドリング拡張メソッド
-/// </summary>
-    public static class ErrorHandlingExtensions
-    {
-        public static IApplicationBuilder UseStandardizedErrorHandling(this IApplicationBuilder app)
-        {
-            return app.UseMiddleware<StandardizedErrorHandlingMiddleware>();
-        }
-    }
-
-    /// <summary>
-/// 標準化されたエラーハンドリングミドルウェア
-/// </summary>
-    public class StandardizedErrorHandlingMiddleware
-    {
-        private readonly RequestDelegate _next;
-        private readonly IUserFriendlyErrorService _errorService;
-
-        public StandardizedErrorHandlingMiddleware(RequestDelegate next, IUserFriendlyErrorService errorService)
-        {
-            _next = next;
-            _errorService = errorService;
-        }
-
-        public async Task InvokeAsync(HttpContext context)
-        {
-            try
-            {
-                await _next(context);
-            }
-            catch (Exception ex)
-            {
-                var errorResponse = await _errorService.LogAndCreateErrorAsync(ex, context.TraceIdentifier);
-
-                context.Response.StatusCode = GetStatusCodeFromError(errorResponse.ErrorCode);
-                context.Response.ContentType = "application/json";
-
-                var jsonResponse = System.Text.Json.JsonSerializer.Serialize(errorResponse,
-                    new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
-
-                await context.Response.WriteAsync(jsonResponse);
-            }
-        }
-
-        private int GetStatusCodeFromError(string errorCode)
-        {
-            return errorCode switch
-            {
-                "VALIDATION_FAILED" => 400,
-                "UNAUTHORIZED" => 401,
-                "FORBIDDEN" => 403,
-                "NOT_FOUND" => 404,
-                "TIMEOUT" => 408,
-                "RATE_LIMITED" => 429,
-                "QUOTA_EXCEEDED" => 429,
-                "MAINTENANCE_MODE" => 503,
-                _ => 500
-            };
-        }
-    }
 }
 
 /// <summary>
@@ -625,7 +563,7 @@ catch (Exception ex)
 /// </summary>
 public static class ErrorHandlingHelpers
 {
-    public static async Task HandleExceptionAsync(this ILogger logger, Exception ex, string operation = null)
+    public static async Task HandleExceptionAsync(this ILogger logger, Exception ex, string? operation = null)
     {
         var errorId = Guid.NewGuid().ToString();
 
@@ -636,7 +574,7 @@ public static class ErrorHandlingHelpers
         await Task.CompletedTask;
     }
 
-    public static T SafeExecute<T>(Func<T> action, T defaultValue = default, ILogger logger = null)
+    public static T SafeExecute<T>(Func<T> action, T? defaultValue = default, ILogger? logger = null)
     {
         try
         {
@@ -645,11 +583,11 @@ public static class ErrorHandlingHelpers
         catch (Exception ex)
         {
             logger?.LogError(ex, "Error in SafeExecute operation");
-            return defaultValue;
+            return defaultValue!;
         }
     }
 
-    public static async Task<T> SafeExecuteAsync<T>(Func<Task<T>> action, T defaultValue = default, ILogger logger = null)
+    public static async Task<T> SafeExecuteAsync<T>(Func<Task<T>> action, T? defaultValue = default, ILogger? logger = null)
     {
         try
         {
@@ -658,11 +596,11 @@ public static class ErrorHandlingHelpers
         catch (Exception ex)
         {
             logger?.LogError(ex, "Error in SafeExecuteAsync operation");
-            return defaultValue;
+            return defaultValue!;
         }
     }
 
-    public static void EnsureNotNull(object value, string parameterName, ILogger logger = null)
+    public static void EnsureNotNull(object value, string parameterName, ILogger? logger = null)
     {
         if (value == null)
         {
@@ -672,7 +610,7 @@ public static class ErrorHandlingHelpers
         }
     }
 
-    public static void EnsureNotEmpty(string value, string parameterName, ILogger logger = null)
+    public static void EnsureNotEmpty(string value, string parameterName, ILogger? logger = null)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -682,7 +620,7 @@ public static class ErrorHandlingHelpers
         }
     }
 
-    public static void EnsureRange(int value, int min, int max, string parameterName, ILogger logger = null)
+    public static void EnsureRange(int value, int min, int max, string parameterName, ILogger? logger = null)
     {
         if (value < min || value > max)
         {
@@ -691,5 +629,68 @@ public static class ErrorHandlingHelpers
                 parameterName, value, min, max);
             throw ex;
         }
+    }
+}
+
+
+/// <summary>
+/// エラーハンドリング拡張メソッド
+/// </summary>
+public static class ErrorHandlingExtensions
+{
+    public static IApplicationBuilder UseStandardizedErrorHandling(this IApplicationBuilder app)
+    {
+        return app.UseMiddleware<StandardizedErrorHandlingMiddleware>();
+    }
+}
+
+/// <summary>
+/// 標準化されたエラーハンドリングミドルウェア
+/// </summary>
+public class StandardizedErrorHandlingMiddleware
+{
+    private readonly RequestDelegate _next;
+    private readonly IUserFriendlyErrorService _errorService;
+
+    public StandardizedErrorHandlingMiddleware(RequestDelegate next, IUserFriendlyErrorService errorService)
+    {
+        _next = next;
+        _errorService = errorService;
+    }
+
+    public async Task InvokeAsync(HttpContext context)
+    {
+        try
+        {
+            await _next(context);
+        }
+        catch (Exception ex)
+        {
+            var errorResponse = await _errorService.LogAndCreateErrorAsync(ex, context.TraceIdentifier);
+
+            context.Response.StatusCode = GetStatusCodeFromError(errorResponse.ErrorCode);
+            context.Response.ContentType = "application/json";
+
+            var jsonResponse = System.Text.Json.JsonSerializer.Serialize(errorResponse,
+                new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase });
+
+            await context.Response.WriteAsync(jsonResponse);
+        }
+    }
+
+    private int GetStatusCodeFromError(string errorCode)
+    {
+        return errorCode switch
+        {
+            "VALIDATION_FAILED" => 400,
+            "UNAUTHORIZED" => 401,
+            "FORBIDDEN" => 403,
+            "NOT_FOUND" => 404,
+            "TIMEOUT" => 408,
+            "RATE_LIMITED" => 429,
+            "QUOTA_EXCEEDED" => 429,
+            "MAINTENANCE_MODE" => 503,
+            _ => 500
+        };
     }
 }

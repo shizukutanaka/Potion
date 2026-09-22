@@ -85,7 +85,7 @@ public class NLPReportGenerationService
                 Summary = new
                 {
                     TotalAlerts = healthSnapshot.Alerts.Count,
-                    CriticalAlerts = healthSnapshot.Alerts.Count(a => a.Severity == "Critical"),
+                    CriticalAlerts = healthSnapshot.Alerts.Count(a => a.Severity == AlertSeverity.Critical),
                     CpuUsage = healthSnapshot.Metrics.Cpu.UsagePercent,
                     MemoryUsage = healthSnapshot.Metrics.Memory.UsedPercent
                 }
@@ -104,7 +104,7 @@ public class NLPReportGenerationService
             "security" => new
             {
                 SecurityMetrics = healthSnapshot.Metrics.Security,
-                Alerts = healthSnapshot.Alerts.Where(a => a.Severity == "Critical" || a.Title.Contains("security")),
+                Alerts = healthSnapshot.Alerts.Where(a => a.Severity == AlertSeverity.Critical || a.Title.Contains("security")),
                 Recommendations = new[]
                 {
                     "Regular security updates",
@@ -255,7 +255,7 @@ Summarize the following system health data in a concise, natural language paragr
 CPU Usage: {healthSnapshot.Metrics.Cpu.UsagePercent:F1}%
 Memory Usage: {healthSnapshot.Metrics.Memory.UsedPercent:F1}%
 Active Alerts: {healthSnapshot.Alerts.Count}
-Critical Alerts: {healthSnapshot.Alerts.Count(a => a.Severity == "Critical")}
+Critical Alerts: {healthSnapshot.Alerts.Count(a => a.Severity == AlertSeverity.Critical)}
 
 Provide a brief, executive-level summary suitable for dashboard display.
 ";

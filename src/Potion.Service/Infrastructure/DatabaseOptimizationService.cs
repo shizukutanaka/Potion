@@ -2,7 +2,7 @@ using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
@@ -36,6 +36,7 @@ public class DatabasePerformanceMetrics
     public long Deadlocks { get; set; }
     public long Timeouts { get; set; }
     public DateTime LastUpdated { get; set; } = DateTime.UtcNow;
+    public string Status { get; set; } = "Unknown";
 }
 
 /// <summary>
@@ -115,7 +116,7 @@ public class DatabaseOptimizationService : IDatabaseOptimizationService
                 FROM sys.dm_os_performance_counters
                 WHERE counter_name = 'Number of Deadlocks/sec' AND instance_name = '_Total'", connection);
 
-            metrics.Deadlocks = (long)await deadlockCmd.ExecuteScalarAsync();
+            metrics.Deadlocks = Convert.ToInt64(await deadlockCmd.ExecuteScalarAsync());
 
             return metrics;
         }

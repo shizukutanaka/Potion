@@ -4,6 +4,7 @@ using Microsoft.Extensions.Options;
 using Potion.Service.Infrastructure;
 using Potion.Service.Options;
 using System.Collections.Concurrent;
+using Potion.Service.Remediation;
 
 namespace Potion.Service.Scheduling;
 
@@ -121,7 +122,7 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
         {
             // タスクを実行するための仮のタスク記述子を作成
             var taskDescriptor = new RemediationTaskDescriptor(
-                Guid.NewGuid(),
+                $"event-driven-{taskName}",
                 new RemediationTaskOption
                 {
                     Name = $"event-driven-{taskName}",
@@ -129,8 +130,7 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
                     Command = taskName,
                     Enabled = true,
                     TimeoutSeconds = 300
-                },
-                Array.Empty<string>()
+                }
             );
 
             await _taskExecutor.ExecuteAsync(taskDescriptor, CancellationToken.None);
@@ -254,9 +254,10 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
         await base.StopAsync(cancellationToken);
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _httpClient.Dispose();
+        base.Dispose();
     }
 }
 
@@ -287,17 +288,3 @@ public enum ActionType
     SendEmail
 }
 
-// 必要なクラス（既に存在する可能性があるので、仮定）
-public sealed class RemediationTaskDescriptor
-{
-    public Guid Id { get; }
-    public RemediationTaskOption Option { get; }
-    public IReadOnlyList<string> Tags { get; }
-
-    public RemediationTaskDescriptor(Guid id, RemediationTaskOption option, IReadOnlyList<string> tags)
-    {
-        Id = id;
-        Option = option;
-        Tags = tags;
-    }
-}

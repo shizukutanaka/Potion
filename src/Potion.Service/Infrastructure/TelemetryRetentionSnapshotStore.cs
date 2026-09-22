@@ -77,11 +77,7 @@ public sealed class TelemetryRetentionSnapshotStore : ITelemetryRetentionSnapsho
             await using var stream = new FileStream(tempPath, FileMode.CreateNew, FileAccess.Write, FileShare.None, 64 * 1024, FileOptions.Asynchronous | FileOptions.WriteThrough);
             await JsonSerializer.SerializeAsync(stream, snapshot, SerializerOptions, cancellationToken);
             await stream.FlushAsync(cancellationToken);
-#if NET8_0_OR_GREATER
-            await stream.FlushAsync(flushToDisk: true, cancellationToken);
-#else
-            stream.Flush(true);
-#endif
+            stream.Flush(flushToDisk: true);
         }
         catch (Exception ex)
         {

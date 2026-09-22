@@ -66,14 +66,14 @@ public sealed class RemoteManagementClient : IRemoteManagementClient
         ISecureCommunicator secureCommunicator,
         IConfigurationManager configurationManager,
         ISystemHealthMonitor healthMonitor,
-        IOptions<RemoteManagementConfig> config,
+        IOptionsMonitor<RemoteManagementConfig> config,
         HttpClient httpClient)
     {
         _logger = logger;
         _secureCommunicator = secureCommunicator;
         _configurationManager = configurationManager;
         _healthMonitor = healthMonitor;
-        _config = config.Value;
+        _config = config.CurrentValue;
 
         _httpClient = httpClient;
         ConfigureHttpClient(_config);
@@ -583,7 +583,10 @@ public sealed class RemoteManagementClient : IRemoteManagementClient
 
     private sealed record QueuedRemoteAction(string Name, Func<CancellationToken, Task<RemoteManagementResult>> Action, DateTimeOffset EnqueuedAt);
 
-    private sealed record PreparedLogs(IReadOnlyList<object> Entries, int LogCount, long TotalBytes, long TransferredBytes);
+    private sealed record PreparedLogs(IReadOnlyList<object> Entries, int LogCount, long TotalBytes, long TransferredBytes)
+    {
+        public long CompressedBytes => TransferredBytes;
+    }
 
     private string MergePolicyIntoConfig(string currentConfig, string policyJson)
     {
@@ -626,7 +629,7 @@ public sealed class RemoteManagementClient : IRemoteManagementClient
                 return new DateTimeOffset(bootTime);
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // フォールバック：現在のプロセス開始時間を使用
         }

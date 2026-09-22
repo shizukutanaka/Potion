@@ -21,6 +21,14 @@ public sealed class LogCompressionOptions
     [Required, Range(1, 365)]
     public int CompressionAgeDays { get; set; } = 7;
 
+    /// <summary>圧縮対象の最大ファイルサイズ（MB）</summary>
+    [Range(1, 10240)]
+    public int MaxFileSizeMB { get; set; } = 100;
+
+    /// <summary>圧縮レベル（0-9）</summary>
+    [Range(0, 9)]
+    public int CompressionLevel { get; set; } = 6;
+
     /// <summary>
     /// ログ圧縮処理の実行間隔（時間単位）
     /// </summary>

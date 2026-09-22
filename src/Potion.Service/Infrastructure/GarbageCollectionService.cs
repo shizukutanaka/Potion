@@ -152,11 +152,6 @@ public class GarbageCollectionService : IGarbageCollectionService
 
         try
         {
-            // Configure server GC
-            if (configuration.IsServerGC)
-            {
-                System.Runtime.GCSettings.IsServerGC = true;
-            }
 
             // Configure latency mode
             GC.TryStartNoGCRegion(64 * 1024 * 1024); // 64MB no-GC region for low-latency operations
@@ -287,7 +282,7 @@ public class GarbageCollectionService : IGarbageCollectionService
         await Task.Delay(Timeout.Infinite, cancellationToken);
     }
 
-    private void MonitorMemoryPressure(object state)
+    private void MonitorMemoryPressure(object? state)
     {
         try
         {
@@ -509,17 +504,14 @@ public static class GcTuningUtilities
         switch (pattern)
         {
             case WorkloadPattern.BatchProcessing:
-                System.Runtime.GCSettings.IsServerGC = true;
                 GCSettings.LatencyMode = GCLatencyMode.Batch;
                 break;
 
             case WorkloadPattern.RealTime:
-                System.Runtime.GCSettings.IsServerGC = false;
                 GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
                 break;
 
             case WorkloadPattern.WebServer:
-                System.Runtime.GCSettings.IsServerGC = true;
                 GCSettings.LatencyMode = GCLatencyMode.Interactive;
                 break;
         }

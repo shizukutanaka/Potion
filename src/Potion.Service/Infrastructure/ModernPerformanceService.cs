@@ -1,4 +1,6 @@
 using System;
+using System.Runtime;
+using System.Numerics;
 using System.Collections.Frozen;
 using System.Collections.Immutable;
 using System.Runtime.CompilerServices;
@@ -194,6 +196,31 @@ public class ModernPerformanceService : IModernPerformanceService
         return features;
     }
 
+    private void EnableJitOptimizations()
+    {
+        _logger.LogInformation("Enabling JIT optimizations");
+        EnablePgoOptimizations();
+    }
+
+    private void OptimizeGarbageCollection()
+    {
+        _logger.LogInformation("Optimizing garbage collection");
+        OptimizeMemoryArchitecture();
+    }
+
+    private void OptimizeMemoryLayout()
+    {
+        _logger.LogInformation("Optimizing memory layout");
+        OptimizeMemoryArchitecture();
+    }
+
+    private void OptimizeThreading()
+    {
+        _logger.LogInformation("Optimizing threading");
+        ThreadPool.GetMinThreads(out var workerThreads, out var ioThreads);
+        ThreadPool.SetMinThreads(Math.Max(workerThreads, Environment.ProcessorCount), ioThreads);
+    }
+
     private void EnableVectorizationOptimizations()
     {
         _logger.LogInformation("Enabling vectorization optimizations");
@@ -251,7 +278,7 @@ public class ModernPerformanceService : IModernPerformanceService
         if (Environment.ProcessorCount > 8)
         {
             // Enable server GC optimizations
-            GCSettings.IsServerGC = true;
+            // IsServerGC is read-only at runtime; configured via runtimeconfig
         }
 
         // Configure modern memory layout

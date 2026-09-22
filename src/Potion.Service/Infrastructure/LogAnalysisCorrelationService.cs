@@ -116,9 +116,9 @@ public class LogAnalysisCorrelationService : IHostedService, IDisposable
         }
     }
 
-    private async Task<List<LogEntry>> CollectLogEntriesAsync()
+    private async Task<List<CorrelationLogEntry>> CollectLogEntriesAsync()
     {
-        var logEntries = new List<LogEntry>();
+        var logEntries = new List<CorrelationLogEntry>();
         var logDir = Path.Combine(ServicePaths.Base, _options.LogDirectory);
 
         if (!Directory.Exists(logDir))
@@ -165,7 +165,7 @@ public class LogAnalysisCorrelationService : IHostedService, IDisposable
         return logEntries;
     }
 
-    private LogEntry? ParseLogEntry(string line, string sourceFile)
+    private CorrelationLogEntry? ParseLogEntry(string line, string sourceFile)
     {
         if (string.IsNullOrWhiteSpace(line))
             return null;
@@ -184,7 +184,7 @@ public class LogAnalysisCorrelationService : IHostedService, IDisposable
         var level = parts.Length > 2 ? parts[2] : "INFO";
         var message = parts.Length > 3 ? parts[3] : line;
 
-        return new LogEntry
+        return new CorrelationLogEntry
         {
             Timestamp = timestamp,
             Level = level,
@@ -194,7 +194,7 @@ public class LogAnalysisCorrelationService : IHostedService, IDisposable
         };
     }
 
-    private List<AnalyzedLogEntry> AnalyzeLogEntries(List<LogEntry> entries)
+    private List<AnalyzedLogEntry> AnalyzeLogEntries(List<CorrelationLogEntry> entries)
     {
         var analyzedEntries = new List<AnalyzedLogEntry>();
 
@@ -238,7 +238,7 @@ public class LogAnalysisCorrelationService : IHostedService, IDisposable
                 Entries = g.ToList(),
                 PatternCounts = g.SelectMany(e => e.MatchedPatterns)
                                 .GroupBy(p => p)
-                                .ToDictionary(g => g.Key, g => g.Count())
+                                .ToDictionary(g => g.Key!, g => g.Count())
             });
 
         foreach (var group in timeGroups)
@@ -255,7 +255,7 @@ public class LogAnalysisCorrelationService : IHostedService, IDisposable
                     Count = dominantPattern.Value,
                     TimeWindow = DateTimeOffset.FromUnixTimeSeconds(group.TimeWindow * 300), // 5 min windows
                     Entries = group.Entries.Where(e => e.MatchedPatterns.Contains(dominantPattern.Key)).ToList(),
-                    Severity = group.Entries.First().Severity
+                    Severity = group.Entries.First().Severity ?? "Info"
                 });
             }
         }
@@ -292,17 +292,17 @@ public class LogAnalysisCorrelationService : IHostedService, IDisposable
             PatternStatistics = entries
                 .SelectMany(e => e.MatchedPatterns)
                 .GroupBy(p => p)
-                .ToDictionary(g => g.Key, g => g.Count()),
+                .ToDictionary(g => g.Key!, g => g.Count()),
             SeverityBreakdown = entries
                 .Where(e => !string.IsNullOrEmpty(e.Severity))
                 .GroupBy(e => e.Severity)
-                .ToDictionary(g => g.Key, g => g.Count()),
+                .ToDictionary(g => g.Key!, g => g.Count()),
             TopErrorMessages = entries
                 .Where(e => e.Severity == "Error" || e.Severity == "Critical")
                 .GroupBy(e => e.Entry.Message)
                 .OrderByDescending(g => g.Count())
                 .Take(10)
-                .ToDictionary(g => g.Key, g => g.Count())
+                .ToDictionary(g => g.Key!, g => g.Count())
         };
 
         // Save report
@@ -333,7 +333,7 @@ public class LogAnalysisCorrelationService : IHostedService, IDisposable
     }
 }
 
-public class LogEntry
+public class CorrelationLogEntry
 {
     public DateTimeOffset Timestamp { get; set; }
     public string Level { get; set; } = string.Empty;
@@ -344,7 +344,7 @@ public class LogEntry
 
 public class AnalyzedLogEntry
 {
-    public LogEntry Entry { get; set; } = new();
+    public CorrelationLogEntry Entry { get; set; } = new();
     public List<string> MatchedPatterns { get; set; } = new();
     public string? PrimaryCategory { get; set; }
     public string? Severity { get; set; }

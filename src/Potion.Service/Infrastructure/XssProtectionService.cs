@@ -279,15 +279,15 @@ public class XssProtectionService : IXssProtectionService
 
         // CSPヘッダー
         var csp = CreateSecureCsp();
-        response.Headers.Add("Content-Security-Policy", csp.ToHeaderValue());
+        response.Headers.Append("Content-Security-Policy", csp.ToHeaderValue());
 
         // その他のセキュリティヘッダー
-        response.Headers.Add("X-Content-Type-Options", "nosniff");
-        response.Headers.Add("X-Frame-Options", "DENY");
-        response.Headers.Add("X-XSS-Protection", "1; mode=block");
-        response.Headers.Add("Referrer-Policy", "strict-origin-when-cross-origin");
-        response.Headers.Add("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
-        response.Headers.Add("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+        response.Headers.Append("X-Content-Type-Options", "nosniff");
+        response.Headers.Append("X-Frame-Options", "DENY");
+        response.Headers.Append("X-XSS-Protection", "1; mode=block");
+        response.Headers.Append("Referrer-Policy", "strict-origin-when-cross-origin");
+        response.Headers.Append("Permissions-Policy", "geolocation=(), microphone=(), camera=()");
+        response.Headers.Append("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
 
         _logger.LogDebug("Security headers added to response");
     }

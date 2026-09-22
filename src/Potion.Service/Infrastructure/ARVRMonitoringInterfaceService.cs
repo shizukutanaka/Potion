@@ -244,8 +244,8 @@ public class ARVRMonitoringInterfaceService : IHostedService, IDisposable
                     Name = "Main Dashboard",
                     Bounds = new Bounds3D
                     {
-                        Min = new Vector3D { X = -3, Y = 0.5, Z = -3 },
-                        Max = new Vector3D { X = 3, Y = 2.5, Z = 3 }
+                        Min = new Vector3D { X = -3, Y = 0.5f, Z = -3 },
+                        Max = new Vector3D { X = 3, Y = 2.5f, Z = 3 }
                     },
                     InteractionType = "gesture_based"
                 },
@@ -289,7 +289,7 @@ public class ARVRMonitoringInterfaceService : IHostedService, IDisposable
             Id = Guid.NewGuid().ToString(),
             Title = "Optimize Memory",
             Description = "Clear system cache to improve performance",
-            Position = new Vector3D { X = 1, Y = 1.5, Z = 2 },
+            Position = new Vector3D { X = 1, Y = 1.5f, Z = 2 },
             ActionType = "gesture_tap",
             Priority = "High"
         });

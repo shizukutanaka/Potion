@@ -103,4 +103,12 @@ public sealed class SystemDiagnosticsOptions
     /// 診断レポートの保存先パス
     /// </summary>
     public string? ReportOutputPath { get; set; }
+
+    /// <summary>診断情報の収集間隔（秒）</summary>
+    [Range(10, 86400)]
+    public int CollectionIntervalSeconds { get; set; } = 300;
+
+    /// <summary>診断レポートの保持日数</summary>
+    [Range(1, 365)]
+    public int RetentionDays { get; set; } = 30;
 }

@@ -442,7 +442,7 @@ public sealed class SecureCommunicator : ISecureCommunicator, IDisposable
             }
 
             int? keySize = null;
-            switch (cert2.PublicKey.Key)
+            switch ((object?)cert2.GetRSAPublicKey() ?? cert2.GetECDsaPublicKey())
             {
                 case RSA rsa:
                     keySize = rsa.KeySize;

@@ -15,9 +15,9 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface IConfigurationValidationService
 {
-    Task<ConfigurationValidationResult> ValidateConfigurationAsync(IConfiguration configuration);
-    Task<List<ConfigurationIssue>> ValidateConfigurationSectionAsync(string sectionName, IConfiguration configuration);
-    Task<bool> FixConfigurationIssuesAsync(IConfiguration configuration, List<ConfigurationIssue> issues);
+    Task<ConfigValidationResult> ValidateConfigurationAsync(IConfiguration configuration);
+    Task<List<ConfigValidationIssue>> ValidateConfigurationSectionAsync(string sectionName, IConfiguration configuration);
+    Task<bool> FixConfigurationIssuesAsync(IConfiguration configuration, List<ConfigValidationIssue> issues);
     Task<ConfigurationReport> GenerateConfigurationReportAsync(IConfiguration configuration);
     Task<bool> SetupConfigurationValidationAsync(ConfigurationValidationSetup config);
     Task<List<ConfigurationRecommendation>> GetConfigurationRecommendationsAsync(IConfiguration configuration);
@@ -45,19 +45,19 @@ public class ValidationRule
     public string RuleType { get; set; } = string.Empty;
     public Dictionary<string, object> Parameters { get; set; } = new();
     public bool Required { get; set; }
-    public object DefaultValue { get; set; }
+    public object DefaultValue { get; set; } = null!;
 }
 
 /// <summary>
 /// 設定検証結果
 /// </summary>
-public class ConfigurationValidationResult
+public class ConfigValidationResult
 {
     public bool IsValid { get; set; }
     public int TotalIssues { get; set; }
     public int CriticalIssues { get; set; }
     public int WarningIssues { get; set; }
-    public List<ConfigurationIssue> Issues { get; set; } = new();
+    public List<ConfigValidationIssue> Issues { get; set; } = new();
     public List<string> ValidatedSections { get; set; } = new();
     public TimeSpan ValidationDuration { get; set; }
 }
@@ -65,7 +65,7 @@ public class ConfigurationValidationResult
 /// <summary>
 /// 設定問題
 /// </summary>
-public class ConfigurationIssue
+public class ConfigValidationIssue
 {
     public string IssueId { get; set; } = string.Empty;
     public string Section { get; set; } = string.Empty;
@@ -98,7 +98,7 @@ public class ConfigurationReport
 {
     public string Environment { get; set; } = string.Empty;
     public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
-    public ConfigurationValidationResult ValidationResult { get; set; } = new();
+    public ConfigValidationResult ValidationResult { get; set; } = new();
     public Dictionary<string, string> ConfigurationSummary { get; set; } = new();
     public List<ConfigurationRecommendation> Recommendations { get; set; } = new();
 }
@@ -131,18 +131,18 @@ public enum RecommendationPriority
 /// </summary>
 public class ConfigurationHealth
 {
-    public HealthStatus Status { get; set; }
+    public ConfigHealthStatus Status { get; set; }
     public double HealthScore { get; set; }
     public int TotalSettings { get; set; }
     public int ValidSettings { get; set; }
     public int InvalidSettings { get; set; }
-    public Dictionary<string, HealthStatus> SectionHealth { get; set; } = new();
+    public Dictionary<string, ConfigHealthStatus> SectionHealth { get; set; } = new();
 }
 
 /// <summary>
 /// 健全性状態
 /// </summary>
-public enum HealthStatus
+public enum ConfigHealthStatus
 {
     Healthy,
     Warning,
@@ -162,9 +162,9 @@ public class ConfigurationValidationService : IConfigurationValidationService
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
-    public async Task<ConfigurationValidationResult> ValidateConfigurationAsync(IConfiguration configuration)
+    public async Task<ConfigValidationResult> ValidateConfigurationAsync(IConfiguration configuration)
     {
-        var result = new ConfigurationValidationResult();
+        var result = new ConfigValidationResult();
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
         try
@@ -214,9 +214,9 @@ public class ConfigurationValidationService : IConfigurationValidationService
         }
     }
 
-    public async Task<List<ConfigurationIssue>> ValidateConfigurationSectionAsync(string sectionName, IConfiguration configuration)
+    public async Task<List<ConfigValidationIssue>> ValidateConfigurationSectionAsync(string sectionName, IConfiguration configuration)
     {
-        var issues = new List<ConfigurationIssue>();
+        var issues = new List<ConfigValidationIssue>();
 
         try
         {
@@ -224,7 +224,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
 
             if (!section.Exists())
             {
-                issues.Add(new ConfigurationIssue
+                issues.Add(new ConfigValidationIssue
                 {
                     IssueId = $"MISSING_SECTION_{sectionName}",
                     Section = sectionName,
@@ -246,7 +246,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
                 // 必須項目のチェック
                 if (IsRequiredSetting(sectionName, key) && string.IsNullOrEmpty(value))
                 {
-                    issues.Add(new ConfigurationIssue
+                    issues.Add(new ConfigValidationIssue
                     {
                         IssueId = $"MISSING_VALUE_{sectionName}_{key}",
                         Section = sectionName,
@@ -273,7 +273,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
                 }
 
                 // セキュリティの検証
-                var securityIssues = await ValidateSecuritySettingsAsync(sectionName, key, value);
+                var securityIssues = await ValidateSecuritySettingsAsync(sectionName, key, value ?? string.Empty);
                 issues.AddRange(securityIssues);
             }
 
@@ -286,7 +286,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
         {
             _logger.LogError(ex, "Error validating configuration section: {SectionName}", sectionName);
 
-            issues.Add(new ConfigurationIssue
+            issues.Add(new ConfigValidationIssue
             {
                 IssueId = $"VALIDATION_ERROR_{sectionName}",
                 Section = sectionName,
@@ -299,7 +299,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
         }
     }
 
-    public async Task<bool> FixConfigurationIssuesAsync(IConfiguration configuration, List<ConfigurationIssue> issues)
+    public async Task<bool> FixConfigurationIssuesAsync(IConfiguration configuration, List<ConfigValidationIssue> issues)
     {
         try
         {
@@ -539,20 +539,20 @@ public class ConfigurationValidationService : IConfigurationValidationService
             {
                 var sectionIssues = validationResult.Issues.Where(i => i.Section == section).ToList();
                 var sectionHealth = sectionIssues.Any(i => i.Severity == IssueSeverity.Critical)
-                    ? HealthStatus.Critical
+                    ? ConfigHealthStatus.Critical
                     : sectionIssues.Any(i => i.Severity == IssueSeverity.Warning)
-                        ? HealthStatus.Warning
-                        : HealthStatus.Healthy;
+                        ? ConfigHealthStatus.Warning
+                        : ConfigHealthStatus.Healthy;
 
                 health.SectionHealth[section] = sectionHealth;
             }
 
             // 全体の健全性評価
             health.Status = validationResult.CriticalIssues > 0
-                ? HealthStatus.Critical
+                ? ConfigHealthStatus.Critical
                 : validationResult.WarningIssues > 0
-                    ? HealthStatus.Warning
-                    : HealthStatus.Healthy;
+                    ? ConfigHealthStatus.Warning
+                    : ConfigHealthStatus.Healthy;
 
             _logger.LogInformation("Configuration health calculated: {Status} with score {Score:F1}%",
                 health.Status, health.HealthScore);
@@ -562,7 +562,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error calculating configuration health");
-            health.Status = HealthStatus.Unknown;
+            health.Status = ConfigHealthStatus.Unknown;
             return health;
         }
     }
@@ -624,9 +624,9 @@ public class ConfigurationValidationService : IConfigurationValidationService
         return defaultValues.GetValueOrDefault($"{section}:{key}", "Not specified");
     }
 
-    private async Task<List<ConfigurationIssue>> ValidateValueFormatAsync(string section, string key, string value)
+    private async Task<List<ConfigValidationIssue>> ValidateValueFormatAsync(string section, string key, string value)
     {
-        var issues = new List<ConfigurationIssue>();
+        var issues = new List<ConfigValidationIssue>();
 
         // フォーマット検証のルール
         var formatRules = new Dictionary<string, Func<string, bool>>
@@ -643,7 +643,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
         {
             if (!validationFunc(value))
             {
-                issues.Add(new ConfigurationIssue
+                issues.Add(new ConfigValidationIssue
                 {
                     IssueId = $"INVALID_FORMAT_{section}_{key}",
                     Section = section,
@@ -660,9 +660,9 @@ public class ConfigurationValidationService : IConfigurationValidationService
         return issues;
     }
 
-    private async Task<List<ConfigurationIssue>> ValidateValueRangeAsync(string section, string key, string value)
+    private async Task<List<ConfigValidationIssue>> ValidateValueRangeAsync(string section, string key, string value)
     {
-        var issues = new List<ConfigurationIssue>();
+        var issues = new List<ConfigValidationIssue>();
 
         // 範囲検証のルール
         var rangeRules = new Dictionary<string, (int Min, int Max)>
@@ -680,7 +680,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
             {
                 if (intValue < range.Min || intValue > range.Max)
                 {
-                    issues.Add(new ConfigurationIssue
+                    issues.Add(new ConfigValidationIssue
                     {
                         IssueId = $"OUT_OF_RANGE_{section}_{key}",
                         Section = section,
@@ -698,16 +698,16 @@ public class ConfigurationValidationService : IConfigurationValidationService
         return issues;
     }
 
-    private async Task<List<ConfigurationIssue>> ValidateSecuritySettingsAsync(string section, string key, string value)
+    private async Task<List<ConfigValidationIssue>> ValidateSecuritySettingsAsync(string section, string key, string value)
     {
-        var issues = new List<ConfigurationIssue>();
+        var issues = new List<ConfigValidationIssue>();
 
         // セキュリティ設定の検証
         if (section == "Authentication" && key == "Jwt:Secret")
         {
             if (!string.IsNullOrEmpty(value) && value.Length < 32)
             {
-                issues.Add(new ConfigurationIssue
+                issues.Add(new ConfigValidationIssue
                 {
                     IssueId = $"SECURITY_WEAK_{section}_{key}",
                     Section = section,
@@ -724,7 +724,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
 
         if (section == "CORS" && key == "Origins" && value == "*")
         {
-            issues.Add(new ConfigurationIssue
+            issues.Add(new ConfigValidationIssue
             {
                 IssueId = $"SECURITY_RISK_{section}_{key}",
                 Section = section,
@@ -741,7 +741,7 @@ public class ConfigurationValidationService : IConfigurationValidationService
         return issues;
     }
 
-    private async Task<bool> FixConfigurationIssueAsync(IConfiguration configuration, ConfigurationIssue issue)
+    private async Task<bool> FixConfigurationIssueAsync(IConfiguration configuration, ConfigValidationIssue issue)
     {
         try
         {
@@ -885,7 +885,7 @@ public class ConfigurationValidationMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         // リクエストに設定検証情報を追加
-        context.Response.Headers.Add("X-Configuration-Validation", "enabled");
+        context.Response.Headers.Append("X-Configuration-Validation", "enabled");
 
         await _next(context);
     }

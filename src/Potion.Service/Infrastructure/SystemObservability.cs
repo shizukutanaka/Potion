@@ -265,14 +265,21 @@ public sealed class SystemRepairHealthCheck : IHealthCheck
         _observability = observability;
     }
 
-    public async Task<HealthCheckResult> CheckHealthAsync(
+    public async Task<Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult> CheckHealthAsync(
         HealthCheckContext context,
         CancellationToken cancellationToken = default)
     {
         var status = await _observability.GetHealthStatusAsync(cancellationToken);
 
-        return new HealthCheckResult(
-            status.Status,
+        var healthStatus = status.Status switch
+        {
+            HealthStatus.Healthy => Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Healthy,
+            HealthStatus.Degraded => Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Degraded,
+            _ => Microsoft.Extensions.Diagnostics.HealthChecks.HealthStatus.Unhealthy
+        };
+
+        return new Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult(
+            healthStatus,
             status.Description,
             null,
             status.Details

@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.ML;
 using Microsoft.ML.Data;
+using Microsoft.ML.Trainers.FastTree;
 
 namespace Potion.Service.Infrastructure;
 
@@ -15,18 +16,18 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface IAdvancedPredictiveAnalyticsService
 {
-    Task<PredictionResult> PredictSystemFailureAsync(SystemMetrics metrics);
-    Task<AnomalyDetectionResult> DetectAnomaliesAsync(IEnumerable<SystemMetrics> metricsHistory);
-    Task<MaintenanceRecommendation> GenerateMaintenanceRecommendationAsync(SystemMetrics currentMetrics);
+    Task<PredictionResult> PredictSystemFailureAsync(PredictiveSystemMetrics metrics);
+    Task<PredictiveAnomalyResult> DetectAnomaliesAsync(IEnumerable<PredictiveSystemMetrics> metricsHistory);
+    Task<MaintenanceRecommendation> GenerateMaintenanceRecommendationAsync(PredictiveSystemMetrics currentMetrics);
     Task<ModelPerformanceMetrics> GetModelPerformanceAsync();
-    Task RetrainModelsAsync(IEnumerable<SystemMetrics> trainingData);
+    Task RetrainModelsAsync(IEnumerable<PredictiveSystemMetrics> trainingData);
     Task<IEnumerable<PredictionInsight>> GetPredictionInsightsAsync();
 }
 
 /// <summary>
 /// システムメトリクスデータ構造
 /// </summary>
-public class SystemMetrics
+public class PredictiveSystemMetrics
 {
     public DateTime Timestamp { get; set; }
     public double CpuUsage { get; set; }
@@ -56,7 +57,7 @@ public class PredictionResult
 /// <summary>
 /// 異常検知結果
 /// </summary>
-public class AnomalyDetectionResult
+public class PredictiveAnomalyResult
 {
     public bool IsAnomalous { get; set; }
     public double AnomalyScore { get; set; }
@@ -125,11 +126,11 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
     public AdvancedPredictiveAnalyticsService(ILogger<AdvancedPredictiveAnalyticsService> logger)
     {
         _logger = logger;
-        _retrainingTimer = new Timer(RetrainModelsAsync, null, _retrainingInterval, _retrainingInterval);
+        _retrainingTimer = new Timer(_ => _ = RetrainModelsAsync(Enumerable.Empty<PredictiveSystemMetrics>()), null, _retrainingInterval, _retrainingInterval);
         InitializeMLContexts();
     }
 
-    public async Task<PredictionResult> PredictSystemFailureAsync(SystemMetrics metrics)
+    public async Task<PredictionResult> PredictSystemFailureAsync(PredictiveSystemMetrics metrics)
     {
         try
         {
@@ -193,7 +194,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
         }
     }
 
-    public async Task<AnomalyDetectionResult> DetectAnomaliesAsync(IEnumerable<SystemMetrics> metricsHistory)
+    public async Task<PredictiveAnomalyResult> DetectAnomaliesAsync(IEnumerable<PredictiveSystemMetrics> metricsHistory)
     {
         try
         {
@@ -202,7 +203,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
 
             if (model == null || !metricsHistory.Any())
             {
-                return new AnomalyDetectionResult
+                return new PredictiveAnomalyResult
                 {
                     IsAnomalous = false,
                     AnomalyScore = 0.0,
@@ -211,7 +212,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
             }
 
             var latestMetrics = metricsHistory.OrderByDescending(m => m.Timestamp).First();
-            var predictionEngine = mlContext.Model.CreatePredictionEngine<SystemMetricsInput, AnomalyPrediction>(model);
+            var predictionEngine = mlContext.Model.CreatePredictionEngine<SystemMetricsInput, PredictiveAnomalyPrediction>(model);
 
             var input = new SystemMetricsInput
             {
@@ -227,7 +228,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
 
             var prediction = predictionEngine.Predict(input);
 
-            var result = new AnomalyDetectionResult
+            var result = new PredictiveAnomalyResult
             {
                 IsAnomalous = prediction.IsAnomalous,
                 AnomalyScore = prediction.AnomalyScore,
@@ -247,7 +248,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error detecting anomalies");
-            return new AnomalyDetectionResult
+            return new PredictiveAnomalyResult
             {
                 IsAnomalous = false,
                 AnomalyScore = 0.0,
@@ -256,7 +257,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
         }
     }
 
-    public async Task<MaintenanceRecommendation> GenerateMaintenanceRecommendationAsync(SystemMetrics currentMetrics)
+    public async Task<MaintenanceRecommendation> GenerateMaintenanceRecommendationAsync(PredictiveSystemMetrics currentMetrics)
     {
         try
         {
@@ -310,7 +311,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
         }
     }
 
-    public async Task RetrainModelsAsync(IEnumerable<SystemMetrics> trainingData)
+    public async Task RetrainModelsAsync(IEnumerable<PredictiveSystemMetrics> trainingData)
     {
         try
         {
@@ -384,10 +385,10 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
 
     private ITransformer GetTrainedModel(string modelType)
     {
-        return _trainedModels.GetValueOrDefault(modelType);
+        return _trainedModels.GetValueOrDefault(modelType)!;
     }
 
-    private async Task RetrainFailurePredictionModelAsync(IEnumerable<SystemMetrics> trainingData)
+    private async Task RetrainFailurePredictionModelAsync(IEnumerable<PredictiveSystemMetrics> trainingData)
     {
         var mlContext = GetMLContext("failure-prediction");
 
@@ -419,7 +420,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
         _trainedModels["failure-prediction"] = model;
     }
 
-    private async Task RetrainAnomalyDetectionModelAsync(IEnumerable<SystemMetrics> trainingData)
+    private async Task RetrainAnomalyDetectionModelAsync(IEnumerable<PredictiveSystemMetrics> trainingData)
     {
         var mlContext = GetMLContext("anomaly-detection");
 
@@ -449,7 +450,7 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
         _trainedModels["anomaly-detection"] = model;
     }
 
-    private int DetermineFailureLabel(SystemMetrics metrics)
+    private int DetermineFailureLabel(PredictiveSystemMetrics metrics)
     {
         // 簡易的な失敗判定（実際の実装ではより複雑なロジック）
         if (metrics.CpuUsage > 95 || metrics.MemoryUsage > 95 || metrics.ErrorCount > 10)
@@ -523,19 +524,21 @@ public class AdvancedPredictiveAnalyticsService : IAdvancedPredictiveAnalyticsSe
         return ParseContributingFactors(factors);
     }
 
-    private List<string> GenerateRecommendations(PredictionResult prediction)
+    private List<string> GenerateRecommendations(SystemMetricsPrediction prediction)
     {
         var recommendations = new List<string>();
+        var factors = prediction.Factors
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
 
-        if (prediction.ContributingFactors.Contains("High CPU Usage"))
+        if (factors.Contains("High CPU Usage"))
         {
             recommendations.Add("Consider CPU optimization or load balancing");
         }
-        if (prediction.ContributingFactors.Contains("High Memory Usage"))
+        if (factors.Contains("High Memory Usage"))
         {
             recommendations.Add("Review memory-intensive processes");
         }
-        if (prediction.ContributingFactors.Contains("High Error Rate"))
+        if (factors.Contains("High Error Rate"))
         {
             recommendations.Add("Investigate and resolve system errors");
         }
@@ -605,7 +608,7 @@ public class SystemMetricsPrediction
 /// <summary>
 /// 異常検知予測出力クラス
 /// </summary>
-public class AnomalyPrediction
+public class PredictiveAnomalyPrediction
 {
     [ColumnName("PredictedLabel")]
     public bool IsAnomalous { get; set; }

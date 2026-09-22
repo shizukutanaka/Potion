@@ -1046,7 +1046,7 @@ html.theme-loading * {
 
             return modified;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // エラーが発生した場合は元のコンテンツを返す
             return content;

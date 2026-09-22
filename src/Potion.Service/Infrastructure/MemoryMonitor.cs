@@ -1,8 +1,10 @@
 using System.Runtime.InteropServices;
+using System.Diagnostics;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Potion.Service.Options;
+using System.Collections.Concurrent;
 
 namespace Potion.Service.Infrastructure;
 
@@ -203,7 +205,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
             // ガベージコレクションの実行
             if (options.EnableGarbageCollection)
             {
-                var gcResult = await ForceGarbageCollectionAsync(cancellationToken);
+                var gcResult = ForceGarbageCollectionAsync(cancellationToken);
                 actions.AddRange(gcResult.Actions);
                 memoryFreed += gcResult.MemoryFreed;
             }
@@ -211,7 +213,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
             // ワーキングセットのトリミング
             if (options.EnableWorkingSetTrimming)
             {
-                var trimResult = await TrimWorkingSetAsync(cancellationToken);
+                var trimResult = TrimWorkingSetAsync(cancellationToken);
                 actions.AddRange(trimResult.Actions);
                 memoryFreed += trimResult.MemoryFreed;
             }
@@ -219,7 +221,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
             // メモリ断片化の解消
             if (options.EnableDefragmentation)
             {
-                var defragResult = await DefragmentMemoryAsync(cancellationToken);
+                var defragResult = DefragmentMemoryAsync(cancellationToken);
                 actions.AddRange(defragResult.Actions);
                 memoryFreed += defragResult.MemoryFreed;
             }
@@ -227,7 +229,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
             // 大きなメモリ割り当ての解放
             if (options.EnableLargeAllocationCleanup)
             {
-                var cleanupResult = await CleanupLargeAllocationsAsync(cancellationToken);
+                var cleanupResult = CleanupLargeAllocationsAsync(cancellationToken);
                 actions.AddRange(cleanupResult.Actions);
                 memoryFreed += cleanupResult.MemoryFreed;
             }

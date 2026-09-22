@@ -8,23 +8,31 @@ namespace Potion.Service.Infrastructure;
 
 public interface IProcessRunner
 {
-    Task<ProcessResult> RunAsync(ProcessStartInfo startInfo, TimeSpan timeout, CancellationToken cancellationToken);
+    Task<ProcessExecutionResult> RunAsync(ProcessStartInfo startInfo, TimeSpan timeout, CancellationToken cancellationToken);
 }
 
-public sealed record ProcessResult(
+public sealed record ProcessExecutionResult(
     int ExitCode,
     string StandardOutput,
     string StandardError,
     TimeSpan Duration,
     double PeakMemoryMb,
     bool StandardOutputTruncated,
-    bool StandardErrorTruncated);
+    bool StandardErrorTruncated)
+{
+    public bool Success => ExitCode == 0;
 
-public sealed class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunner, IDisposable
+    public string Output => StandardOutput;
+
+    public string Error => StandardError;
+}
+
+public sealed class ProcessRunner : IProcessRunner, IDisposable
 {
     private const int MaxCapturedCharacters = 128_000; // Increased for better diagnostics
     private const long DefaultMaxMemoryUsageBytes = 768 * 1024 * 1024; // 768MB - Optimized for modern systems
     private static readonly int MaxConcurrentProcesses = Math.Max(1, Environment.ProcessorCount / 2); // Dynamic based on CPU cores
+    private readonly ILogger<ProcessRunner> logger;
     private readonly SemaphoreSlim _processSemaphore = new(MaxConcurrentProcesses, MaxConcurrentProcesses);
     private bool _disposed;
     private readonly long _maxMemoryUsageBytes;
@@ -42,7 +50,7 @@ public sealed class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunne
         _sustainedPressureThreshold = _maxMemoryUsageBytes * 0.8;
     }
 
-    public async Task<ProcessResult> RunAsync(ProcessStartInfo startInfo, TimeSpan timeout, CancellationToken cancellationToken)
+    public async Task<ProcessExecutionResult> RunAsync(ProcessStartInfo startInfo, TimeSpan timeout, CancellationToken cancellationToken)
     {
         ThrowIfDisposed();
         ArgumentNullException.ThrowIfNull(startInfo);
@@ -75,7 +83,7 @@ public sealed class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunne
     }
 
 
-    private async Task<ProcessResult> ExecuteProcessAsync(ProcessStartInfo startInfo, TimeSpan timeout, CancellationToken cancellationToken)
+    private async Task<ProcessExecutionResult> ExecuteProcessAsync(ProcessStartInfo startInfo, TimeSpan timeout, CancellationToken cancellationToken)
     {
         using var process = new Process
         {
@@ -245,7 +253,7 @@ public sealed class ProcessRunner(ILogger<ProcessRunner> logger) : IProcessRunne
             logger.LogError("ProcessRunner observed sustained memory pressure. Consider reducing concurrency or tightening allow list.");
         }
 
-        return new ProcessResult(
+        return new ProcessExecutionResult(
             process.ExitCode,
             standardOutput,
             standardError,

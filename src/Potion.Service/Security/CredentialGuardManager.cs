@@ -1,4 +1,5 @@
 using System;
+using Potion.Service.Infrastructure;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -265,7 +266,7 @@ public sealed class CredentialGuardManager : ICredentialGuardManager
     {
         try
         {
-            using var proc = new ProcessStartInfo
+            var proc = new ProcessStartInfo
             {
                 FileName = "wmic",
                 Arguments = "OS get DataExecutionPrevention /value",
@@ -315,7 +316,7 @@ public sealed class CredentialGuardManager : ICredentialGuardManager
     {
         try
         {
-            using var proc = new ProcessStartInfo
+            var proc = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
                 Arguments = "-NoProfile -Command \"Get-WmiObject -Namespace root\\cimv2\\security\\microsofttpm -Class Win32_Tpm | Select-Object -Property Spec -ExpandProperty Spec\"",
@@ -406,7 +407,7 @@ public sealed class CredentialGuardManager : ICredentialGuardManager
     {
         try
         {
-            using var proc = new ProcessStartInfo
+            var proc = new ProcessStartInfo
             {
                 FileName = "powershell.exe",
                 Arguments = "-NoProfile -Command \"Get-CimInstance Win32_DeviceGuard -Namespace root\\Microsoft\\Windows\\DeviceGuard | Select-Object -Property SecurityServicesRunning\"",

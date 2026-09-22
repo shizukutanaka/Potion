@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
@@ -13,10 +14,10 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface IMetricsCollector
 {
-    void RecordCounter(string name, double value = 1, Dictionary<string, string> labels = null);
-    void RecordGauge(string name, double value, Dictionary<string, string> labels = null);
-    void RecordHistogram(string name, double value, Dictionary<string, string> labels = null);
-    void RecordTimer(string name, TimeSpan duration, Dictionary<string, string> labels = null);
+    void RecordCounter(string name, double value = 1, Dictionary<string, string>? labels = null);
+    void RecordGauge(string name, double value, Dictionary<string, string>? labels = null);
+    void RecordHistogram(string name, double value, Dictionary<string, string>? labels = null);
+    void RecordTimer(string name, TimeSpan duration, Dictionary<string, string>? labels = null);
     Task<MetricsSnapshot> GetMetricsSnapshotAsync();
     Task<string> ExportToPrometheusAsync();
     Task<string> ExportToJsonAsync();
@@ -106,7 +107,7 @@ public class MetricsCollector : IMetricsCollector, IDisposable
         _logger.LogInformation("Metrics collector initialized");
     }
 
-    public void RecordCounter(string name, double value = 1, Dictionary<string, string> labels = null)
+    public void RecordCounter(string name, double value = 1, Dictionary<string, string>? labels = null)
     {
         try
         {
@@ -135,7 +136,7 @@ public class MetricsCollector : IMetricsCollector, IDisposable
         }
     }
 
-    public void RecordGauge(string name, double value, Dictionary<string, string> labels = null)
+    public void RecordGauge(string name, double value, Dictionary<string, string>? labels = null)
     {
         try
         {
@@ -157,7 +158,7 @@ public class MetricsCollector : IMetricsCollector, IDisposable
         }
     }
 
-    public void RecordHistogram(string name, double value, Dictionary<string, string> labels = null)
+    public void RecordHistogram(string name, double value, Dictionary<string, string>? labels = null)
     {
         try
         {
@@ -189,7 +190,7 @@ public class MetricsCollector : IMetricsCollector, IDisposable
         }
     }
 
-    public void RecordTimer(string name, TimeSpan duration, Dictionary<string, string> labels = null)
+    public void RecordTimer(string name, TimeSpan duration, Dictionary<string, string>? labels = null)
     {
         try
         {
@@ -312,7 +313,7 @@ public class MetricsCollector : IMetricsCollector, IDisposable
         _logger.LogInformation("Stopped metrics collection");
     }
 
-    private string GenerateMetricKey(string name, Dictionary<string, string> labels)
+    private string GenerateMetricKey(string name, Dictionary<string, string>? labels)
     {
         if (labels == null || !labels.Any())
         {
@@ -357,7 +358,7 @@ public class MetricsCollector : IMetricsCollector, IDisposable
         return sortedValues[index];
     }
 
-    private void CollectSystemMetrics(object state)
+    private void CollectSystemMetrics(object? state)
     {
         if (!_isCollecting)
         {
@@ -377,7 +378,7 @@ public class MetricsCollector : IMetricsCollector, IDisposable
             RecordGauge("system_memory_usage_gb", memoryUsage);
 
             // GCメトリクス
-            var gcInfo = System.Runtime.GC.GetGCMemoryInfo();
+            var gcInfo = GC.GetGCMemoryInfo();
             RecordGauge("gc_memory_allocated_mb", gcInfo.HeapSizeBytes / (1024.0 * 1024.0));
             RecordCounter("gc_collections_total", gcInfo.Index);
 
@@ -407,6 +408,11 @@ public class MetricsCollector : IMetricsCollector, IDisposable
     {
         private static readonly MetricsCollector _instance = new MetricsCollector(
             Microsoft.Extensions.Logging.LoggerFactory.Create(builder => builder.AddConsole()).CreateLogger<MetricsCollector>());
+
+        public static async Task<MetricsSnapshot> GetMetricsSnapshotAsync()
+        {
+            return await _instance.GetMetricsSnapshotAsync();
+        }
 
         public static void RecordRequest(string method, string endpoint, int statusCode, TimeSpan duration)
         {
@@ -465,7 +471,7 @@ public class MetricsCollector : IMetricsCollector, IDisposable
             });
         }
 
-        public static void RecordBusinessMetric(string metricName, double value, Dictionary<string, string> labels = null)
+        public static void RecordBusinessMetric(string metricName, double value, Dictionary<string, string>? labels = null)
         {
             _instance.RecordGauge($"business_{metricName}", value, labels);
         }

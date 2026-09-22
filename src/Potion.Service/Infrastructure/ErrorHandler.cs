@@ -18,36 +18,38 @@ public interface IErrorHandler
     void RecordMetrics(string operation, bool success, TimeSpan duration);
 }
 
-    public enum ErrorType
-    {
-        Network,
-        FileSystem,
-        Security,
-        Configuration,
-        Resource,
-        Timeout,
-        Validation,
-        ExternalService,
-        Internal,
-        Unknown
-    }
+public enum ErrorType
+{
+    Network,
+    FileSystem,
+    Security,
+    Configuration,
+    Resource,
+    Timeout,
+    Validation,
+    ExternalService,
+    Internal,
+    Authentication,
+    Temporary,
+    Unknown
+}
 
-    public enum ErrorSeverity
-    {
-        Low,
-        Medium,
-        High,
-        Critical
-    }
+public enum ErrorSeverity
+{
+    Low,
+    Medium,
+    High,
+    Critical
+}
 
-    public enum ErrorRecoveryAction
-    {
-        Retry,
-        Fail,
-        Degrade,
-        Escalate,
-        Ignore
-    }
+public enum ErrorRecoveryAction
+{
+    Retry,
+    Fail,
+    Degrade,
+    Escalate,
+    Ignore
+}
 
 public sealed class ErrorHandler : IErrorHandler, IDisposable
 {
@@ -56,10 +58,9 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
     private readonly ConcurrentDictionary<string, OperationMetrics> _operationMetrics = new();
     private readonly Timer _cleanupTimer;
     private readonly SemaphoreSlim _circuitBreaker = new(1, 1);
-    private readonly ConcurrentDictionary<string, CircuitState> _circuitStates = new();
+    private readonly ConcurrentDictionary<string, CircuitStateInfo> _circuitStates = new();
     private const int CircuitBreakerFailureThreshold = 5;
     private const int CircuitBreakerResetTimeMinutes = 5;
-    private bool _disposed;
 
     public ErrorHandler(ILogger<ErrorHandler> logger)
     {
@@ -100,11 +101,11 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
 
         // CEF形式でのログ出力（SIEM対応）
         var cefLog = UserFriendlyErrorMessages.FormatAsCEF(structuredLog);
-        _logger.Log(logLevel, "CEF: {CEFEntry}", cefLog);
+        _logger.Log((Microsoft.Extensions.Logging.LogLevel)logLevel, new EventId(0), (Exception?)null, "CEF: {CEFEntry}", cefLog);
 
         // JSON形式での構造化ログ出力
         var jsonLog = UserFriendlyErrorMessages.FormatAsJson(structuredLog);
-        _logger.Log(logLevel, "Structured: {@StructuredLog}", structuredLog);
+        _logger.Log((Microsoft.Extensions.Logging.LogLevel)logLevel, new EventId(0), (Exception?)null, "Structured: {@StructuredLog}", structuredLog);
 
         // 重大なエラーの場合は詳細ログをファイルに保存
         if (severity == ErrorSeverity.Critical)
@@ -223,9 +224,9 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
         };
     }
 
-    private CircuitState GetCircuitState(string key)
+    private CircuitStateInfo GetCircuitState(string key)
     {
-        return _circuitStates.GetOrAdd(key, _ => new CircuitState());
+        return _circuitStates.GetOrAdd(key, _ => new CircuitStateInfo());
     }
 
     public async Task<ErrorRecoveryAction> DetermineRecoveryActionAsync(Exception exception, string context, CancellationToken cancellationToken)
@@ -581,25 +582,6 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
     }
 }
 
-public enum ErrorType
-{
-    Network,
-    FileSystem,
-    Authentication,
-    Configuration,
-    Security,
-    Temporary,
-    Unknown
-}
-
-public enum ErrorSeverity
-{
-    Low,
-    Medium,
-    High,
-    Critical
-}
-
 public sealed class ErrorStatistics
 {
     public DateTimeOffset FirstOccurrence { get; set; }
@@ -621,11 +603,12 @@ public sealed class OperationMetrics
     public TimeSpan AverageDuration => TotalCalls > 0 ? TimeSpan.FromTicks(TotalDuration.Ticks / TotalCalls) : TimeSpan.Zero;
 }
 
-public sealed class CircuitState
+public sealed class CircuitStateInfo
 {
     public CircuitBreakerState State { get; set; } = CircuitBreakerState.Closed;
     public int FailureCount { get; set; }
     public DateTimeOffset LastFailureTime { get; set; }
+    public int HalfOpenAttempts { get; set; }
 }
 
 public enum CircuitBreakerState
@@ -642,7 +625,7 @@ public enum BackoffStrategy
     Exponential
 }
 
-public enum RecoveryAction
+public enum FailureRecoveryAction
 {
     FailImmediately,
     FailAfterRetry,
@@ -652,7 +635,7 @@ public enum RecoveryAction
 }
 
 public sealed record ErrorRecoveryStrategy(
-    RecoveryAction Action,
+    FailureRecoveryAction Action,
     string Reason,
     TimeSpan InitialDelay,
     int MaxRetries);
@@ -695,7 +678,7 @@ public static class UserFriendlyErrorMessages
         if (errorType == ErrorType.Security || errorType == ErrorType.Authentication)
         {
             return new ErrorRecoveryStrategy(
-                RecoveryAction.FailImmediately,
+                FailureRecoveryAction.FailImmediately,
                 "Security/authentication errors cannot be recovered automatically",
                 TimeSpan.Zero,
                 0);
@@ -705,7 +688,7 @@ public static class UserFriendlyErrorMessages
         if (severity == ErrorSeverity.Critical)
         {
             return new ErrorRecoveryStrategy(
-                RecoveryAction.EscalateWithRetry,
+                FailureRecoveryAction.EscalateWithRetry,
                 "Critical error detected, escalating to administrator",
                 TimeSpan.FromMinutes(5),
                 2);
@@ -715,7 +698,7 @@ public static class UserFriendlyErrorMessages
         if (errorType == ErrorType.Network || errorType == ErrorType.Temporary)
         {
             return new ErrorRecoveryStrategy(
-                RecoveryAction.RetryWithBackoff,
+                FailureRecoveryAction.RetryWithBackoff,
                 "Transient error detected, retrying with exponential backoff",
                 TimeSpan.FromSeconds(2),
                 7);
@@ -725,7 +708,7 @@ public static class UserFriendlyErrorMessages
         if (errorType == ErrorType.FileSystem)
         {
             return new ErrorRecoveryStrategy(
-                RecoveryAction.RetryWithBackoff,
+                FailureRecoveryAction.RetryWithBackoff,
                 "File system error detected, retrying with delays",
                 TimeSpan.FromSeconds(5),
                 4);
@@ -735,7 +718,7 @@ public static class UserFriendlyErrorMessages
         if (errorType == ErrorType.Configuration)
         {
             return new ErrorRecoveryStrategy(
-                RecoveryAction.FailAfterRetry,
+                FailureRecoveryAction.FailAfterRetry,
                 "Configuration error detected, limited retries available",
                 TimeSpan.FromSeconds(30),
                 1);
@@ -743,7 +726,7 @@ public static class UserFriendlyErrorMessages
 
         // Default: retry with moderate backoff
         return new ErrorRecoveryStrategy(
-            RecoveryAction.RetryWithBackoff,
+            FailureRecoveryAction.RetryWithBackoff,
             "Error detected, attempting recovery",
             TimeSpan.FromSeconds(3),
             3);
@@ -787,6 +770,16 @@ public static class UserFriendlyErrorMessages
         Exception? exception = null,
         Dictionary<string, object>? additionalData = null)
     {
+        var exceptionDetails = exception == null
+            ? null
+            : new ExceptionDetails
+            {
+                Type = exception.GetType().FullName,
+                Message = exception.Message,
+                StackTrace = exception.StackTrace,
+                InnerException = exception.InnerException?.Message
+            };
+
         var entry = new StructuredLogEntry
         {
             Timestamp = DateTimeOffset.UtcNow,
@@ -797,27 +790,13 @@ public static class UserFriendlyErrorMessages
             Message = message,
             Hostname = Environment.MachineName,
             ProcessId = Environment.ProcessId,
+            Exception = exceptionDetails,
+            AdditionalData = additionalData,
             ThreadId = Environment.CurrentManagedThreadId,
             User = Environment.UserName,
             OSVersion = Environment.OSVersion.ToString(),
             FrameworkVersion = Environment.Version.ToString()
         };
-
-        if (exception != null)
-        {
-            entry.Exception = new ExceptionDetails
-            {
-                Type = exception.GetType().FullName,
-                Message = exception.Message,
-                StackTrace = exception.StackTrace,
-                InnerException = exception.InnerException?.Message
-            };
-        }
-
-        if (additionalData != null)
-        {
-            entry.AdditionalData = additionalData;
-        }
 
         return entry;
     }

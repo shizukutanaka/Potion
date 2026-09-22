@@ -18,7 +18,7 @@ public interface IKubernetesOperatorService
     Task<ReconciliationResult> ReconcileResourceAsync(string resourceName);
     Task<HealthCheckResult> PerformReadinessCheckAsync();
     Task<HealthCheckResult> PerformLivenessCheckAsync();
-    Task<ScalingDecision> GetScalingRecommendationAsync(string resourceName);
+    Task<KubernetesScalingDecision> GetScalingRecommendationAsync(string resourceName);
     Task<bool> ScaleResourceAsync(string resourceName, int replicaCount);
     Task<IEnumerable<CustomResourceDefinition>> GetCustomResourcesAsync();
     event Action<ResourceEvent>? OnResourceChanged;
@@ -94,7 +94,7 @@ public record CustomResourceDefinition(
 /// <summary>
 /// スケーリング決定
 /// </summary>
-public record ScalingDecision(
+public record KubernetesScalingDecision(
     string ResourceName,
     int CurrentReplicas,
     int RecommendedReplicas,
@@ -214,7 +214,7 @@ public class KubernetesOperatorService : IKubernetesOperatorService
 
     public async Task<HealthCheckResult> PerformReadinessCheckAsync()
     {
-        var components = new[]
+        var components = new (string Name, Func<Task<bool>> Check)[]
         {
             ("ServiceMesh", CheckServiceMeshReadiness),
             ("AnomalyDetection", CheckAnomalyDetectionReadiness),
@@ -257,7 +257,7 @@ public class KubernetesOperatorService : IKubernetesOperatorService
 
     public async Task<HealthCheckResult> PerformLivenessCheckAsync()
     {
-        var components = new[]
+        var components = new (string Name, Func<Task<bool>> Check)[]
         {
             ("Process", CheckProcessLiveness),
             ("Memory", CheckMemoryLiveness),
@@ -297,7 +297,7 @@ public class KubernetesOperatorService : IKubernetesOperatorService
         return new HealthCheckResult(isSystemAlive, healthResults, DateTimeOffset.UtcNow);
     }
 
-    public async Task<ScalingDecision> GetScalingRecommendationAsync(string resourceName)
+    public async Task<KubernetesScalingDecision> GetScalingRecommendationAsync(string resourceName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourceName);
 
@@ -308,7 +308,7 @@ public class KubernetesOperatorService : IKubernetesOperatorService
         // スケーリングアルゴリズムを適用
         var (recommendedReplicas, reason, confidence) = await CalculateOptimalReplicasAsync(resourceName, currentMetrics);
 
-        return new ScalingDecision(
+        return new KubernetesScalingDecision(
             resourceName,
             currentReplicas,
             recommendedReplicas,
@@ -404,7 +404,7 @@ public class KubernetesOperatorService : IKubernetesOperatorService
         ));
     }
 
-    private async void ReconcileAllResources(object state)
+    private async void ReconcileAllResources(object? state)
     {
         try
         {
@@ -417,7 +417,7 @@ public class KubernetesOperatorService : IKubernetesOperatorService
         }
     }
 
-    private async void PerformAllHealthChecks(object state)
+    private async void PerformAllHealthChecks(object? state)
     {
         try
         {
@@ -471,9 +471,9 @@ public class KubernetesOperatorService : IKubernetesOperatorService
         string resourceName, Dictionary<string, object> metrics)
     {
         // HPA (Horizontal Pod Autoscaler) 風のスケーリングアルゴリズム
-        var cpuUsage = metrics.GetValueOrDefault("CpuUsage", 50.0);
-        var memoryUsage = metrics.GetValueOrDefault("MemoryUsage", 60.0);
-        var requestRate = metrics.GetValueOrDefault("RequestRate", 100.0);
+        var cpuUsage = Convert.ToDouble(metrics.GetValueOrDefault("CpuUsage", 50.0));
+        var memoryUsage = Convert.ToDouble(metrics.GetValueOrDefault("MemoryUsage", 60.0));
+        var requestRate = Convert.ToDouble(metrics.GetValueOrDefault("RequestRate", 100.0));
 
         var currentReplicas = GetCurrentReplicaCount(resourceName);
 
@@ -508,8 +508,8 @@ public class KubernetesOperatorService : IKubernetesOperatorService
     private int GetCurrentReplicaCount(string resourceName)
     {
         // 実際にはKubernetes APIから取得
-        return _resourceStatus.GetValueOrDefault(resourceName, new ResourceStatus(resourceName, "Service", ResourceCondition.Ready, DateTimeOffset.UtcNow, new(), "")).Metrics
-            .GetValueOrDefault("CurrentReplicas", 1);
+        return Convert.ToInt32(_resourceStatus.GetValueOrDefault(resourceName, new ResourceStatus(resourceName, "Service", ResourceCondition.Ready, DateTimeOffset.UtcNow, new(), "")).Metrics
+            .GetValueOrDefault("CurrentReplicas", 1));
     }
 
     private async Task<Dictionary<string, object>> GetCurrentMetricsAsync(string resourceName)

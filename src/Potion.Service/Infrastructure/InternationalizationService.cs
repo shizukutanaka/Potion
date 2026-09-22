@@ -31,10 +31,10 @@ namespace Potion.Service.Infrastructure
             }
 
             // Try to get from memory cache
-            if (_cache.TryGetValue(cacheKey, out cachedValue))
+            if (_cache.TryGetValue(cacheKey, out var cachedObj) && cachedObj is string cachedStr)
             {
-                _translationCache[cacheKey] = cachedValue;
-                return cachedValue;
+                _translationCache[cacheKey] = cachedStr;
+                return cachedStr;
             }
 
             // Get from localizer and cache the result

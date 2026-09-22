@@ -246,13 +246,12 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
 
     private (long UsedBytes, long AvailableBytes) GetMemoryInfo()
     {
-        var memoryInfo = new MemoryInfo();
-        memoryInfo.Refresh();
-
-        return (
-            UsedBytes: (long)((memoryInfo.TotalPhysicalMemory - memoryInfo.AvailablePhysicalMemory) * 1024),
-            AvailableBytes: (long)(memoryInfo.AvailablePhysicalMemory * 1024)
-        );
+        using var searcher = new System.Management.ManagementObjectSearcher(
+            "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
+        var os = searcher.Get().Cast<System.Management.ManagementObject>().First();
+        var totalBytes = Convert.ToInt64(os["TotalVisibleMemorySize"]) * 1024;
+        var freeBytes = Convert.ToInt64(os["FreePhysicalMemory"]) * 1024;
+        return (totalBytes - freeBytes, freeBytes);
     }
 
     private (double UsagePercent, long ReadBytesPerSec, long WriteBytesPerSec) GetDiskInfo()
@@ -352,7 +351,7 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             // メモリ解放の実行
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                var result = await _processRunner.ExecuteAsync("EmptyStandbyList.exe", "", cancellationToken: cancellationToken);
+                var result = await _processRunner.RunAsync(new ProcessStartInfo("EmptyStandbyList.exe", ""), TimeSpan.FromMinutes(2), cancellationToken);
                 if (result.ExitCode == 0)
                 {
                     actions.Add("スタンバイメモリを解放しました");
@@ -396,7 +395,7 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
                 var tempPaths = new[] { Path.GetTempPath(), Environment.GetEnvironmentVariable("TEMP") };
                 foreach (var tempPath in tempPaths.Where(p => !string.IsNullOrEmpty(p)))
                 {
-                    var tempFiles = Directory.GetFiles(tempPath, "*.*", SearchOption.AllDirectories)
+                    var tempFiles = Directory.GetFiles(tempPath!, "*.*", SearchOption.AllDirectories)
                         .Where(f => File.GetLastWriteTimeUtc(f) < DateTime.UtcNow.AddDays(-1))
                         .Take(100); // 制限付きで処理
 
@@ -473,16 +472,17 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
         try
         {
             // ネットワーク接続の最適化
-            var result = await _processRunner.ExecuteAsync("netsh", "interface tcp set global autotuninglevel=normal", cancellationToken: cancellationToken);
+            var result = await _processRunner.RunAsync(new ProcessStartInfo("netsh", "interface tcp set global autotuninglevel=normal"), TimeSpan.FromMinutes(2), cancellationToken);
             if (result.ExitCode == 0)
             {
                 actions.Add("ネットワーク設定を最適化しました");
             }
 
             // 電源設定の確認（ラップトップの場合）
-            if (SystemInformation.PowerStatus.BatteryChargeStatus != BatteryChargeStatus.NoSystemBattery)
+            using var batterySearcher = new System.Management.ManagementObjectSearcher("SELECT BatteryStatus FROM Win32_Battery");
+            if (batterySearcher.Get().Count > 0)
             {
-                var powerResult = await _processRunner.ExecuteAsync("powercfg", "/setactive 381b4222-f694-41f0-9685-ff5bb260df2e", cancellationToken: cancellationToken);
+                var powerResult = await _processRunner.RunAsync(new ProcessStartInfo("powercfg", "/setactive 381b4222-f694-41f0-9685-ff5bb260df2e"), TimeSpan.FromMinutes(2), cancellationToken);
                 if (powerResult.ExitCode == 0)
                 {
                     actions.Add("電源設定をバランスモードに変更しました");

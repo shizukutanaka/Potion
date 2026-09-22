@@ -1,3 +1,16 @@
+using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
+using Potion.Service.Options;
+
+namespace Potion.Service.Infrastructure;
+
 // AutoRecoveryManager functionality has been integrated into DistributedSelfHealingService.cs
 // to reduce code duplication and improve maintainability.
 // AutoRecoveryManager functionality has been integrated into DistributedSelfHealingService.cs
@@ -134,7 +147,7 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         var checkTime = DateTimeOffset.UtcNow;
 
         // 主要コンポーネントのヘルスチェック
-        var components = new[]
+        var components = new (string Name, Func<CancellationToken, Task<bool>> Check)[]
         {
             ("ServiceHost", CheckServiceHostHealth),
             ("Scheduler", CheckSchedulerHealth),
@@ -430,6 +443,20 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         }
     }
 
+    private async Task<bool> CheckNetworkHealth(CancellationToken cancellationToken)
+    {
+        try
+        {
+            // ネットワークの状態チェック（実際の実装では適切な方法で）
+            await Task.Delay(100, cancellationToken); // シミュレーション
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     private async Task<bool> CheckSchedulerHealth(CancellationToken cancellationToken)
     {
         try
@@ -509,7 +536,7 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
     {
         try
         {
-            var driveInfo = new DriveInfo(Path.GetPathRoot(ServicePaths.Base));
+            var driveInfo = new DriveInfo(Path.GetPathRoot(ServicePaths.Base) ?? "C:\\");
             var availablePercent = (double)driveInfo.AvailableFreeSpace / driveInfo.TotalSize * 100;
 
             // 利用可能ディスク容量が10%未満の場合は警告

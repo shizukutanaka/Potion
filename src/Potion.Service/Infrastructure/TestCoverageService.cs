@@ -172,17 +172,17 @@ public class TestExecutionResult
     public int PassedTests { get; set; }
     public int FailedTests { get; set; }
     public TimeSpan Duration { get; set; }
-    public List<TestResult> TestResults { get; set; } = new();
+    public List<CoverageTestResult> TestResults { get; set; } = new();
     public Dictionary<string, object> Metrics { get; set; } = new();
 }
 
 /// <summary>
 /// テスト結果
 /// </summary>
-public class TestResult
+public class CoverageTestResult
 {
     public string TestName { get; set; } = string.Empty;
-    public TestStatus Status { get; set; }
+    public CoverageTestStatus Status { get; set; }
     public TimeSpan Duration { get; set; }
     public string ErrorMessage { get; set; } = string.Empty;
     public Dictionary<string, object> Assertions { get; set; } = new();
@@ -191,7 +191,7 @@ public class TestResult
 /// <summary>
 /// テスト状態
 /// </summary>
-public enum TestStatus
+public enum CoverageTestStatus
 {
     Passed,
     Failed,
@@ -206,14 +206,14 @@ public class TestOptimization
 {
     public string Type { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
-    public OptimizationImpact Impact { get; set; }
+    public CoverageOptimizationImpact Impact { get; set; }
     public List<string> Actions { get; set; } = new();
 }
 
 /// <summary>
 /// 最適化影響度
 /// </summary>
-public enum OptimizationImpact
+public enum CoverageOptimizationImpact
 {
     Low,
     Medium,
@@ -334,7 +334,7 @@ public class TestCoverageService : ITestCoverageService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error generating test case for method: {MethodName}", method.Name);
-            return null;
+            return null!;
         }
     }
 
@@ -437,11 +437,11 @@ public class TestCoverageService : ITestCoverageService
                 var testResult = await ExecuteTestCaseAsync(testCase);
                 result.TestResults.Add(testResult);
 
-                if (testResult.Status == TestStatus.Passed)
+                if (testResult.Status == CoverageTestStatus.Passed)
                 {
                     result.PassedTests++;
                 }
-                else if (testResult.Status == TestStatus.Failed)
+                else if (testResult.Status == CoverageTestStatus.Failed)
                 {
                     result.FailedTests++;
                 }
@@ -483,7 +483,7 @@ public class TestCoverageService : ITestCoverageService
             {
                 Type = "ParallelExecution",
                 Description = "Enable parallel test execution to reduce total execution time",
-                Impact = OptimizationImpact.High,
+                Impact = CoverageOptimizationImpact.High,
                 Actions = new List<string>
                 {
                     "Configure test framework for parallel execution",
@@ -496,7 +496,7 @@ public class TestCoverageService : ITestCoverageService
             {
                 Type = "TestDataGeneration",
                 Description = "Implement automated test data generation to improve coverage",
-                Impact = OptimizationImpact.Medium,
+                Impact = CoverageOptimizationImpact.Medium,
                 Actions = new List<string>
                 {
                     "Create test data builders for complex objects",
@@ -509,7 +509,7 @@ public class TestCoverageService : ITestCoverageService
             {
                 Type = "MockOptimization",
                 Description = "Optimize mock usage to reduce test execution time",
-                Impact = OptimizationImpact.Medium,
+                Impact = CoverageOptimizationImpact.Medium,
                 Actions = new List<string>
                 {
                     "Use lightweight mocks instead of heavy frameworks",
@@ -522,7 +522,7 @@ public class TestCoverageService : ITestCoverageService
             {
                 Type = "CoverageAnalysis",
                 Description = "Regular coverage analysis to identify untested code paths",
-                Impact = OptimizationImpact.High,
+                Impact = CoverageOptimizationImpact.High,
                 Actions = new List<string>
                 {
                     "Set up automated coverage reporting",
@@ -805,7 +805,7 @@ public class TestCoverageService : ITestCoverageService
             Type t when t == typeof(bool) => true,
             Type t when t == typeof(DateTime) => DateTime.UtcNow,
             Type t when t == typeof(Guid) => Guid.NewGuid(),
-            _ => Activator.CreateInstance(parameter.ParameterType)
+            _ => Activator.CreateInstance(parameter.ParameterType)!
         };
     }
 
@@ -827,7 +827,7 @@ public class TestCoverageService : ITestCoverageService
 
         foreach (var parameter in method.GetParameters())
         {
-            input[parameter.Name ?? "param"] = null;
+            input[parameter.Name ?? "param"] = new object();
         }
 
         return input;
@@ -882,13 +882,13 @@ public class TestCoverageService : ITestCoverageService
         return new List<TestCase>();
     }
 
-    private async Task<TestResult> ExecuteTestCaseAsync(TestCase testCase)
+    private async Task<CoverageTestResult> ExecuteTestCaseAsync(TestCase testCase)
     {
         // 実際の実装ではテストフレームワークでテストケースを実行
-        return new TestResult
+        return new CoverageTestResult
         {
             TestName = testCase.TestName,
-            Status = TestStatus.Passed,
+            Status = CoverageTestStatus.Passed,
             Duration = TimeSpan.FromMilliseconds(150)
         };
     }

@@ -85,11 +85,7 @@ public sealed class FileTaskStateStore(ILogger<FileTaskStateStore> logger) : ITa
             {
                 await JsonSerializer.SerializeAsync(stream, state, SerializerOptions, cancellationToken);
                 await stream.FlushAsync(cancellationToken);
-#if NET8_0_OR_GREATER
-                await stream.FlushAsync(flushToDisk: true, cancellationToken);
-#else
-                stream.Flush(true);
-#endif
+                stream.Flush(flushToDisk: true);
             }
 
             File.Move(tempPath, path, overwrite: true);

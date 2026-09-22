@@ -912,7 +912,7 @@ public class TestAutomationReportingMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         // リクエストにテスト自動化情報を追加
-        context.Response.Headers.Add("X-Test-Automation", "enabled");
+        context.Response.Headers.Append("X-Test-Automation", "enabled");
 
         await _next(context);
     }

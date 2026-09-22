@@ -1,4 +1,5 @@
 using System;
+using Potion.Service.Infrastructure;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
@@ -147,13 +148,8 @@ public sealed class AnomalyDetectionService : IAnomalyDetectionService
                     "NormalizedNetwork", "NormalizedQueue", "AvailableMemoryMB", "DiskUsagePercent"))
 
                 // Apply Isolation Forest anomaly detection
-                .Append(_mlContext.AnomalyDetection.Trainers.IsolationForest(
-                    outputColumnName: "AnomalyScore",
-                    inputColumnName: "Features",
-                    numTrees: 100,
-                    numSamplesPerTree: 256,
-                    contaminationFraction: 0.05
-                ));
+                .Append(_mlContext.AnomalyDetection.Trainers.RandomizedPca(
+                    "AnomalyScore", "Features", 10));
 
             // Train model
             _anomalyModel = pipeline.Fit(dataView);

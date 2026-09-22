@@ -5,6 +5,7 @@ using System.Collections.Concurrent;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
+using Potion.Service.Hubs;
 
 namespace Potion.Service.Infrastructure;
 
@@ -22,7 +23,7 @@ public class UserBehaviorAnalyticsService : IHostedService, IDisposable
     private readonly ILogger<UserBehaviorAnalyticsService> _logger;
     private readonly UserBehaviorOptions _options;
     private readonly CollaborationService _collaborationService;
-    private readonly ConcurrentDictionary<string, UserBehaviorProfile> _userProfiles = new();
+    private readonly ConcurrentDictionary<string, BehaviorAnalyticsProfile> _userProfiles = new();
     private Timer? _analysisTimer;
 
     public UserBehaviorAnalyticsService(
@@ -69,7 +70,7 @@ public class UserBehaviorAnalyticsService : IHostedService, IDisposable
 
     public void TrackUserAction(string userId, string action, object? data = null)
     {
-        var profile = _userProfiles.GetOrAdd(userId, id => new UserBehaviorProfile
+        var profile = _userProfiles.GetOrAdd(userId, id => new BehaviorAnalyticsProfile
         {
             UserId = id,
             FirstSeen = DateTimeOffset.UtcNow,
@@ -111,7 +112,7 @@ public class UserBehaviorAnalyticsService : IHostedService, IDisposable
         }
     }
 
-    private UserBehaviorReport CreateBehaviorReport(IEnumerable<UserSession> activeUsers)
+    private UserBehaviorReport CreateBehaviorReport(IEnumerable<Potion.Service.Hubs.UserSession> activeUsers)
     {
         var report = new UserBehaviorReport
         {
@@ -203,7 +204,7 @@ public class UserBehaviorAnalyticsService : IHostedService, IDisposable
     }
 }
 
-public class UserBehaviorProfile
+public class BehaviorAnalyticsProfile
 {
     public string UserId { get; set; } = string.Empty;
     public DateTimeOffset FirstSeen { get; set; }

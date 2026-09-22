@@ -68,7 +68,7 @@ public sealed class ResilienceManager : IResilienceManager
         public DateTime LastFailureTime { get; set; }
         public DateTime? NextRetryTime { get; set; }
         public int MaxConcurrent { get; set; } = 1;
-        public int CurrentConcurrent { get; set; }
+        public int CurrentConcurrent;
     }
 
     public ResilienceManager(ILogger<ResilienceManager> logger)

@@ -69,13 +69,13 @@ public record HealthCheckEndpoint(
 public record ServiceCapabilities(
     string[] SupportedProtocols,
     string[] AuthenticationMethods,
-    RateLimitInfo RateLimits,
+    MeshRateLimitInfo RateLimits,
     SecurityInfo Security);
 
 /// <summary>
 /// レート制限情報
 /// </summary>
-public record RateLimitInfo(
+public record MeshRateLimitInfo(
     int RequestsPerSecond,
     int BurstLimit,
     TimeSpan WindowSize);
@@ -183,7 +183,7 @@ public class ServiceMeshService : IServiceMeshService
         var registration = _serviceRegistry.GetOrAdd(serviceName, _ =>
         {
             _logger.LogWarning("Service {ServiceName} not found in registry", serviceName);
-            return null;
+            return null!;
         });
 
         if (registration == null)
@@ -276,7 +276,7 @@ public class ServiceMeshService : IServiceMeshService
         _serviceHealth[serviceName] = health;
     }
 
-    private async void PerformHealthChecks(object state)
+    private async void PerformHealthChecks(object? state)
     {
         try
         {
@@ -315,7 +315,7 @@ public class ServiceMeshService : IServiceMeshService
         }
     }
 
-    private async void CleanupStaleServices(object state)
+    private async void CleanupStaleServices(object? state)
     {
         try
         {
@@ -343,17 +343,17 @@ public class CircuitBreaker
 {
     private readonly int _failureThreshold = 5;
     private readonly TimeSpan _timeout = TimeSpan.FromSeconds(30);
-    private CircuitState _state = CircuitState.Closed;
+    private MeshCircuitState _state = MeshCircuitState.Closed;
     private int _failureCount = 0;
     private DateTime _lastFailureTime = DateTime.MinValue;
 
     public async Task<T> ExecuteAsync<T>(Func<Task<T>> operation)
     {
-        if (_state == CircuitState.Open)
+        if (_state == MeshCircuitState.Open)
         {
             if (DateTime.UtcNow - _lastFailureTime > _timeout)
             {
-                _state = CircuitState.HalfOpen;
+                _state = MeshCircuitState.HalfOpen;
             }
             else
             {
@@ -367,7 +367,7 @@ public class CircuitBreaker
             Reset();
             return result;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             RecordFailure();
             throw;
@@ -381,21 +381,21 @@ public class CircuitBreaker
 
         if (_failureCount >= _failureThreshold)
         {
-            _state = CircuitState.Open;
+            _state = MeshCircuitState.Open;
         }
     }
 
     private void Reset()
     {
-        _state = CircuitState.Closed;
+        _state = MeshCircuitState.Closed;
         _failureCount = 0;
         _lastFailureTime = DateTime.MinValue;
     }
 
-    public CircuitState GetState() => _state;
+    public MeshCircuitState GetState() => _state;
 }
 
-public enum CircuitState
+public enum MeshCircuitState
 {
     Closed,
     Open,

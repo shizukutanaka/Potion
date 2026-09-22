@@ -105,7 +105,7 @@ public class MobileOptimizationService : IMobileOptimizationService
 
             return optimized;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // エラーが発生した場合は元のコンテンツを返す
             return htmlContent;
@@ -234,7 +234,7 @@ img {
 
             return optimized;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return cssContent;
         }
@@ -402,7 +402,7 @@ img {
 
             return optimized;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             return jsContent;
         }

@@ -80,7 +80,7 @@ public sealed class WindowsRepairService : IWindowsRepairService
             }
 
             var startTime = DateTimeOffset.UtcNow;
-            var result = await _processRunner.RunAsync("cmd.exe", "/c sfc /scannow", cancellationToken);
+            var result = await _processRunner.RunAsync(new ProcessStartInfo("cmd.exe", "/c sfc /scannow"), TimeSpan.FromMinutes(10), cancellationToken);
             var duration = DateTimeOffset.UtcNow - startTime;
 
             var success = result.ExitCode == 0;
@@ -134,7 +134,7 @@ public sealed class WindowsRepairService : IWindowsRepairService
                 : $"{driveLetter}: /F";
 
             var startTime = DateTimeOffset.UtcNow;
-            var result = await _processRunner.RunAsync("cmd.exe", $"/c chkdsk {args}", cancellationToken);
+            var result = await _processRunner.RunAsync(new ProcessStartInfo("cmd.exe", $"/c chkdsk {args}"), TimeSpan.FromMinutes(10), cancellationToken);
             var duration = DateTimeOffset.UtcNow - startTime;
 
             await _auditTrailService.LogAsync(
@@ -184,8 +184,8 @@ public sealed class WindowsRepairService : IWindowsRepairService
 
             var startTime = DateTimeOffset.UtcNow;
             var result = await _processRunner.RunAsync(
-                "cmd.exe",
-                "/c dism /Online /Cleanup-Image /RestoreHealth",
+                new ProcessStartInfo("cmd.exe", "/c dism /Online /Cleanup-Image /RestoreHealth"),
+                TimeSpan.FromMinutes(30),
                 cancellationToken
             );
             var duration = DateTimeOffset.UtcNow - startTime;
@@ -244,7 +244,7 @@ public sealed class WindowsRepairService : IWindowsRepairService
             }
 
             var startTime = DateTimeOffset.UtcNow;
-            var result = await _processRunner.RunAsync("cmd.exe", "/c Cleanmgr /sagerun:1", cancellationToken);
+            var result = await _processRunner.RunAsync(new ProcessStartInfo("cmd.exe", "/c Cleanmgr /sagerun:1"), TimeSpan.FromMinutes(10), cancellationToken);
             var duration = DateTimeOffset.UtcNow - startTime;
 
             await _auditTrailService.LogAsync("CLEANUP_COMPLETED", "Windows component cleanup completed");
@@ -275,8 +275,8 @@ public sealed class WindowsRepairService : IWindowsRepairService
 
             // Get list of startup programs
             var result = await _processRunner.RunAsync(
-                "powershell.exe",
-                "-NoProfile -Command \"Get-CimInstance Win32_StartupCommand | Select-Object Name, Command | ConvertTo-Json\"",
+                new ProcessStartInfo("powershell.exe", "-NoProfile -Command \"Get-CimInstance Win32_StartupCommand | Select-Object Name, Command | ConvertTo-Json\""),
+                TimeSpan.FromMinutes(10),
                 cancellationToken
             );
 

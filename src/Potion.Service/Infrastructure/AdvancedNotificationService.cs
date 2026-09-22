@@ -78,6 +78,7 @@ public enum NotificationType
     Info,
     Success,
     Warning,
+    Critical,
     Error,
     System,
     Security,
@@ -670,7 +671,7 @@ public class AdvancedNotificationService : IAdvancedNotificationService
             };
 
             var result = await notificationService.SendNotificationAsync(request);
-            return result.Success ? new Notification { NotificationId = result.NotificationId } : null;
+            return result.Success ? new Notification { NotificationId = result.NotificationId } : null!;
         }
 
         private static async Task<Notification> CreateNotificationAsync(IAdvancedNotificationService notificationService, string userId, string message, NotificationType type, NotificationPriority priority = NotificationPriority.Normal)
@@ -685,7 +686,7 @@ public class AdvancedNotificationService : IAdvancedNotificationService
             };
 
             var result = await notificationService.SendNotificationAsync(request);
-            return result.Success ? new Notification { NotificationId = result.NotificationId } : null;
+            return result.Success ? new Notification { NotificationId = result.NotificationId } : null!;
         }
     }
 }

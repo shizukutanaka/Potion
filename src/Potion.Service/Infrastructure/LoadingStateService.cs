@@ -759,7 +759,7 @@ public class LoadingStateService : ILoadingStateService
         {
             var service = new LoadingStateService();
 
-            for (int i = 0; i < count; i++)
+            if (count > 0)
             {
                 var options = new SkeletonScreenOptions
                 {
@@ -859,7 +859,7 @@ public class LoadingStateOptimizationMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         // リクエストにローディング状態ヘッダーを追加
-        context.Response.Headers.Add("X-Loading-State", "optimized");
+        context.Response.Headers.Append("X-Loading-State", "optimized");
 
         await _next(context);
     }

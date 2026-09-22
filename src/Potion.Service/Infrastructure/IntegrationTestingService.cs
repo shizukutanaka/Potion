@@ -13,19 +13,19 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface IIntegrationTestingService
 {
-    Task<IntegrationTestResult> RunFullIntegrationTestsAsync();
+    Task<IntegrationTestingResult> RunFullIntegrationTestsAsync();
     Task<ServiceIntegrationResult> TestServiceIntegrationAsync(string serviceName);
     Task<EndToEndTestResult> RunEndToEndTestsAsync();
     Task<LoadTestResult> RunLoadTestsAsync(int concurrentUsers, TimeSpan duration);
     Task<ResilienceTestResult> RunResilienceTestsAsync();
-    Task<ValidationResult> ValidateAllConfigurationsAsync();
-    Task<TestReport> GenerateTestReportAsync();
+    Task<TestingValidationResult> ValidateAllConfigurationsAsync();
+    Task<TestingTestReport> GenerateTestReportAsync();
 }
 
 /// <summary>
 /// 統合テスト結果
 /// </summary>
-public class IntegrationTestResult
+public class IntegrationTestingResult
 {
     public bool OverallSuccess { get; set; }
     public int TotalTests { get; set; }
@@ -45,7 +45,8 @@ public record ServiceIntegrationResult(
     bool Success,
     TimeSpan Duration,
     List<string> Dependencies,
-    Dictionary<string, object> Metrics);
+    Dictionary<string, object> Metrics,
+    string? ErrorMessage);
 
 /// <summary>
 /// エンドツーエンドテスト結果
@@ -55,6 +56,7 @@ public class EndToEndTestResult
     public bool Success { get; set; }
     public TimeSpan TotalDuration { get; set; }
     public int TotalRequests { get; set; }
+    public int SuccessfulRequests { get; set; }
     public double AverageResponseTime { get; set; }
     public double ErrorRate { get; set; }
     public List<string> FailedScenarios { get; set; } = new();
@@ -75,6 +77,7 @@ public class LoadTestResult
     public double Percentile95 { get; set; }
     public double Percentile99 { get; set; }
     public bool SystemStable { get; set; }
+    public double ErrorRate { get; set; }
 }
 
 /// <summary>
@@ -104,7 +107,7 @@ public record ServiceTestResult(
 /// <summary>
 /// 検証結果
 /// </summary>
-public record ValidationResult(
+public record TestingValidationResult(
     bool IsValid,
     List<string> Errors,
     List<string> Warnings,
@@ -113,14 +116,14 @@ public record ValidationResult(
 /// <summary>
 /// テストレポート
 /// </summary>
-public class TestReport
+public class TestingTestReport
 {
     public DateTimeOffset GeneratedAt { get; set; }
-    public IntegrationTestResult IntegrationTests { get; set; } = new();
+    public IntegrationTestingResult IntegrationTests { get; set; } = new();
     public EndToEndTestResult EndToEndTests { get; set; } = new();
     public LoadTestResult LoadTests { get; set; } = new();
     public ResilienceTestResult ResilienceTests { get; set; } = new();
-    public ValidationResult ConfigurationValidation { get; set; } = new();
+    public TestingValidationResult ConfigurationValidation { get; set; } = new(true, new List<string>(), new List<string>(), new Dictionary<string, object>());
     public string OverallStatus { get; set; } = string.Empty;
     public Dictionary<string, object> Recommendations { get; set; } = new();
 }
@@ -156,12 +159,12 @@ public class IntegrationTestingService : IIntegrationTestingService
         _chaosEngineering = chaosEngineering;
     }
 
-    public async Task<IntegrationTestResult> RunFullIntegrationTestsAsync()
+    public async Task<IntegrationTestingResult> RunFullIntegrationTestsAsync()
     {
         _logger.LogInformation("Starting comprehensive integration tests");
 
         var startTime = DateTimeOffset.UtcNow;
-        var result = new IntegrationTestResult();
+        var result = new IntegrationTestingResult();
         var services = GetAllRegisteredServices();
 
         foreach (var service in services)
@@ -169,7 +172,7 @@ public class IntegrationTestingService : IIntegrationTestingService
             try
             {
                 var serviceResult = await TestServiceIntegrationAsync(service);
-                result.ServiceResults.Add(serviceResult);
+                result.ServiceResults.Add(new ServiceTestResult(service, serviceResult.Success, serviceResult.Duration, new List<string>(), serviceResult.Metrics, serviceResult.ErrorMessage));
                 result.TotalTests++;
 
                 if (serviceResult.Success)
@@ -217,7 +220,8 @@ public class IntegrationTestingService : IIntegrationTestingService
                 true,
                 DateTimeOffset.UtcNow - startTime,
                 dependencies,
-                metrics
+                metrics,
+                null
             );
         }
         catch (Exception ex)
@@ -363,7 +367,7 @@ public class IntegrationTestingService : IIntegrationTestingService
         }
     }
 
-    public async Task<ValidationResult> ValidateAllConfigurationsAsync()
+    public async Task<TestingValidationResult> ValidateAllConfigurationsAsync()
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -394,7 +398,7 @@ public class IntegrationTestingService : IIntegrationTestingService
                 }
             }
 
-            return new ValidationResult(
+            return new TestingValidationResult(
                 errors.Count == 0,
                 errors,
                 warnings,
@@ -404,11 +408,11 @@ public class IntegrationTestingService : IIntegrationTestingService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Configuration validation failed");
-            return new ValidationResult(false, new List<string> { ex.Message }, warnings, validatedComponents);
+            return new TestingValidationResult(false, new List<string> { ex.Message }, warnings, validatedComponents);
         }
     }
 
-    public async Task<TestReport> GenerateTestReportAsync()
+    public async Task<TestingTestReport> GenerateTestReportAsync()
     {
         _logger.LogInformation("Generating comprehensive test report");
 
@@ -439,7 +443,7 @@ public class IntegrationTestingService : IIntegrationTestingService
             recommendations["ResilienceImprovement"] = "Low recovery success rate";
         }
 
-        return new TestReport
+        return new TestingTestReport
         {
             GeneratedAt = DateTimeOffset.UtcNow,
             IntegrationTests = integrationTests,
@@ -605,12 +609,12 @@ public class IntegrationTestingService : IIntegrationTestingService
         return new List<string>(); // 簡易実装
     }
 
-    private async Task<ValidationResult> ValidateServiceConfigurationAsync(string serviceName)
+    private async Task<TestingValidationResult> ValidateServiceConfigurationAsync(string serviceName)
     {
         // サービス設定を検証
         await Task.Delay(50);
 
-        return new ValidationResult(
+        return new TestingValidationResult(
             true,
             new List<string>(),
             new List<string> { $"Configuration for {serviceName} validated" },
@@ -624,17 +628,17 @@ public class IntegrationTestingService : IIntegrationTestingService
 /// </summary>
 public interface IPerformanceBenchmarkService
 {
-    Task<BenchmarkResult> RunBenchmarkAsync(string benchmarkName);
+    Task<TestingBenchmarkResult> RunBenchmarkAsync(string benchmarkName);
     Task<ComparisonResult> CompareImplementationsAsync();
     Task<ProfilingResult> ProfileServiceAsync(string serviceName);
-    Task<MemoryAnalysisResult> AnalyzeMemoryUsageAsync();
-    Task<OptimizationRecommendation> GetOptimizationRecommendationsAsync();
+    Task<TestingMemoryAnalysisResult> AnalyzeMemoryUsageAsync();
+    Task<TestingOptimizationRecommendation> GetOptimizationRecommendationsAsync();
 }
 
 /// <summary>
 /// ベンチマーク結果
 /// </summary>
-public class BenchmarkResult
+public class TestingBenchmarkResult
 {
     public string BenchmarkName { get; set; } = string.Empty;
     public TimeSpan ExecutionTime { get; set; }
@@ -649,7 +653,7 @@ public class BenchmarkResult
 /// </summary>
 public class ComparisonResult
 {
-    public Dictionary<string, BenchmarkResult> ImplementationResults { get; set; } = new();
+    public Dictionary<string, TestingBenchmarkResult> ImplementationResults { get; set; } = new();
     public string BestImplementation { get; set; } = string.Empty;
     public double PerformanceDifference { get; set; }
 }
@@ -669,7 +673,7 @@ public class ProfilingResult
 /// <summary>
 /// メモリ分析結果
 /// </summary>
-public class MemoryAnalysisResult
+public class TestingMemoryAnalysisResult
 {
     public long TotalAllocated { get; set; }
     public long HeapSize { get; set; }
@@ -683,7 +687,7 @@ public class MemoryAnalysisResult
 /// <summary>
 /// 最適化推奨事項
 /// </summary>
-public class OptimizationRecommendation
+public class TestingOptimizationRecommendation
 {
     public List<string> HighPriority { get; set; } = new();
     public List<string> MediumPriority { get; set; } = new();
@@ -708,7 +712,7 @@ public class PerformanceBenchmarkService : IPerformanceBenchmarkService
         _observability = observability;
     }
 
-    public async Task<BenchmarkResult> RunBenchmarkAsync(string benchmarkName)
+    public async Task<TestingBenchmarkResult> RunBenchmarkAsync(string benchmarkName)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(benchmarkName);
 
@@ -739,7 +743,7 @@ public class PerformanceBenchmarkService : IPerformanceBenchmarkService
 
             var memoryUsed = GC.GetTotalAllocatedBytes() - GC.GetTotalAllocatedBytes(); // 簡易計算
 
-            return new BenchmarkResult
+            return new TestingBenchmarkResult
             {
                 BenchmarkName = benchmarkName,
                 ExecutionTime = stopwatch.Elapsed,
@@ -751,7 +755,7 @@ public class PerformanceBenchmarkService : IPerformanceBenchmarkService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Benchmark failed: {BenchmarkName}", benchmarkName);
-            return new BenchmarkResult
+            return new TestingBenchmarkResult
             {
                 BenchmarkName = benchmarkName,
                 ExecutionTime = stopwatch.Elapsed,
@@ -765,7 +769,7 @@ public class PerformanceBenchmarkService : IPerformanceBenchmarkService
     public async Task<ComparisonResult> CompareImplementationsAsync()
     {
         var implementations = new[] { "Reactive", "Functional", "Traditional" };
-        var results = new Dictionary<string, BenchmarkResult>();
+        var results = new Dictionary<string, TestingBenchmarkResult>();
 
         foreach (var implementation in implementations)
         {
@@ -815,7 +819,7 @@ public class PerformanceBenchmarkService : IPerformanceBenchmarkService
         };
     }
 
-    public async Task<MemoryAnalysisResult> AnalyzeMemoryUsageAsync()
+    public async Task<TestingMemoryAnalysisResult> AnalyzeMemoryUsageAsync()
     {
         // メモリ使用量を分析
         GC.Collect();
@@ -823,7 +827,7 @@ public class PerformanceBenchmarkService : IPerformanceBenchmarkService
 
         var totalAllocated = GC.GetTotalAllocatedBytes();
 
-        return new MemoryAnalysisResult
+        return new TestingMemoryAnalysisResult
         {
             TotalAllocated = totalAllocated,
             HeapSize = GC.GetTotalMemory(false),
@@ -839,7 +843,7 @@ public class PerformanceBenchmarkService : IPerformanceBenchmarkService
         };
     }
 
-    public async Task<OptimizationRecommendation> GetOptimizationRecommendationsAsync()
+    public async Task<TestingOptimizationRecommendation> GetOptimizationRecommendationsAsync()
     {
         var highPriority = new List<string>
         {
@@ -862,7 +866,7 @@ public class PerformanceBenchmarkService : IPerformanceBenchmarkService
             "Add memory-mapped files for large data processing"
         };
 
-        return new OptimizationRecommendation
+        return new TestingOptimizationRecommendation
         {
             HighPriority = highPriority,
             MediumPriority = mediumPriority,

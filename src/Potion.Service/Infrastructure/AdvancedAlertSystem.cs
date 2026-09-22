@@ -14,7 +14,7 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface IAdvancedAlertSystem
 {
-    Task<Alert> CreateAlertAsync(string title, string message, AlertSeverity severity, string component, Dictionary<string, object> metadata = null);
+    Task<Alert> CreateAlertAsync(string title, string message, AlertSeverity severity, string component, Dictionary<string, object>? metadata = null);
     Task<bool> SendAlertAsync(Alert alert, IEnumerable<string> notificationChannels);
     Task<IEnumerable<Alert>> GetActiveAlertsAsync();
     Task<IEnumerable<Alert>> GetAlertsBySeverityAsync(AlertSeverity severity);
@@ -153,7 +153,7 @@ public class AdvancedAlertSystem : IAdvancedAlertSystem, IDisposable
         _logger.LogInformation("Advanced alert system initialized");
     }
 
-    public async Task<Alert> CreateAlertAsync(string title, string message, AlertSeverity severity, string component, Dictionary<string, object> metadata = null)
+    public async Task<Alert> CreateAlertAsync(string title, string message, AlertSeverity severity, string component, Dictionary<string, object>? metadata = null)
     {
         try
         {
@@ -306,7 +306,7 @@ public class AdvancedAlertSystem : IAdvancedAlertSystem, IDisposable
         if (resolvedAlerts.Any())
         {
             statistics.AverageResolutionTimeHours = resolvedAlerts
-                .Average(a => (a.ResolvedAt.Value - a.CreatedAt).TotalHours);
+                .Average(a => (a.ResolvedAt!.Value - a.CreatedAt).TotalHours);
         }
 
         // コンポーネント別アラート数
@@ -468,7 +468,7 @@ public class AdvancedAlertSystem : IAdvancedAlertSystem, IDisposable
         };
     }
 
-    private void EvaluateAlertRules(object state)
+    private void EvaluateAlertRules(object? state)
     {
         try
         {
@@ -555,7 +555,7 @@ public class AdvancedAlertSystem : IAdvancedAlertSystem, IDisposable
         };
     }
 
-    private void CleanupOldAlerts(object state)
+    private void CleanupOldAlerts(object? state)
     {
         try
         {
@@ -598,7 +598,7 @@ public class AdvancedAlertSystem : IAdvancedAlertSystem, IDisposable
             return await alertSystem.CreateAlertAsync($"System Alert: {message}", message, severity, "System");
         }
 
-        public static async Task<Alert> CreateSecurityAlertAsync(IAdvancedAlertSystem alertSystem, string message, Dictionary<string, object> metadata = null)
+        public static async Task<Alert> CreateSecurityAlertAsync(IAdvancedAlertSystem alertSystem, string message, Dictionary<string, object>? metadata = null)
         {
             return await alertSystem.CreateAlertAsync($"Security Alert: {message}", message, AlertSeverity.Error, "Security", metadata);
         }

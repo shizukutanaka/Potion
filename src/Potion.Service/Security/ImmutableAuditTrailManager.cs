@@ -1,4 +1,5 @@
 using System;
+using Potion.Service.Infrastructure;
 using System.Collections.Generic;
 using System.Linq;
 using System.Security.Cryptography;
@@ -135,10 +136,10 @@ public sealed class ImmutableAuditTrailManager : IImmutableAuditTrailManager
     private int _sequenceNumber = 0;
 
     // Compliance retention periods
-    private readonly TimeSpan _hipaaRetention = TimeSpan.FromYears(6);     // 6 years
-    private readonly TimeSpan _pciDssRetention = TimeSpan.FromYears(1);    // 1 year minimum
+    private readonly TimeSpan _hipaaRetention = TimeSpan.FromDays(365 * 6);     // 6 years
+    private readonly TimeSpan _pciDssRetention = TimeSpan.FromDays(365);    // 1 year minimum
     private readonly TimeSpan _gdprRetention = TimeSpan.FromDays(90);      // 90 days minimum
-    private readonly TimeSpan _sox2yRetention = TimeSpan.FromYears(2);     // 2 years
+    private readonly TimeSpan _sox2yRetention = TimeSpan.FromDays(365 * 2);     // 2 years
 
     public ImmutableAuditTrailManager(ILogger<ImmutableAuditTrailManager> logger)
     {

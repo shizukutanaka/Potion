@@ -19,7 +19,7 @@ public sealed class RemediationTaskCatalog : IRemediationTaskCatalog, IDisposabl
 {
     private readonly ILogger<RemediationTaskCatalog> _logger;
     private readonly IOptionsMonitor<RemediationPolicyOptions> _optionsMonitor;
-    private readonly IDisposable _optionsSubscription;
+    private readonly IDisposable? _optionsSubscription;
     private IReadOnlyList<RemediationTaskDescriptor> _tasks;
 
     public RemediationTaskCatalog(ILogger<RemediationTaskCatalog> logger, IOptionsMonitor<RemediationPolicyOptions> optionsMonitor)
@@ -38,7 +38,7 @@ public sealed class RemediationTaskCatalog : IRemediationTaskCatalog, IDisposabl
 
     public void Dispose()
     {
-        _optionsSubscription.Dispose();
+        _optionsSubscription?.Dispose();
     }
 
     private IReadOnlyList<RemediationTaskDescriptor> BuildDescriptors(RemediationPolicyOptions options)
@@ -48,7 +48,7 @@ public sealed class RemediationTaskCatalog : IRemediationTaskCatalog, IDisposabl
             .Select(task => new RemediationTaskDescriptor(task.Name, task))
             .ToArray();
 
-        _logger.LogInformation("Loaded {TaskCount} remediation tasks from configuration", descriptors.Count);
+        _logger.LogInformation("Loaded {TaskCount} remediation tasks from configuration", descriptors.Length);
         return Array.AsReadOnly(descriptors);
     }
 }

@@ -15,9 +15,9 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface IAnomalyDetectionService
 {
-    Task<AnomalyDetectionResult> DetectAnomaliesAsync(SystemMetrics metrics);
-    Task<PredictionResult> PredictMaintenanceAsync(string component, TimeSpan predictionWindow);
-    Task TrainModelAsync(IEnumerable<SystemMetrics> trainingData);
+    Task<AnomalyDetectionResult> DetectAnomaliesAsync(AnomalySystemMetrics metrics);
+    Task<AnomalyPredictionResult> PredictMaintenanceAsync(string component, TimeSpan predictionWindow);
+    Task TrainModelAsync(IEnumerable<AnomalySystemMetrics> trainingData);
     Task<ModelAccuracy> GetModelAccuracyAsync();
     Task<IEnumerable<AnomalyAlert>> GetRecentAnomaliesAsync(int count = 10);
 }
@@ -25,7 +25,7 @@ public interface IAnomalyDetectionService
 /// <summary>
 /// システムメトリクス
 /// </summary>
-public class SystemMetrics
+public class AnomalySystemMetrics
 {
     public double CpuUsage { get; set; }
     public double MemoryUsage { get; set; }
@@ -46,7 +46,7 @@ public class AnomalyDetectionResult
     public double AnomalyScore { get; set; }
     public string AnomalyType { get; set; } = string.Empty;
     public double Confidence { get; set; }
-    public SystemMetrics Metrics { get; set; } = new();
+    public AnomalySystemMetrics Metrics { get; set; } = new();
     public DateTimeOffset DetectedAt { get; set; }
     public Dictionary<string, double> FeatureContributions { get; set; } = new();
 }
@@ -54,7 +54,7 @@ public class AnomalyDetectionResult
 /// <summary>
 /// 予測結果
 /// </summary>
-public class PredictionResult
+public class AnomalyPredictionResult
 {
     public string Component { get; set; } = string.Empty;
     public DateTimeOffset PredictedFailureTime { get; set; }
@@ -128,7 +128,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         _cleanupTimer = new Timer(CleanupOldAlerts, null, TimeSpan.FromHours(1), TimeSpan.FromHours(1));
     }
 
-    public async Task<AnomalyDetectionResult> DetectAnomaliesAsync(SystemMetrics metrics)
+    public async Task<AnomalyDetectionResult> DetectAnomaliesAsync(AnomalySystemMetrics metrics)
     {
         ArgumentNullException.ThrowIfNull(metrics);
 
@@ -150,10 +150,10 @@ public class AnomalyDetectionService : IAnomalyDetectionService
             var predictionEngine = _mlContext.Model.CreatePredictionEngine<MetricData, AnomalyPrediction>(_anomalyModel);
             var input = new MetricData
             {
-                CpuUsage = metrics.CpuUsage,
-                MemoryUsage = metrics.MemoryUsage,
-                DiskUsage = metrics.DiskUsage,
-                NetworkLatency = metrics.NetworkLatency,
+                CpuUsage = (float)metrics.CpuUsage,
+                MemoryUsage = (float)metrics.MemoryUsage,
+                DiskUsage = (float)metrics.DiskUsage,
+                NetworkLatency = (float)metrics.NetworkLatency,
                 ErrorCount = metrics.ErrorCount,
                 RequestCount = metrics.RequestCount,
                 Timestamp = metrics.Timestamp.ToUnixTimeSeconds()
@@ -189,13 +189,13 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         }
     }
 
-    public async Task<PredictionResult> PredictMaintenanceAsync(string component, TimeSpan predictionWindow)
+    public async Task<AnomalyPredictionResult> PredictMaintenanceAsync(string component, TimeSpan predictionWindow)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(component);
 
         if (_predictionModel == null)
         {
-            return new PredictionResult
+            return new AnomalyPredictionResult
             {
                 Component = component,
                 FailureProbability = 0,
@@ -215,7 +215,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
 
             var action = DetermineMaintenanceAction(failureProbability, predictionWindow);
 
-            return new PredictionResult
+            return new AnomalyPredictionResult
             {
                 Component = component,
                 PredictedFailureTime = predictionTime,
@@ -228,7 +228,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during maintenance prediction for component {Component}", component);
-            return new PredictionResult
+            return new AnomalyPredictionResult
             {
                 Component = component,
                 FailureProbability = 0,
@@ -238,7 +238,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         }
     }
 
-    public async Task TrainModelAsync(IEnumerable<SystemMetrics> trainingData)
+    public async Task TrainModelAsync(IEnumerable<AnomalySystemMetrics> trainingData)
     {
         ArgumentNullException.ThrowIfNull(trainingData);
 
@@ -248,10 +248,10 @@ public class AnomalyDetectionService : IAnomalyDetectionService
 
             var dataView = _mlContext.Data.LoadFromEnumerable(trainingData.Select(m => new MetricData
             {
-                CpuUsage = m.CpuUsage,
-                MemoryUsage = m.MemoryUsage,
-                DiskUsage = m.DiskUsage,
-                NetworkLatency = m.NetworkLatency,
+                CpuUsage = (float)m.CpuUsage,
+                MemoryUsage = (float)m.MemoryUsage,
+                DiskUsage = (float)m.DiskUsage,
+                NetworkLatency = (float)m.NetworkLatency,
                 ErrorCount = m.ErrorCount,
                 RequestCount = m.RequestCount,
                 Timestamp = m.Timestamp.ToUnixTimeSeconds(),
@@ -259,10 +259,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
             }));
 
             // 異常検知パイプラインを構築
-            var pipeline = _mlContext.AnomalyDetection.Trainers.IidSpikeTrainer(
-                outputColumnName: "Score",
-                inputColumnName: "Features",
-                sideColumnName: "IsAnomaly");
+            var pipeline = _mlContext.Transforms.DetectIidSpike("Score", "Features", 95.0, 100);
 
             _anomalyModel = pipeline.Fit(dataView);
 
@@ -305,7 +302,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         }
     }
 
-    private string DetermineAnomalyType(SystemMetrics metrics, double score)
+    private string DetermineAnomalyType(AnomalySystemMetrics metrics, double score)
     {
         if (score > 0.9)
         {
@@ -318,7 +315,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         return "General";
     }
 
-    private bool DetermineIfAnomaly(SystemMetrics metrics)
+    private bool DetermineIfAnomaly(AnomalySystemMetrics metrics)
     {
         return metrics.CpuUsage > 90 ||
                metrics.MemoryUsage > 90 ||
@@ -349,7 +346,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
         return MaintenanceAction.None;
     }
 
-    private async Task CreateAnomalyAlertAsync(SystemMetrics metrics, AnomalyDetectionResult result)
+    private async Task CreateAnomalyAlertAsync(AnomalySystemMetrics metrics, AnomalyDetectionResult result)
     {
         var alert = new AnomalyAlert
         {
@@ -370,7 +367,7 @@ public class AnomalyDetectionService : IAnomalyDetectionService
             metrics.Component, result.AnomalyType, result.AnomalyScore);
     }
 
-    private void CleanupOldAlerts(object state)
+    private void CleanupOldAlerts(object? state)
     {
         try
         {

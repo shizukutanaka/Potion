@@ -52,7 +52,7 @@ public class CodeIssue
     public string IssueId { get; set; } = string.Empty;
     public string Rule { get; set; } = string.Empty;
     public IssueSeverity Severity { get; set; }
-    public IssueType Type { get; set; }
+    public AnalysisIssueType Type { get; set; }
     public string FilePath { get; set; } = string.Empty;
     public int LineNumber { get; set; }
     public int ColumnNumber { get; set; }
@@ -68,6 +68,7 @@ public class CodeIssue
 public enum IssueSeverity
 {
     Info,
+    Warning,
     Minor,
     Major,
     Critical,
@@ -77,7 +78,7 @@ public enum IssueSeverity
 /// <summary>
 /// 問題タイプ
 /// </summary>
-public enum IssueType
+public enum AnalysisIssueType
 {
     Bug,
     Vulnerability,
@@ -109,7 +110,7 @@ public class SecurityVulnerability
     public string VulnerabilityId { get; set; } = string.Empty;
     public string CweId { get; set; } = string.Empty;
     public string Title { get; set; } = string.Empty;
-    public VulnerabilitySeverity Severity { get; set; }
+    public AnalysisVulnerabilitySeverity Severity { get; set; }
     public string FilePath { get; set; } = string.Empty;
     public int LineNumber { get; set; }
     public string Description { get; set; } = string.Empty;
@@ -121,7 +122,7 @@ public class SecurityVulnerability
 /// <summary>
 /// 脆弱性重大度
 /// </summary>
-public enum VulnerabilitySeverity
+public enum AnalysisVulnerabilitySeverity
 {
     Info,
     Low,
@@ -278,7 +279,7 @@ public class StaticAnalysisService : IStaticAnalysisService
                 IssueId = v.VulnerabilityId,
                 Rule = v.CweId,
                 Severity = MapVulnerabilitySeverity(v.Severity),
-                Type = IssueType.Vulnerability,
+                Type = AnalysisIssueType.Vulnerability,
                 FilePath = v.FilePath,
                 LineNumber = v.LineNumber,
                 Message = v.Title,
@@ -292,7 +293,7 @@ public class StaticAnalysisService : IStaticAnalysisService
                 IssueId = s.SmellId,
                 Rule = s.Rule,
                 Severity = IssueSeverity.Minor,
-                Type = IssueType.CodeSmell,
+                Type = AnalysisIssueType.CodeSmell,
                 FilePath = s.FilePath,
                 LineNumber = s.LineNumber,
                 Message = s.Description,
@@ -382,7 +383,7 @@ public class StaticAnalysisService : IStaticAnalysisService
                 VulnerabilityId = "SEC001",
                 CweId = "CWE-79",
                 Title = "Cross-Site Scripting (XSS) Vulnerability",
-                Severity = VulnerabilitySeverity.High,
+                Severity = AnalysisVulnerabilitySeverity.High,
                 FilePath = "Controllers/UserController.cs",
                 LineNumber = 45,
                 Description = "User input is not properly sanitized before output",
@@ -396,7 +397,7 @@ public class StaticAnalysisService : IStaticAnalysisService
                 VulnerabilityId = "SEC002",
                 CweId = "CWE-89",
                 Title = "SQL Injection Vulnerability",
-                Severity = VulnerabilitySeverity.Critical,
+                Severity = AnalysisVulnerabilitySeverity.Critical,
                 FilePath = "Repositories/UserRepository.cs",
                 LineNumber = 78,
                 Description = "SQL query is vulnerable to injection attacks",
@@ -744,7 +745,7 @@ public class StaticAnalysisService : IStaticAnalysisService
             IssueId = "NC001",
             Rule = "Naming Conventions",
             Severity = IssueSeverity.Minor,
-            Type = IssueType.CodeSmell,
+            Type = AnalysisIssueType.CodeSmell,
             FilePath = "Services/UserService.cs",
             LineNumber = 25,
             Message = "Method name 'GetUserById' should be 'GetUserByIdAsync' for async methods",
@@ -763,7 +764,7 @@ public class StaticAnalysisService : IStaticAnalysisService
             IssueId = "CS001",
             Rule = "Code Structure",
             Severity = IssueSeverity.Major,
-            Type = IssueType.CodeSmell,
+            Type = AnalysisIssueType.CodeSmell,
             FilePath = "Controllers/ApiController.cs",
             LineNumber = 150,
             Message = "Method 'ProcessData' is too long (150+ lines)",
@@ -782,7 +783,7 @@ public class StaticAnalysisService : IStaticAnalysisService
             IssueId = "PF001",
             Rule = "Performance",
             Severity = IssueSeverity.Major,
-            Type = IssueType.CodeSmell,
+            Type = AnalysisIssueType.CodeSmell,
             FilePath = "Services/DataService.cs",
             LineNumber = 89,
             Message = "Potential N+1 query detected",
@@ -801,7 +802,7 @@ public class StaticAnalysisService : IStaticAnalysisService
             IssueId = "MT001",
             Rule = "Maintainability",
             Severity = IssueSeverity.Minor,
-            Type = IssueType.CodeSmell,
+            Type = AnalysisIssueType.CodeSmell,
             FilePath = "Models/User.cs",
             LineNumber = 45,
             Message = "Class has too many responsibilities",
@@ -871,14 +872,14 @@ public class StaticAnalysisService : IStaticAnalysisService
         return violations;
     }
 
-    private IssueSeverity MapVulnerabilitySeverity(VulnerabilitySeverity severity)
+    private IssueSeverity MapVulnerabilitySeverity(AnalysisVulnerabilitySeverity severity)
     {
         return severity switch
         {
-            VulnerabilitySeverity.Critical => IssueSeverity.Blocker,
-            VulnerabilitySeverity.High => IssueSeverity.Critical,
-            VulnerabilitySeverity.Medium => IssueSeverity.Major,
-            VulnerabilitySeverity.Low => IssueSeverity.Minor,
+            AnalysisVulnerabilitySeverity.Critical => IssueSeverity.Blocker,
+            AnalysisVulnerabilitySeverity.High => IssueSeverity.Critical,
+            AnalysisVulnerabilitySeverity.Medium => IssueSeverity.Major,
+            AnalysisVulnerabilitySeverity.Low => IssueSeverity.Minor,
             _ => IssueSeverity.Info
         };
     }
@@ -922,7 +923,7 @@ public class StaticAnalysisReportingMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         // リクエストに静的解析情報を追加
-        context.Response.Headers.Add("X-Static-Analysis", "enabled");
+        context.Response.Headers.Append("X-Static-Analysis", "enabled");
 
         await _next(context);
     }

@@ -15,7 +15,7 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface IGitOpsService
 {
-    Task<DeploymentResult> DeployFromGitAsync(string repositoryUrl, string branch = "main");
+    Task<GitOpsDeploymentResult> DeployFromGitAsync(string repositoryUrl, string branch = "main");
     Task<ConfigurationResult> ApplyConfigurationAsync(string configPath);
     Task<RollbackResult> RollbackAsync(string deploymentId);
     Task<SyncStatus> GetSyncStatusAsync();
@@ -28,7 +28,7 @@ public interface IGitOpsService
 /// <summary>
 /// デプロイメント結果
 /// </summary>
-public record DeploymentResult(
+public record GitOpsDeploymentResult(
     string DeploymentId,
     bool Success,
     string Message,
@@ -168,7 +168,7 @@ public class GitOpsService : IGitOpsService
         _driftDetectionTimer = new Timer(DetectDriftContinuously, null, TimeSpan.FromMinutes(15), TimeSpan.FromMinutes(15));
     }
 
-    public async Task<DeploymentResult> DeployFromGitAsync(string repositoryUrl, string branch = "main")
+    public async Task<GitOpsDeploymentResult> DeployFromGitAsync(string repositoryUrl, string branch = "main")
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(repositoryUrl);
 
@@ -197,7 +197,7 @@ public class GitOpsService : IGitOpsService
                 ["Routes"] = "Refreshed"
             };
 
-            var result = new DeploymentResult(
+            var result = new GitOpsDeploymentResult(
                 deploymentId,
                 true,
                 "Deployment completed successfully",
@@ -244,7 +244,7 @@ public class GitOpsService : IGitOpsService
 
             _logger.LogError(ex, "Deployment failed: {DeploymentId}", deploymentId);
 
-            return new DeploymentResult(
+            return new GitOpsDeploymentResult(
                 deploymentId,
                 false,
                 ex.Message,
@@ -462,7 +462,7 @@ public class GitOpsService : IGitOpsService
         }
     }
 
-    private async void CheckSyncStatus(object state)
+    private async void CheckSyncStatus(object? state)
     {
         try
         {
@@ -482,7 +482,7 @@ public class GitOpsService : IGitOpsService
         }
     }
 
-    private async void DetectDriftContinuously(object state)
+    private async void DetectDriftContinuously(object? state)
     {
         try
         {
@@ -542,7 +542,7 @@ public interface IIacService
     Task<InfrastructurePlan> GeneratePlanAsync(string templatePath);
     Task<InfrastructureResult> ApplyInfrastructureAsync(InfrastructurePlan plan);
     Task<InfrastructureResult> DestroyInfrastructureAsync(string environment);
-    Task<ValidationResult> ValidateTemplateAsync(string templatePath);
+    Task<GitOpsValidationResult> ValidateTemplateAsync(string templatePath);
     Task<CostEstimate> GetCostEstimateAsync(string templatePath);
     Task<IEnumerable<ResourceDependency>> GetDependenciesAsync(string resourceName);
 }
@@ -594,7 +594,7 @@ public record InfrastructureResult(
 /// <summary>
 /// 検証結果
 /// </summary>
-public record ValidationResult(
+public record GitOpsValidationResult(
     bool IsValid,
     List<string> Errors,
     List<string> Warnings,
@@ -793,7 +793,7 @@ public class IacService : IIacService
         }
     }
 
-    public async Task<ValidationResult> ValidateTemplateAsync(string templatePath)
+    public async Task<GitOpsValidationResult> ValidateTemplateAsync(string templatePath)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(templatePath);
 
@@ -801,7 +801,7 @@ public class IacService : IIacService
         {
             if (!File.Exists(templatePath))
             {
-                return new ValidationResult(
+                return new GitOpsValidationResult(
                     false,
                     new List<string> { $"Template file not found: {templatePath}" },
                     new List<string>(),
@@ -829,7 +829,7 @@ public class IacService : IIacService
                 warnings.Add("Missing recommended field: metadata");
             }
 
-            return new ValidationResult(
+            return new GitOpsValidationResult(
                 errors.Count == 0,
                 errors,
                 warnings,
@@ -840,7 +840,7 @@ public class IacService : IIacService
         {
             _logger.LogError(ex, "Error validating template: {TemplatePath}", templatePath);
 
-            return new ValidationResult(
+            return new GitOpsValidationResult(
                 false,
                 new List<string> { ex.Message },
                 new List<string>(),

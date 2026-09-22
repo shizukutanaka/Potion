@@ -101,14 +101,14 @@ public class MemorySafetyService : IMemorySafetyService
 
         _logger.LogDebug("Resource borrowed: {ResourceId}, BorrowCount: {BorrowCount}", resourceId, tracker.BorrowCount);
 
-        return ref Unsafe.AsRef<T>(resource);
+        return ref Unsafe.AsRef<T>(in resource);
     }
 
     public T Move<T>(ref T resource) where T : class
     {
         if (resource == null)
         {
-            return null;
+            return null!;
         }
 
         var resourceId = GetResourceId(resource);
@@ -295,7 +295,7 @@ public class MemorySafetyService : IMemorySafetyService
                 }
 
                 entry.LastAccessedAt = DateTimeOffset.UtcNow;
-                return ref Unsafe.AsRef<T>(entry.Item);
+                return ref Unsafe.AsRef<T>(in entry.Item);
             }
         }
 
@@ -348,7 +348,7 @@ public class MemorySafetyService : IMemorySafetyService
 
         private sealed class OwnershipEntry
         {
-            public T Item { get; set; }
+            public T Item = default!;
             public DateTimeOffset AddedAt { get; set; }
             public DateTimeOffset LastAccessedAt { get; set; }
             public bool IsMoved { get; set; }
