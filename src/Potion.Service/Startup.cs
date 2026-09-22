@@ -173,7 +173,6 @@ public class Startup
             return new InternationalizationService(localizer, cache);
         });
         services.AddSingleton<CircuitBreakerService>();
-        services.AddSingleton<IConfigurationHotReloadService, ConfigurationHotReloadService>();
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)

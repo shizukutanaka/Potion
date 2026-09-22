@@ -21,6 +21,14 @@
 - `AutoRecoveryManager` の死パスを簡素化 — `GetService(typeof(ISecurityAuditor))`/`GetService(typeof(IConfigurationManager))` のオプショナル動的参照は実装も登録も存在せず常に null だった（削除対象型）。`CheckSecurityHealth` は `return true`、`ResetConfigurationAsync` は warning ログ付き `return false` に等価固定し、`GenerateDefaultConfiguration`・未使用 `_serviceProvider` 依存を除去
 - 削除後検証: 0警告0エラー・131/131テスト — 実行時動作への影響なし（全て未到達パス）
 
+||||||| parent of 475edd9 (chore: remove last consumer-less registration (hot-reload service) and dead flag keys)
+### Removed (最後の消費者ゼロ登録 — ConfigurationHotReloadService + 死フラグキー)
+
+- `IConfigurationHotReloadService`/`ConfigurationHotReloadService` の登録と実装（241行）を削除 — API 全6メンバ（`GetFeatureFlagAsync`/`SetFeatureFlagAsync`/`IsFeatureEnabledAsync`/`GetAllFeatureFlagsAsync`/`GetConfigurationSnapshotAsync`/`OnConfigurationChanged`）に呼出元ゼロ。30秒タイマーで設定変更を監視していたが、イベント購読者も存在しない「動いているが誰も見ていない」最後の死登録
+- `FeatureFlags` の死キー11件を削除 — 実消費は `RepairExecutionEnabled` のみ（`AdvancedCorrelationAnalysis`/`MachineLearningIntegration`/`RealTimeMonitoring`/`PredictiveMaintenance`/`AutoScaling`/`MultiTenant`/`CloudIntegration`/`APIGateway`/`SecurityHardening`/`PerformanceMonitoring`/`ComplianceReporting` は唯一の消費者であるホットリロードサービス削除で全て未バインド化）
+- `appsettings.simple.json` を削除 — `appsettings.{Environment}.json` の環境命名規約にも `AddJsonFile` にも合致しない未ロード設定残滓（内部の `Potion:` セクションも未バインド）
+- 検証: 0警告0エラー・131/131テスト
+
 ### Added (修復実行ティアの FeatureFlags ゲート付き有効化)
 
 - 修復実行系サービスを `FeatureFlags:RepairExecutionEnabled`（既定 OFF）で登録可能に — 運用者が設定変更のみで製品中核の自律修復ループを起動できるようになった（コード変更不要）。フラグ ON で以下が起動:

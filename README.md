@@ -49,7 +49,7 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 
 - `RemediationPolicy` — repair command allowlist and remediation policy options
 - `TelemetryRetention` — telemetry retention settings
-- `FeatureFlags` — feature toggles consumed by `ConfigurationManagementService`; `RepairExecutionEnabled` (default `false`) activates the autonomous repair-execution services
+- `FeatureFlags` — feature toggles read at startup; `RepairExecutionEnabled` (default `false`) activates the autonomous repair-execution services
 - `Serilog`, `AllowedHosts`, `Kestrel` — framework settings
 
 ## Tests
