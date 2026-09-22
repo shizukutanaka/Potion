@@ -393,6 +393,17 @@ internal sealed class SystemMetricsSampler
     private (long rx, long tx)? _lastNetTotals;
     private DateTimeOffset _lastNetSampleTime;
     private double _netRxRate;
+
+    // Process-spawning probes (systemctl/journalctl) run inside the hot poll
+    // loop — cache their slowly-changing aggregates for a short TTL so each
+    // poll does not fork three children on Linux.
+    private static readonly TimeSpan SpawnedProbeTtl = TimeSpan.FromSeconds(30);
+    private (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames)? _serviceCountsCache;
+    private DateTimeOffset _serviceCountsAt;
+    private (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt)? _eventCountsCache;
+    private DateTimeOffset _eventCountsAt;
+    private bool? _firewallCache;
+    private DateTimeOffset _firewallAt;
     private double _netTxRate;
     private (long busy, long total)? _lastMacCpu;
 
@@ -786,7 +797,14 @@ internal sealed class SystemMetricsSampler
     {
         if (OperatingSystem.IsLinux())
         {
-            return LinuxServiceCounts();
+            if (_serviceCountsCache is { } cached && DateTimeOffset.UtcNow - _serviceCountsAt < SpawnedProbeTtl)
+            {
+                return cached;
+            }
+            var fresh = LinuxServiceCounts();
+            _serviceCountsCache = fresh;
+            _serviceCountsAt = DateTimeOffset.UtcNow;
+            return fresh;
         }
 
         if (!OperatingSystem.IsWindows())
@@ -898,7 +916,12 @@ internal sealed class SystemMetricsSampler
             // No in-scope AV engine maps to Defender/ActiveThreats/LastScan —
             // those stay honest false/0. Firewall and SecureBoot are
             // measurable from sysfs and config files.
-            return (false, LinuxFirewallEnabled(), 0, LinuxSecureBootEnabled(), lastScan);
+            var linuxFirewall = _firewallCache is { } cachedFw && DateTimeOffset.UtcNow - _firewallAt < SpawnedProbeTtl
+                ? cachedFw
+                : LinuxFirewallEnabled();
+            _firewallCache = linuxFirewall;
+            _firewallAt = DateTimeOffset.UtcNow;
+            return (false, linuxFirewall, 0, LinuxSecureBootEnabled(), lastScan);
         }
         if (!OperatingSystem.IsWindows())
         {
@@ -1104,7 +1127,14 @@ internal sealed class SystemMetricsSampler
     {
         if (OperatingSystem.IsLinux())
         {
-            return LinuxEventCounts();
+            if (_eventCountsCache is { } cached && DateTimeOffset.UtcNow - _eventCountsAt < SpawnedProbeTtl)
+            {
+                return cached;
+            }
+            var fresh = LinuxEventCounts();
+            _eventCountsCache = fresh;
+            _eventCountsAt = DateTimeOffset.UtcNow;
+            return fresh;
         }
 
         if (!OperatingSystem.IsWindows())

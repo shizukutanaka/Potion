@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (Linux 計測の spawn コスト削減)
+
+- **`systemctl`×2・`journalctl` が毎ポーリング（約5秒）で fork されていた** — 緩変化する集計値を30秒TTLでキャッシュ（ServiceCounts・WindowsEventCounts・Firewall 判定）。Linux 環境での子プロセス生成を約6分の1へ削減
+
 ### Fixed (残存固定値の最終整理: ViolationCount・evtLast・CPU周波数・メモリトリム)
 
 - **`ViolationCount` が pending 検出時に常に1の誤値だった** — `PendingRepairCount()` が実際のペンディング条件数（CBS再起動保留・WindowsUpdate再起動要・ファイルリネーム保留）を返す実値へ
