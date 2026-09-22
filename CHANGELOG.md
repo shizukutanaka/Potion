@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (ServiceCounts の非Windows固定0を実測化)
+
+- **`ServiceMetrics` が非Windowsで全て固定0だった** — Linux で `systemctl list-units --type=service --all` を実測（total/running/stopped・sub-state `failed` のユニットを FailedNames として収集 — Windows「Auto起動構成だが停止」相当）。macOS はサービスマネージャ概念なし → 正直な0
+
 ### Fixed (HandleCount の非Windows固定0を実測化)
 
 - **`RuntimePerformanceMetrics.HandleCount` が非Windowsで固定0だった** — Linux で `/proc/self/fd` のオープンFD数を実測（Unix のハンドル数相当・ディスクリプタリーク検出に有効）。macOS は安価な取得経路なし → 0＝計測不可の正直な値

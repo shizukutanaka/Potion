@@ -761,6 +761,11 @@ internal sealed class SystemMetricsSampler
 
     public (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) ServiceCounts()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            return LinuxServiceCounts();
+        }
+
         if (!OperatingSystem.IsWindows())
         {
             return (0, 0, 0, 0, Array.Empty<string>());
@@ -795,6 +800,65 @@ internal sealed class SystemMetricsSampler
                 }
             }
 
+            return (total, running, stopped, failedNames.Count, failedNames);
+        }
+        catch
+        {
+            return (0, 0, 0, 0, Array.Empty<string>());
+        }
+    }
+
+    // systemd is the Linux service manager — `list-units --all` reports every
+    // loaded service's sub-state in one shot. Rows are fixed-width:
+    // "UNIT LOAD ACTIVE SUB DESCRIPTION...". A unit in sub-state "failed"
+    // maps to the Windows "stopped but configured for Automatic" failure.
+    private static (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) LinuxServiceCounts()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "systemctl",
+                ArgumentList = { "list-units", "--type=service", "--all", "--no-pager", "--no-legend" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return (0, 0, 0, 0, Array.Empty<string>());
+            }
+            var output = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(10000);
+
+            var total = 0;
+            var running = 0;
+            var stopped = 0;
+            var failedNames = new List<string>();
+            foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length < 4)
+                {
+                    continue;
+                }
+                total++;
+                switch (fields[3])
+                {
+                    case "running":
+                        running++;
+                        break;
+                    case "failed":
+                        stopped++;
+                        failedNames.Add(fields[0]);
+                        break;
+                    default:
+                        stopped++;
+                        break;
+                }
+            }
             return (total, running, stopped, failedNames.Count, failedNames);
         }
         catch
