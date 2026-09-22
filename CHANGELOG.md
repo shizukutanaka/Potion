@@ -122,3 +122,9 @@
   - 依存 `ISystemHealthMonitor`→`SystemHealthMonitor` と各 `IOptions`/`IOptionsMonitor` を登録
 - 起動検証: MemoryMonitor/AnomalyDetector が起動ログを出力し、EventCorrelation/Compliance は各オプションの `Enabled=false` で適切に待機 — 観測ループのみ動作
 - 修復実行系（`AutoRecoveryManager`/`PerformanceOptimizer`/`PredictiveRemediationService`/`EventDrivenRemediationService`/`RemediationTaskExecutor`）は OS 修復を自律実行するため未登録のまま温存 — 有効化は明示的な製品判断が必要
+
+### Removed (デッドAPI面の整理 — ライブラリ削除を伴うため説明)
+
+- コントローラがリポジトリ内に1つも存在しないため、MVC/Swagger/APIバージョニングの設定一式を削除 — `AddControllers`/`AddEndpointsApiExplorer`/`AddSwaggerGen`/`AddApiVersioning`/`UseSwagger`/`UseSwaggerUI`/`MapControllers` は全て無効構成であり、起動時の「No action descriptors found」警告の根本原因だった
+- パッケージ削除（ライブラリ削除の説明）: `Swashbuckle.AspNetCore` 8.1.4 と `Microsoft.AspNetCore.Mvc.Versioning` 5.1.0 — エンドポイント0件の API 面のみに使用されており未使用化。将来コントローラ追加時は csproj + Startup に再追加するだけで復元可能
+- 維持: SignalR Hub（`/collaboration`）と Prometheus `/metrics` は存続し全て 200 を確認。`swagger` エンドポイントは空の API を文書化していただけのため廃止
