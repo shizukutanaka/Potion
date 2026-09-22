@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (ヘルスメトリクスが固定値0を返していたバグ)
+
+- `SystemHealthMonitor` — `CpuUsage`/`DiskUsage`/`BytesReceivedPerSec`/`BytesSentPerSec`/`ActiveConnections` が常に 0.0 だった。`SystemMetricsSampler` を追加し実測化:
+  - CPU: Windows は `PerformanceCounter`(`Processor\% Processor Time\_Total`)、Linux は `/proc/stat` 差分、その他OSは 0 フォールバック
+  - Disk: `DriveInfo` でシステムドライブの使用%・空き・総容量を実測（read/write レートは Windows カウンタ、その他OSは 0）
+  - Network: `NetworkInterface` のインターフェースカウンタ差分で送受信レートを算出＋`IPGlobalProperties` でアクティブ TCP 数を実測
+- 確認済み実値: Disk 74.6%・Network ~77KB/s・activeConnections=7（従来は全て 0）
+
 ### Fixed (機能的に死んでいた監視サービス2件を実接続)
 
 - `AnomalyDetector` — 3分毎の分析タイマーは動いていたが `RecordMetric` の呼出元がゼロで、空の履歴を永遠に解析していた。`ISystemHealthMonitor.GetCurrentMetricsAsync()` から各周期メトリクスを投入するよう接続
