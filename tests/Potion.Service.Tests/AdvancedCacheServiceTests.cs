@@ -45,64 +45,51 @@ public class AdvancedCacheServiceTests
     [Fact]
     public async Task GetOrAddAsync_WithCacheMiss_ShouldCallFactoryAndCacheResult()
     {
-        // Arrange
+        // IMemoryCache.Set is an extension method and cannot be mocked; use a real cache.
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new AdvancedCacheService(cache, _loggerMock.Object);
         var key = "test-key";
         var expectedValue = "factory-result";
-        object? actualValue = null;
+        var callCount = 0;
 
-        _memoryCacheMock
-            .Setup(m => m.TryGetValue(key, out actualValue))
-            .Returns(false);
+        var result = await service.GetOrAddAsync(key, () =>
+        {
+            callCount++;
+            return Task.FromResult(expectedValue);
+        });
 
-        _memoryCacheMock
-            .Setup(m => m.Set(It.IsAny<object>(), It.IsAny<object>(), It.IsAny<MemoryCacheEntryOptions>()));
-
-        // Act
-        var result = await _service.GetOrAddAsync(key, () => Task.FromResult(expectedValue));
-
-        // Assert
         result.Should().Be(expectedValue);
-        _memoryCacheMock.Verify(m => m.Set(key, expectedValue, It.IsAny<MemoryCacheEntryOptions>()), Times.Once);
+
+        // Second call must hit the cache, not the factory
+        var cached = await service.GetOrAddAsync(key, () =>
+        {
+            callCount++;
+            return Task.FromResult("should-not-be-used");
+        });
+
+        cached.Should().Be(expectedValue);
+        callCount.Should().Be(1);
     }
 
     [Fact]
     public async Task GetOrAddAsync_WithConcurrentRequests_ShouldCallFactoryOnlyOnce()
     {
-        // Arrange
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new AdvancedCacheService(cache, _loggerMock.Object);
         var key = "test-key";
         var callCount = 0;
-        object? actualValue = null;
 
-        _memoryCacheMock
-            .Setup(m => m.TryGetValue(key, out actualValue))
-            .Returns(false);
-
-        _memoryCacheMock
-            .Setup(m => m.Set(It.IsAny<object>(), It.IsAny<object>(), It.IsAny<MemoryCacheEntryOptions>()));
-
-        // Act
-        var tasks = new[]
+        Task<string> Factory() => Task.Delay(100).ContinueWith(_ =>
         {
-            _service.GetOrAddAsync(key, () =>
-            {
-                callCount++;
-                return Task.Delay(100).ContinueWith(_ => "result");
-            }),
-            _service.GetOrAddAsync(key, () =>
-            {
-                callCount++;
-                return Task.Delay(100).ContinueWith(_ => "result");
-            }),
-            _service.GetOrAddAsync(key, () =>
-            {
-                callCount++;
-                return Task.Delay(100).ContinueWith(_ => "result");
-            })
-        };
+            callCount++;
+            return "result";
+        });
 
-        var results = await Task.WhenAll(tasks);
+        var results = await Task.WhenAll(
+            service.GetOrAddAsync(key, Factory),
+            service.GetOrAddAsync(key, Factory),
+            service.GetOrAddAsync(key, Factory));
 
-        // Assert
         callCount.Should().Be(1); // Factory should only be called once due to locking
         results.Should().AllBe("result");
     }
@@ -147,18 +134,15 @@ public class AdvancedCacheServiceTests
     [Fact]
     public async Task SetAsync_ShouldStoreValueInCache()
     {
-        // Arrange
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new AdvancedCacheService(cache, _loggerMock.Object);
         var key = "test-key";
         var value = "test-value";
 
-        _memoryCacheMock
-            .Setup(m => m.Set(key, value, It.IsAny<MemoryCacheEntryOptions>()));
+        await service.SetAsync(key, value);
 
-        // Act
-        await _service.SetAsync(key, value);
-
-        // Assert
-        _memoryCacheMock.Verify(m => m.Set(key, value, It.IsAny<MemoryCacheEntryOptions>()), Times.Once);
+        var stored = await service.GetAsync<string>(key);
+        stored.Should().Be(value);
     }
 
     [Fact]
@@ -180,14 +164,16 @@ public class AdvancedCacheServiceTests
     [Fact]
     public async Task ClearAsync_ShouldClearAllCacheEntries()
     {
-        // Arrange
-        _memoryCacheMock.As<MemoryCache>().Setup(m => m.Clear());
+        var cache = new MemoryCache(new MemoryCacheOptions());
+        var service = new AdvancedCacheService(cache, _loggerMock.Object);
 
-        // Act
-        await _service.ClearAsync();
+        await service.SetAsync("key1", "v1");
+        await service.SetAsync("key2", "v2");
 
-        // Assert
-        _memoryCacheMock.As<MemoryCache>().Verify(m => m.Clear(), Times.Once);
+        await service.ClearAsync();
+
+        (await service.GetAsync<string>("key1")).Should().BeNull();
+        (await service.GetAsync<string>("key2")).Should().BeNull();
     }
 
     [Fact]

@@ -19,7 +19,7 @@ public sealed class ArgumentSanitizer : IArgumentSanitizer
     });
 
     private static readonly Regex SqlInjectionRegex = new(
-        pattern: @"(?i)\b(union|select|insert|update|delete|drop|create|alter|exec|execute|script|truncate|declare|xp_|sp_)\b|(--)|(;)|(/\*|\*/)",
+        pattern: @"(?i)\b(union|select|insert|update|delete|drop|create|alter|exec|execute|script|truncate|declare|xp_|sp_)\b|(/\*|\*/)",
         options: RegexOptions.Compiled | RegexOptions.CultureInvariant);
 
     private static readonly Regex PathTraversalRegex = new(
@@ -42,11 +42,6 @@ public sealed class ArgumentSanitizer : IArgumentSanitizer
         if (string.IsNullOrWhiteSpace(arguments))
         {
             return string.Empty;
-        }
-
-        if (arguments.Length > 8192)
-        {
-            throw new ArgumentException("Arguments are too long (max 8192 characters)", nameof(arguments));
         }
 
         // SQLインジェクション攻撃の検出

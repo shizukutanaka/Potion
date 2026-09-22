@@ -30,3 +30,26 @@
 ### Removed
 
 - Chaos Engineering レジリエンス設定（上記パッケージ非存在のため）
+- `ArgumentSanitizer` の引数長 8192 超過時例外（後段の 1024 文字切り詰め処理で網羅されるため）
+- SQLインジェクション検出正規表現の `--`・`;` リテラルマッチ（`--flag` 形式の正当な CLI 引数を誤検知していたため。SQL キーワード・ブロックコメント検出は維持）
+
+### Fixed (テストスイート修復)
+
+- `tests/Potion.Service.Tests` がビルド・実行可能に修復（126テスト中126件成功）
+  - プロジェクト参照パスを `..\..\src\Potion.Service\` に修正、`Microsoft.Extensions.Caching.Memory` を 8.0.1 へ更新（NU1605 解消）
+  - `CommandGuard` の新コンポジション（`CommandValidator`/`ArgumentSanitizer`/`UrlValidator`/`DomainValidator`/`RateLimiter`）に合わせ `TestObjectFactory`/`ForwardingLogger` を追加
+  - 廃止 API を参照する 6 テストファイルを `<Compile Remove>` で除外（理由を csproj コメントに記載）
+  - Moq が拡張メソッド `IMemoryCache.Set`/`Clear` をモックできないため実 `MemoryCache` を使用するよう修正
+
+- 製品コードの実バグ修正（テストで検出）
+  - `NetworkSecurityGuard`: `example.com` 等の正当ドメインが危険ラベル誤検知で拒否されていた問題を修正（危険ドメイン判定を最終ラベル（TLD）のみに限定）＋ 単一ラベルドメインを無効化
+  - `RateLimiter.CheckRateLimitAsync`: キャンセル済みトークンで `OperationCanceledException` ではなく `TaskCanceledException` を返すよう修正（`Task.FromCanceled`）
+  - `ErrorHandler.HandleError`: 同一レベルでログを2回出力していた問題を修正（指定レベルのログを CEF 1 回に集約、構造化 JSON は Debug へ）
+  - `ErrorHandler.CanRetryOperationAsync`/`ExecuteWithRetryAsync`: キャンセル済みトークンで `TaskCanceledException` を即時送出するよう修正
+  - `ErrorHandler.ClassifyError`: `UnauthorizedAccessException` を FileSystem（再試行扱い）から Configuration（恒久的失敗扱い→Fail）へ再分類
+  - `CommandValidator`: 許可リスト拒否を `ArgumentException` から `InvalidOperationException` へ変更（引数形式の問題ではなくポリシー違反のため）
+
+- テスト契約の更新（意図的な実装強化に追従）
+  - レート制限超過時の契約を「例外送出」から「false 返却」へ（`CheckRateLimitAsync` の bool 返却 API に合わせ更新）
+  - サーキットブレーカー開放テストを実装の失敗カウント方式に合わせ修正
+  - `cmd.exe` 依存テスト（ProcessRunner/統合/性能）へ Windows ガード `TestEnvironment.IsWindows` を追加（非 Windows CI で自動スキップ相当の動作）

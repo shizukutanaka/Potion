@@ -1,5 +1,6 @@
 using System.Globalization;
 using FluentAssertions;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
 using Moq;
 using Potion.Service.Infrastructure;
@@ -15,7 +16,7 @@ namespace Potion.Service.Tests
         public InternationalizationServiceTests()
         {
             _localizerMock = new Mock<IStringLocalizer<InternationalizationService>>();
-            _service = new InternationalizationService(_localizerMock.Object);
+            _service = new InternationalizationService(_localizerMock.Object, new Microsoft.Extensions.Caching.Memory.MemoryCache(new Microsoft.Extensions.Caching.Memory.MemoryCacheOptions()));
         }
 
         [Theory]

@@ -167,7 +167,7 @@ public sealed class CommandValidator : ICommandValidator
             if (!isAllowed)
             {
                 _logger.LogWarning("Blocked command that is not in the allowlist: {Command}", command);
-                throw new ArgumentException("Command is not allowed by the remediation policy allowlist.", nameof(command));
+                throw new InvalidOperationException("Command is not allowed by the remediation policy allowlist.");
             }
         }
 

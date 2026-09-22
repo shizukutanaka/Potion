@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
@@ -6,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Potion.Service.Options;
+using Potion.Service.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -33,14 +35,14 @@ public class PerformanceTests : IDisposable
 
         _testOptions = new RemediationPolicyOptions
         {
-            CommandAllowlist = new[] { "cmd.exe", "powershell.exe", "notepad.exe" }
+            CommandAllowlist = new List<string> { "cmd.exe", "powershell.exe", "notepad.exe" }
         };
 
         _optionsMonitorMock.Setup(x => x.CurrentValue).Returns(_testOptions);
         _optionsMonitorMock.Setup(x => x.OnChange(It.IsAny<Action<RemediationPolicyOptions, string>>()))
             .Returns(Mock.Of<IDisposable>());
 
-        _commandGuard = new CommandGuard(_commandGuardLoggerMock.Object, _optionsMonitorMock.Object);
+        _commandGuard = TestObjectFactory.CreateCommandGuard(_commandGuardLoggerMock.Object, _optionsMonitorMock.Object);
         _processRunner = new ProcessRunner(_processRunnerLoggerMock.Object);
     }
 
@@ -151,6 +153,8 @@ public class PerformanceTests : IDisposable
     [Fact]
     public async Task ProcessRunner_SimpleCommand_Performance()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var startInfo = new ProcessStartInfo
         {
@@ -190,6 +194,8 @@ public class PerformanceTests : IDisposable
     [Fact]
     public async Task ProcessRunner_ConcurrentExecution_Performance()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var startInfo = new ProcessStartInfo
         {
@@ -207,7 +213,7 @@ public class PerformanceTests : IDisposable
 
         // Act
         stopwatch.Start();
-        var tasks = new Task<ProcessResult>[concurrentTasks];
+        var tasks = new Task<ProcessExecutionResult>[concurrentTasks];
         for (int i = 0; i < concurrentTasks; i++)
         {
             tasks[i] = _processRunner.RunAsync(startInfo, timeout, cancellationToken);
@@ -238,7 +244,7 @@ public class PerformanceTests : IDisposable
     public async Task CommandGuard_RateLimit_Performance()
     {
         // Arrange
-        var operation = "test-rate-limit";
+        var operation = "DomainValidation"; // 200回/秒まで許容される既存オペレーション
         var cancellationToken = CancellationToken.None;
         var iterations = 100;
         var stopwatch = new Stopwatch();
@@ -266,6 +272,8 @@ public class PerformanceTests : IDisposable
     [Fact]
     public async Task MemoryUsage_Stability()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var startInfo = new ProcessStartInfo
         {

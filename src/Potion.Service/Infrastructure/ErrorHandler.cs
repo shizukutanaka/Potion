@@ -99,13 +99,13 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
                 ["RecoverySuggestion"] = UserFriendlyErrorMessages.GetRecoverySuggestion(errorType)
             });
 
-        // CEF形式でのログ出力（SIEM対応）
+        // CEF形式でのログ出力（SIEM対応）。指定レベルでのログ出力はこの1回に集約する
         var cefLog = UserFriendlyErrorMessages.FormatAsCEF(structuredLog);
-        _logger.Log((Microsoft.Extensions.Logging.LogLevel)logLevel, new EventId(0), (Exception?)null, "CEF: {CEFEntry}", cefLog);
+        _logger.Log((Microsoft.Extensions.Logging.LogLevel)logLevel, new EventId(0), exception, "CEF: {CEFEntry}", cefLog);
 
-        // JSON形式での構造化ログ出力
+        // JSON形式での構造化ログ出力（SIEM取り込み用の詳細はDebugへ）
         var jsonLog = UserFriendlyErrorMessages.FormatAsJson(structuredLog);
-        _logger.Log((Microsoft.Extensions.Logging.LogLevel)logLevel, new EventId(0), (Exception?)null, "Structured: {@StructuredLog}", structuredLog);
+        _logger.LogDebug("Structured: {@StructuredLog}", structuredLog);
 
         // 重大なエラーの場合は詳細ログをファイルに保存
         if (severity == ErrorSeverity.Critical)
@@ -135,6 +135,11 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
 
     public async Task<bool> CanRetryOperationAsync(Exception exception, int attemptNumber, CancellationToken cancellationToken)
     {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new TaskCanceledException();
+        }
+
         var errorType = ClassifyError(exception);
 
         // サーキットブレーカーパターン実装 (強化版)
@@ -276,7 +281,6 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
 
         // ファイルシステム関連エラー
         if (exceptionType == typeof(IOException) ||
-            exceptionType == typeof(UnauthorizedAccessException) ||
             exceptionType == typeof(DirectoryNotFoundException) ||
             exceptionType == typeof(FileNotFoundException) ||
             exceptionType == typeof(PathTooLongException))
@@ -294,6 +298,7 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
 
         // 設定関連エラー
         if (exceptionType == typeof(ArgumentException) ||
+            exceptionType == typeof(UnauthorizedAccessException) ||
             exceptionType == typeof(InvalidOperationException) ||
             exceptionType == typeof(System.ComponentModel.DataAnnotations.ValidationException))
         {
@@ -425,6 +430,11 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
 
     public async Task ExecuteWithRetryAsync(Func<Task> operation, string context, CancellationToken cancellationToken)
     {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new TaskCanceledException();
+        }
+
         var attemptNumber = 0;
         Exception? lastException = null;
         var startTime = DateTimeOffset.UtcNow;
@@ -470,6 +480,11 @@ public sealed class ErrorHandler : IErrorHandler, IDisposable
 
     public async Task<T> ExecuteWithRetryAsync<T>(Func<Task<T>> operation, string context, CancellationToken cancellationToken)
     {
+        if (cancellationToken.IsCancellationRequested)
+        {
+            throw new TaskCanceledException();
+        }
+
         var attemptNumber = 0;
         Exception? lastException = null;
         var startTime = DateTimeOffset.UtcNow;
