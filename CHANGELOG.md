@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (win-x64 publish が失敗する実バグ + README 実態整合)
+
+- **`PublishTrimmed` により `dotnet publish -r win-x64` が必ず失敗していた実バグ** — IL2008（`System.Diagnostics.FileVersionInfo` 置換エラー）で NETSDK1144 失敗。リフレクション多用のためトリム適合性も限定的なので `PublishTrimmed=false` に変更し publish 成功を確認（MSI ビルドの前提条件だったため setup/ 全体が作れない状態だった）
+- **README 実態整合** — ダッシュボードが `GET /` で開けるようになった点と `/api/health/alerts/webhook` をエンドポイント一覧へ追加、テスト数を実値 111 へ更新
+
 ### Fixed (deploy.sh の no-op デプロイ — 空 helm チャート + 不存在エンドポイント検証)
 
 - **`scripts/deploy.sh` が常に失敗する構成だった** — 参照する `./helm` チャートに `templates/` が無く `helm upgrade --install` は何もデプロイしない no-op、その後不存在 Deployment の rollout を待機して確定失敗。検証対象も不存在エンドポイント（`/api/health/liveness`・`/api/health/system/comprehensive`・`/api/health/observability/tracing`・`/api/health/testing/integration`・swagger・grafana 等）ばかり → 修復済み `k8s/deployment.yaml` を `kubectl apply` する実デプロイ＋実在5エンドポイントのスモークテストへ全面書換

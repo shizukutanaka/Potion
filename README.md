@@ -30,9 +30,10 @@ dotnet run --project src/Potion.Service/Potion.Service.csproj
 
 The service listens on `http://localhost:5000` by default and serves:
 
-- `GET /index.html` — dashboard
+- `GET /` (or `/index.html`) — dashboard
 - `GET /health` — liveness probe (`200 Healthy`)
 - `GET /api/health`, `/api/health/metrics`, `/api/health/security`, `/api/health/security/summary` — dashboard data endpoints fed by `ISystemHealthMonitor`
+- `POST /api/health/alerts/webhook` — Alertmanager webhook receiver (firing alerts logged as warnings, resolved as info)
 - `GET /metrics` — Prometheus metrics
 - `POST /collaboration/negotiate` — SignalR hub
 
@@ -57,7 +58,7 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 134/134 tests
+dotnet test Potion.sln   # 111/111 tests
 ```
 
 ## License

@@ -10,11 +10,10 @@
     <PublishSingleFile>false</PublishSingleFile>
     <!-- セキュリティとパフォーマンスの最適化 -->
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>link</TrimMode>
+    <!-- PublishTrimmed は win-x64 publish で IL2008 (System.Diagnostics.FileVersionInfo)
+         により失敗するため無効化。リフレクション多用のためトリム適合性も限定的 -->
+    <PublishTrimmed>false</PublishTrimmed>
     <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
-    <!-- PublishTrimmed は JsonSerializer のリフレクションベース解決を既定で無効化する。
-         AOT ではなくトリムのみのためリフレクションを再有効化し、Minimal API / SecureLogService 等の動的シリアライズを機能させる -->
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <!-- 高度な最適化 -->
     <Optimize>true</Optimize>
