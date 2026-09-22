@@ -233,13 +233,27 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
     private void EmitPressureAlert(List<SystemHealthAlert> alerts, string component, string label, double valuePercent, PressureLevel level)
     {
         var now = DateTimeOffset.UtcNow;
+        var hasEpisode = _alertState.TryGetValue(component, out var previous);
+
         if (level < PressureLevel.High)
         {
-            _alertState.TryRemove(component, out _);
-            return;
+            // Hysteresis: a firing episode holds while pressure stays within a
+            // 5-point band of the High floor (85%). A single dip across the
+            // threshold must not clear the episode and re-fire it as a new
+            // alert seconds later — polling dashboards call this often enough
+            // for threshold flapping to be routine.
+            if (hasEpisode && valuePercent >= 80.0)
+            {
+                level = previous.Level;
+            }
+            else
+            {
+                _alertState.TryRemove(component, out _);
+                return;
+            }
         }
 
-        var withinCooldown = _alertState.TryGetValue(component, out var previous) &&
+        var withinCooldown = hasEpisode &&
             previous.Level == level &&
             now - previous.At < AlertCooldown;
 

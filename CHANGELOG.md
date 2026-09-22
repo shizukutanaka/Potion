@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (アラート閾値フラッピング)
+
+- **閾値またぎの一過性低下でアラートが消滅→新IDで再発火していた実バグ** — `_alertState` が1回の `<High` 測定でクリアされるため、ポーリング頻度の高い環境（ダッシュボード ~5秒間隔）で継続中の同一条件が次々と別アラート化（承認不可・通知スパム）。ヒステリシスを導入：85%発火・80%解除の5ppバンドで一時的な閾値跨ぎを吸収。実機検証: CPU 100%持続で同一alertId（cpu-critical-…230543）が全ポーリング一致、31.8%低下で正しく解除
+
 ### Fixed (OS メモリ・CPU の実測化)
 
 - **`memory.usedPercent` が全OSで常に ~0.1% を返していた実バグ** — `GC.GetTotalMemory`（マネージドヒープ）÷マシン全メモリを測っていたため事実上常に0%、メモリプレッシャーアラートは原理上不発・ダッシュボードのメモリ表示は架空値。OS 実メモリをプラットフォーム別に実測する `OsMemoryUsage()` を追加（Windows `GlobalMemoryStatusEx`・Linux `/proc/meminfo`・macOS `host_statistics`）
