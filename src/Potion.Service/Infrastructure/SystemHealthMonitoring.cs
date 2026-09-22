@@ -870,6 +870,13 @@ internal sealed class SystemMetricsSampler
     public (bool Defender, bool Firewall, int ActiveThreats, bool SecureBoot, DateTimeOffset LastScan) SecurityState()
     {
         var lastScan = DateTimeOffset.UtcNow;
+        if (OperatingSystem.IsLinux())
+        {
+            // No in-scope AV engine maps to Defender/ActiveThreats/LastScan —
+            // those stay honest false/0. Firewall and SecureBoot are
+            // measurable from sysfs and config files.
+            return (false, LinuxFirewallEnabled(), 0, LinuxSecureBootEnabled(), lastScan);
+        }
         if (!OperatingSystem.IsWindows())
         {
             return (false, false, 0, false, lastScan);
@@ -937,8 +944,82 @@ internal sealed class SystemMetricsSampler
         return (defender, firewall, threats, secureBoot, lastScan);
     }
 
+    // ufw and firewalld are the two dominant Linux firewall managers: ufw
+    // persists its state in /etc/ufw/ufw.conf (ENABLED=yes), firewalld is
+    // asked via systemctl.
+    private static bool LinuxFirewallEnabled()
+    {
+        try
+        {
+            const string ufwConf = "/etc/ufw/ufw.conf";
+            if (File.Exists(ufwConf) && File.ReadAllText(ufwConf)
+                    .Contains("ENABLED=yes", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "systemctl",
+                ArgumentList = { "is-active", "firewalld", "--quiet" },
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return false;
+            }
+            return proc.WaitForExit(5000) && proc.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static string ReadSysfs(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.ReadAllText(path).Trim() : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    // SecureBoot state lives in efivars: 4 attribute bytes + 1 value byte.
+    private static bool LinuxSecureBootEnabled()
+    {
+        try
+        {
+            const string path = "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c";
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+            var bytes = File.ReadAllBytes(path);
+            return bytes.Length >= 5 && bytes[4] == 1;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public (string Manufacturer, string Model, string SerialNumber) MachineInventory()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            // DMI data is exposed read-only under sysfs (product_serial needs
+            // root on some distros — unreadable leaves an honest empty string).
+            return (ReadSysfs("/sys/class/dmi/id/sys_vendor"),
+                ReadSysfs("/sys/class/dmi/id/product_name"),
+                ReadSysfs("/sys/class/dmi/id/product_serial"));
+        }
         if (!OperatingSystem.IsWindows())
         {
             return (string.Empty, string.Empty, string.Empty);
@@ -977,15 +1058,21 @@ internal sealed class SystemMetricsSampler
     {
         try
         {
-            return OperatingSystem.IsWindows() &&
-                new WindowsPrincipal(WindowsIdentity.GetCurrent())
+            if (OperatingSystem.IsWindows())
+            {
+                return new WindowsPrincipal(WindowsIdentity.GetCurrent())
                     .IsInRole(WindowsBuiltInRole.Administrator);
+            }
+            return geteuid() == 0;
         }
         catch
         {
             return false;
         }
     }
+
+    [DllImport("libc")]
+    private static extern uint geteuid();
 
     private const int MaxEventsToScan = 5000;
     private static readonly TimeSpan EventWindow = TimeSpan.FromHours(24);

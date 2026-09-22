@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (昇格判定・Firewall/SecureBoot・MachineInventory の非Windows実測化)
+
+- **`IsElevated` が非Windowsで固定falseの架空値だった** — `geteuid() == 0` の実測へ（root 実行サービスを正しく検出）
+- **`SecurityState.Firewall/SecureBoot` が Linux で固定falseだった** — ufw（`/etc/ufw/ufw.conf` ENABLED=yes）・firewalld（`systemctl is-active`）・efivars（`SecureBoot-*` 5バイト目）を実測。Defender/ActiveThreats/LastScan は対応する AV エンジンなし → 正直な値
+- **`MachineInventory` が非Windowsで空文字だった** — `/sys/class/dmi/id`（sys_vendor/product_name/product_serial）を実測。product_serial は権限不足環境で空文字＝計測不可
+
 ### Fixed (WindowsEventMetrics の非Windows固定0を実測化)
 
 - **`WindowsEventMetrics` が非Windowsで全て固定0だった** — Linux で `journalctl`（24h窓・最大5000件）を実測: Total=全エントリ・Errors=エラーマーカー・Critical=crit/emerg/panic/segfault/oom マーカー・Security=sudo/sshd/polkit/audit 由来ユニット・LastAt=最新エントリ時刻。macOS は `log show` が高コスト → 正直な0
