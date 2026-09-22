@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (Webhook 堅牢性)
+
+- **`POST /api/health/alerts/webhook` が不正JSONで500を返していた** — `JsonDocument.ParseAsync` の `JsonException` が未処理で500応答（Alertmanager からの malformed ペイロードでも500 → リトライ嵐の要因）。`JsonException` を捕捉し `400 BadRequest` を返すように修正
+
 ### Fixed (ダッシュボード構造破損・未初期化バグ)
 
 - **`logs-pagination` が未閉鎖でモーダル層全体がその子要素化していた実バグ** — `renderPagination` の `innerHTML` 書換が毎ポーリングで 4モーダル・検索オーバーレイ・アップロードゾーン・script タグを全消去していた。`</div>`/`</section>`/`</main>` の閉鎖を追加しモーダル層を body 直下へ移動

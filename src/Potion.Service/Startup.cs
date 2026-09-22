@@ -249,25 +249,38 @@ public class Startup
                 var logger = loggerFactory.CreateLogger("Potion.Alerts.Webhook");
                 var received = 0;
 
-                using var document = await JsonDocument.ParseAsync(ctx.Request.Body, cancellationToken: ct);
-                if (document.RootElement.TryGetProperty("alerts", out var alerts))
+                JsonDocument document;
+                try
                 {
-                    foreach (var alert in alerts.EnumerateArray())
+                    document = await JsonDocument.ParseAsync(ctx.Request.Body, cancellationToken: ct);
+                }
+                catch (JsonException ex)
+                {
+                    logger.LogWarning("Rejected malformed alertmanager webhook payload: {Error}", ex.Message);
+                    return Results.BadRequest(new { error = "malformed JSON payload" });
+                }
+
+                using (document)
+                {
+                    if (document.RootElement.TryGetProperty("alerts", out var alerts))
                     {
-                        var status = alert.TryGetProperty("status", out var s) ? s.GetString() : "unknown";
-                        var name = alert.TryGetProperty("labels", out var l) && l.TryGetProperty("alertname", out var an) ? an.GetString() : "unknown";
-                        var summary = alert.TryGetProperty("annotations", out var a) && a.TryGetProperty("summary", out var sum) ? sum.GetString() : null;
-
-                        if (status == "resolved")
+                        foreach (var alert in alerts.EnumerateArray())
                         {
-                            logger.LogInformation("Alert resolved: {AlertName} - {Summary}", name, summary);
-                        }
-                        else
-                        {
-                            logger.LogWarning("Alert firing: {AlertName} - {Summary}", name, summary);
-                        }
+                            var status = alert.TryGetProperty("status", out var s) ? s.GetString() : "unknown";
+                            var name = alert.TryGetProperty("labels", out var l) && l.TryGetProperty("alertname", out var an) ? an.GetString() : "unknown";
+                            var summary = alert.TryGetProperty("annotations", out var a) && a.TryGetProperty("summary", out var sum) ? sum.GetString() : null;
 
-                        received++;
+                            if (status == "resolved")
+                            {
+                                logger.LogInformation("Alert resolved: {AlertName} - {Summary}", name, summary);
+                            }
+                            else
+                            {
+                                logger.LogWarning("Alert firing: {AlertName} - {Summary}", name, summary);
+                            }
+
+                            received++;
+                        }
                     }
                 }
 
