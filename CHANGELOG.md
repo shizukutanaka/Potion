@@ -12,6 +12,15 @@
 - DI 回帰テスト更新 — フラグ ON で `PredictiveRemediationService`・`IRemediationScheduler`→`RemediationScheduler` の解決を検証
 - 検証: 0警告0エラー・131/131テスト・フラグ ON 実起動で全5ホステッドサービス（スケジューラ含む）の起動ログ確認
 
+||||||| parent of d913619 (chore: delete unreachable self-referencing service cluster (16 files))
+### Removed (到達不能の自己参照クラスタ — 16ファイル・約7,000行)
+
+- 厳密なアンカー解析（Startup・Program・テスト起点＋ライブサービスの推移参照）で到達不能確定の16ファイルを削除。クラスタ内部で相互参照するだけで、DI 登録・テスト・稼働中サービスのいずれからも消費されていなかった:
+  `ZeroTrustSecurityService`/`ARVRMonitoringInterfaceService`/`AdvancedAlertSystem`/`ConfigurationManager`/`GarbageCollectionService`/`GitOpsService`/`MetricsCollector`/`MobileOptimizationService`/`PerformanceOptimizationService`/`ResourcePressureMonitor`/`RootCauseAnalysisService`/`SecurityAuditor`/`TelemetryIntegrityService`/`RemediationTaskCatalog`/`SecurityAuditOptions`/`TelemetryRetentionOptions`
+- ライブ利用型の移設（HealthStatus と同規約）: `PressureLevel`・`AlertSeverity` enum → `SystemHealthMonitoring.cs`、`RemediationTaskDescriptor` record → `RemediationTaskExecutor.cs`
+- `AutoRecoveryManager` の死パスを簡素化 — `GetService(typeof(ISecurityAuditor))`/`GetService(typeof(IConfigurationManager))` のオプショナル動的参照は実装も登録も存在せず常に null だった（削除対象型）。`CheckSecurityHealth` は `return true`、`ResetConfigurationAsync` は warning ログ付き `return false` に等価固定し、`GenerateDefaultConfiguration`・未使用 `_serviceProvider` 依存を除去
+- 削除後検証: 0警告0エラー・131/131テスト — 実行時動作への影響なし（全て未到達パス）
+
 ### Added (修復実行ティアの FeatureFlags ゲート付き有効化)
 
 - 修復実行系サービスを `FeatureFlags:RepairExecutionEnabled`（既定 OFF）で登録可能に — 運用者が設定変更のみで製品中核の自律修復ループを起動できるようになった（コード変更不要）。フラグ ON で以下が起動:

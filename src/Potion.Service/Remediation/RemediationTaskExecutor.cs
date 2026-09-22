@@ -10,6 +10,8 @@ using Potion.Service.Options;
 
 namespace Potion.Service.Remediation;
 
+public sealed record RemediationTaskDescriptor(string Name, RemediationTaskOption Option);
+
 public interface IRemediationTaskExecutor
 {
     Task ExecuteAsync(RemediationTaskDescriptor descriptor, CancellationToken cancellationToken);
