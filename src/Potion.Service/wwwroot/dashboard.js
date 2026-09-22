@@ -2126,3 +2126,21 @@ function clearAdvancedSearch() {
         window.dashboard.clearAdvancedSearch();
     }
 }
+
+function openPerformanceDrawer() {
+    if (window.dashboard) {
+        window.dashboard.openPerformanceDrawer();
+    }
+}
+
+function toggleAdvancedSearch() {
+    if (window.dashboard) {
+        window.dashboard.toggleAdvancedSearch();
+    }
+}
+
+function applyAdvancedFilters() {
+    if (window.dashboard) {
+        window.dashboard.applyAdvancedFilters();
+    }
+}
