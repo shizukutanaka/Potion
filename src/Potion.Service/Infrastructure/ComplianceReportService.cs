@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Potion.Service.Options;
@@ -21,16 +22,19 @@ public class ComplianceReportService : IHostedService, IDisposable
     private readonly ILogger<ComplianceReportService> _logger;
     private readonly ComplianceOptions _options;
     private readonly ISystemHealthMonitor _healthMonitor;
+    private readonly IConfiguration _configuration;
     private Timer? _reportTimer;
 
     public ComplianceReportService(
         ILogger<ComplianceReportService> logger,
         IOptions<ComplianceOptions> options,
-        ISystemHealthMonitor healthMonitor)
+        ISystemHealthMonitor healthMonitor,
+        IConfiguration configuration)
     {
         _logger = logger;
         _options = options.Value;
         _healthMonitor = healthMonitor;
+        _configuration = configuration;
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -97,11 +101,14 @@ public class ComplianceReportService : IHostedService, IDisposable
         // GDPR compliance checks
         if (standard == "GDPR")
         {
+            var httpsEndpoints = CountHttpsEndpoints();
             status.Checks.Add(new ComplianceCheck
             {
                 CheckName = "Data Encryption",
-                Compliant = true, // Assume encryption is enabled
-                Details = "Data is encrypted at rest and in transit"
+                Compliant = httpsEndpoints > 0,
+                Details = httpsEndpoints > 0
+                    ? $"Encrypted in transit: {httpsEndpoints} HTTPS endpoint(s) configured"
+                    : "No HTTPS endpoint configured; traffic is not encrypted in transit"
             });
 
             status.Checks.Add(new ComplianceCheck
@@ -159,6 +166,21 @@ public class ComplianceReportService : IHostedService, IDisposable
         status.OverallCompliance = status.Checks.All(c => c.Compliant);
 
         return status;
+    }
+
+    private int CountHttpsEndpoints()
+    {
+        var count = 0;
+        foreach (var endpoint in _configuration.GetSection("Kestrel:Endpoints").GetChildren())
+        {
+            var url = endpoint.GetValue<string>("Url");
+            if (url is not null && url.StartsWith("https", StringComparison.OrdinalIgnoreCase))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private async Task SaveComplianceReportAsync(ComplianceReport report)

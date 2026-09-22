@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (ComplianceReportService の暗号化チェック偽装)
+
+- GDPR「Data Encryption」チェックが `Compliant = true` 固定値で「暗号化あり」と常時報告 — HTTP のみで運用していても準拠と判定する偽装。`IConfiguration` を注入し `Kestrel:Endpoints` に HTTPS エンドポイントが設定されているかを実測して判定（本番設定は HTTPS+cert、開発設定は HTTP のみ → 正直に非準拠を報告）。Details も実測値ベースの説明に置換
+
 ### Fixed (MemoryMonitor が全OSで完全に死んでいた実バグ)
 
 - **`MemoryStatusEx.dwLength` が未設定** — `new MemoryStatusEx()` は `dwLength=0` で `GlobalMemoryStatusEx` の必須条件を満たさず Windows でも P/Invoke が常に失敗 → システムメモリ情報が常に 0 → `ShouldOptimizeMemory` が常 false で監視が機能停止（非Windowsでも同様に全 0 を返していた）。`dwLength` を `Marshal.SizeOf` で設定、`Size=72`（誤り・正しくは64）の明示レイアウトサイズを除去
