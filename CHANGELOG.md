@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (deploy.sh の no-op デプロイ — 空 helm チャート + 不存在エンドポイント検証)
+
+- **`scripts/deploy.sh` が常に失敗する構成だった** — 参照する `./helm` チャートに `templates/` が無く `helm upgrade --install` は何もデプロイしない no-op、その後不存在 Deployment の rollout を待機して確定失敗。検証対象も不存在エンドポイント（`/api/health/liveness`・`/api/health/system/comprehensive`・`/api/health/observability/tracing`・`/api/health/testing/integration`・swagger・grafana 等）ばかり → 修復済み `k8s/deployment.yaml` を `kubectl apply` する実デプロイ＋実在5エンドポイントのスモークテストへ全面書換
+- Pod 内 `kubectl exec curl` は `aspnet:8.0` ランタイムに curl が無いため失敗する問題を修正（svc への port-forward＋ローカル curl 検証に変更）
+
 ### Fixed (ツール/セットアップ系の破損一掃 — 旧製品名残滓・未ビルド可能・不存在参照)
 
 - **旧製品名 `Otedama` が実行パスに残存していた実バグ** — `ServicePaths.Base` が `Otedama` ディレクトリを作成（本番では `%ProgramData%\Otedama` に状態・ログ・証明書を書き込む）、`deploy-windows.ps1`/`package-installer.ps1`/`build-release.ps1` が `Otedama Self-Healing Service` 名でサービス登録 — 製品名 `Potion` に全統一

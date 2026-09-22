@@ -1,99 +1,69 @@
 #!/bin/bash
 
 # Potion Service Deployment Script
-# Enterprise-grade deployment automation
+# Deploys the Kubernetes manifests in k8s/ and verifies the rollout.
+#
+# Usage: ./scripts/deploy.sh
+# Env:   KUBECTL (default: kubectl), NAMESPACE (default: potion-system)
 
 set -euo pipefail
 
-# Configuration
-SERVICE_NAME="potion-service"
-NAMESPACE="potion-system"
-IMAGE_TAG="${1:-latest}"
-REPLICAS="${2:-3}"
+KUBECTL="${KUBECTL:-kubectl}"
+NAMESPACE="${NAMESPACE:-potion-system}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+K8S_DIR="$SCRIPT_DIR/../k8s"
 
-echo "🚀 Starting Potion Service deployment..."
-echo "Service: $SERVICE_NAME"
+echo "Starting Potion Service deployment..."
 echo "Namespace: $NAMESPACE"
-echo "Image Tag: $IMAGE_TAG"
-echo "Replicas: $REPLICAS"
+echo "Manifests: $K8S_DIR"
 
-# Create namespace if it doesn't exist
-kubectl create namespace $NAMESPACE --dry-run=client -o yaml | kubectl apply -f -
+if [ ! -d "$K8S_DIR" ]; then
+    echo "Error: k8s/ manifests not found at $K8S_DIR" >&2
+    exit 1
+fi
 
-# Deploy using Helm
-echo "📦 Deploying with Helm..."
-helm upgrade --install $SERVICE_NAME ./helm \
-    --namespace $NAMESPACE \
-    --set image.tag=$IMAGE_TAG \
-    --set replicaCount=$REPLICAS \
-    --wait \
-    --timeout=300s
+# Create namespace and apply manifests
+$KUBECTL create namespace "$NAMESPACE" --dry-run=client -o yaml | $KUBECTL apply -f -
+$KUBECTL apply -n "$NAMESPACE" -f "$K8S_DIR"
 
-# Verify deployment
-echo "✅ Verifying deployment..."
-kubectl rollout status deployment/$SERVICE_NAME -n $NAMESPACE --timeout=300s
+# Verify rollout — the Deployment name comes from k8s/deployment.yaml
+DEPLOYMENT="potion-service"
+echo "Verifying rollout of deployment/$DEPLOYMENT..."
+$KUBECTL rollout status "deployment/$DEPLOYMENT" -n "$NAMESPACE" --timeout=300s
 
-# Check pod health
-echo "🏥 Checking pod health..."
-kubectl get pods -n $NAMESPACE -l app=$SERVICE_NAME
+echo "Pod status:"
+$KUBECTL get pods -n "$NAMESPACE"
 
-# Test endpoints
-echo "🔍 Testing endpoints..."
-sleep 30  # Wait for services to be ready
+# Smoke-test the endpoints the service actually exposes.
+# The aspnet:8.0 runtime image has no curl, so test via port-forward instead.
+SERVICE="potion-service"
+LOCAL_PORT=18080
 
-POD_NAME=$(kubectl get pods -n $NAMESPACE -l app=$SERVICE_NAME -o jsonpath='{.items[0].metadata.name}')
-
-echo "Testing health endpoints..."
-kubectl exec $POD_NAME -n $NAMESPACE -- curl -f http://localhost:80/api/health/liveness || exit 1
-kubectl exec $POD_NAME -n $NAMESPACE -- curl -f http://localhost:80/api/health/readiness || exit 1
-
-echo "Testing API endpoints..."
-kubectl port-forward -n $NAMESPACE svc/$SERVICE_NAME 8080:80 &
+$KUBECTL port-forward -n "$NAMESPACE" "svc/$SERVICE" "$LOCAL_PORT:80" &
 FORWARD_PID=$!
-
+trap 'kill $FORWARD_PID 2>/dev/null || true' EXIT
 sleep 5
 
-# Test comprehensive health
-curl -f http://localhost:8080/api/health/system/comprehensive || exit 1
+FAILED=0
+for path in /health /api/health /api/health/metrics /api/health/security/summary /metrics; do
+    if curl -fs -m 10 "http://localhost:$LOCAL_PORT$path" -o /dev/null; then
+        echo "  PASS $path"
+    else
+        echo "  FAIL $path" >&2
+        FAILED=1
+    fi
+done
 
-# Test observability
-curl -f http://localhost:8080/api/health/observability/tracing || exit 1
+kill $FORWARD_PID 2>/dev/null || true
 
-# Test security features
-curl -f http://localhost:8080/api/health/security/audit || exit 1
+if [ "$FAILED" -ne 0 ]; then
+    echo "Deployment endpoint checks failed." >&2
+    exit 1
+fi
 
-kill $FORWARD_PID
-
-echo "🎯 Running integration tests..."
-kubectl exec $POD_NAME -n $NAMESPACE -- curl -X POST http://localhost:80/api/health/testing/integration
-
-echo "📊 Checking monitoring..."
-kubectl get servicemonitor -n $NAMESPACE
-kubectl get prometheusrules -n $NAMESPACE
-
-echo "🔒 Verifying security..."
-kubectl get networkpolicy -n $NAMESPACE
-kubectl get podsecuritypolicy
-
-echo "📈 Checking autoscaling..."
-kubectl get hpa -n $NAMESPACE
-
-echo "✅ Deployment completed successfully!"
+echo "Deployment completed successfully."
 echo ""
-echo "🌐 Access the service:"
-echo "API Documentation: https://potion-service.local/swagger"
-echo "Health Dashboard: https://potion-service.local/api/health/detailed"
-echo "Metrics: https://potion-service.local/api/health/metrics/custom"
-echo ""
-echo "📊 Monitoring access:"
-echo "Prometheus: http://prometheus.local"
-echo "Grafana: http://grafana.local (admin/admin)"
-echo "AlertManager: http://alertmanager.local"
-echo ""
-echo "🛠️  Useful commands:"
-echo "kubectl logs -f deployment/$SERVICE_NAME -n $NAMESPACE"
-echo "kubectl describe svc $SERVICE_NAME -n $NAMESPACE"
-echo "kubectl get events -n $NAMESPACE --sort-by='.lastTimestamp'"
-
-# Cleanup on failure
-trap 'echo "❌ Deployment failed! Check logs with: kubectl logs deployment/potion-service -n potion-system"' ERR
+echo "Useful commands:"
+echo "  $KUBECTL logs -f deployment/$DEPLOYMENT -n $NAMESPACE"
+echo "  $KUBECTL describe svc $DEPLOYMENT -n $NAMESPACE"
+echo "  $KUBECTL port-forward -n $NAMESPACE svc/$DEPLOYMENT 8080:80"
