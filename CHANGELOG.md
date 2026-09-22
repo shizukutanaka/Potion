@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (HealthAlert が一切発火しなかったバグ)
+
+- `SystemHealthMonitor` — `HealthAlert` イベントは宣言のみで発火箇所ゼロ、スナップショットも常に空アラートだった。`GetCurrentHealthAsync` で cpu/memory/disk の圧レベルを評価し ≥High で `SystemHealthAlert` を発行・イベント発火（Critical→Critical/High→Warning）。発火はコンポーネント×レベルで重複抑制し15分クールダウン、圧が下がれば解除（`EventCorrelationService`・`EventDrivenRemediationService` の購読が実際に機能するようになる）
+
 ### Fixed (残存スタブメトリクスの実測化)
 
 - `ServiceMetrics` — Windows 上で `Win32_Service`（既参照の `System.Management`、新規パッケージなし）からサービス総数/稼働/停止を実測。`Stopped` かつ `Auto` 開始は失敗サービスとして件名を返す（他OSは 0）

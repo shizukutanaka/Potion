@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -203,8 +204,51 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
     public Task<SystemHealthSnapshot> GetCurrentHealthAsync(CancellationToken cancellationToken)
     {
         var metrics = CreateMetrics();
-        var snapshot = new SystemHealthSnapshot(metrics, Array.Empty<SystemHealthAlert>());
+        var snapshot = new SystemHealthSnapshot(metrics, EvaluatePressureAlerts(metrics));
         return Task.FromResult(snapshot);
+    }
+
+    private static readonly TimeSpan AlertCooldown = TimeSpan.FromMinutes(15);
+    private readonly ConcurrentDictionary<string, (PressureLevel Level, DateTimeOffset At)> _alertState = new();
+
+    // Raise one alert per component per level, re-firing at most every AlertCooldown while the
+    // condition persists; clears when pressure drops below High.
+    private List<SystemHealthAlert> EvaluatePressureAlerts(SystemMetrics metrics)
+    {
+        var alerts = new List<SystemHealthAlert>();
+        EmitPressureAlert(alerts, "cpu", "CPU usage", metrics.Cpu.UsagePercent, metrics.ResourcePressure.Cpu);
+        EmitPressureAlert(alerts, "memory", "Memory usage", metrics.Memory.UsedPercent, metrics.ResourcePressure.Memory);
+        EmitPressureAlert(alerts, "disk", "Disk usage", metrics.Disk.UsedPercent, metrics.ResourcePressure.Disk);
+        return alerts;
+    }
+
+    private void EmitPressureAlert(List<SystemHealthAlert> alerts, string component, string label, double valuePercent, PressureLevel level)
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (level < PressureLevel.High)
+        {
+            _alertState.TryRemove(component, out _);
+            return;
+        }
+
+        if (_alertState.TryGetValue(component, out var previous) &&
+            previous.Level == level &&
+            now - previous.At < AlertCooldown)
+        {
+            return;
+        }
+
+        _alertState[component] = (level, now);
+
+        var alert = new SystemHealthAlert
+        {
+            Component = component,
+            Title = $"{label} is {level.ToString().ToLowerInvariant()}",
+            Message = $"{label} at {valuePercent:F1}%",
+            Severity = level == PressureLevel.Critical ? AlertSeverity.Critical : AlertSeverity.Warning,
+        };
+        alerts.Add(alert);
+        HealthAlert?.Invoke(this, alert);
     }
 
     public Task<IReadOnlyDictionary<string, double>> GetCurrentMetricsAsync()
