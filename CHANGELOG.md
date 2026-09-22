@@ -142,3 +142,10 @@
 - 登録削除により到達不能となった実装ファイル10件を削除: `AnomalyDetectionService`/`AuditTrailService`/`ChaosEngineeringService`/`KubernetesService`/`ObservabilityService`/`PerformanceAnalyticsService`/`ReactiveEventSystem`/`SelfHealingCollectionsService`/`AutomatedRemediationOrchestrator`/`DefenderAtpManager`
 - `IConfigurationHotReloadService`（ConfigurationManagementService が消費）と `ISystemHealthMonitor`（監視ループが消費）は存続
 - 削除後検証: 0警告0エラー・126/126テスト・起動＋`/collaboration` 200 維持
+
+### Removed (live ファイル内の死メンバ整理)
+
+- `ServiceMeshService.cs` を削除 — 前サイクルの登録削除で13型が死型化。唯一の生存型 `HealthStatus` enum は `ServiceSupportTypes.cs`（利用者 `HealthCheckResult` の所在）へ移行
+- `ConfigurationManagementService.cs` 末尾の死ブロック削除 — `IFeatureFlagService`/`FeatureFlagInfo`/`FeatureFlagService`（消費者ゼロ、登録削除済み）
+- `ServiceSupportTypes.cs` の `IFunctionalErrorHandlingService`/`FunctionalErrorHandlingService` を削除（同上）
+- 削除後検証: 0警告0エラー・126/126テスト

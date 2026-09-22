@@ -9,6 +9,14 @@ using Potion.Service.Options;
 
 namespace Potion.Service.Infrastructure;
 
+public enum HealthStatus
+{
+    Healthy,
+    Degraded,
+    Unhealthy,
+    Unknown
+}
+
 /// <summary>
 /// ヘルスチェック結果
 /// </summary>
@@ -248,37 +256,6 @@ public sealed class CircuitBreakerService
     public CircuitBreakerService(ILogger<CircuitBreakerService> logger)
     {
         _logger = logger;
-    }
-}
-
-/// <summary>
-/// 関数型エラーハンドリングサービス
-/// </summary>
-public interface IFunctionalErrorHandlingService
-{
-    Task<T> ExecuteWithFallbackAsync<T>(Func<CancellationToken, Task<T>> operation, Func<Exception, T> fallback, CancellationToken cancellationToken);
-}
-
-public sealed class FunctionalErrorHandlingService : IFunctionalErrorHandlingService
-{
-    private readonly ILogger<FunctionalErrorHandlingService> _logger;
-
-    public FunctionalErrorHandlingService(ILogger<FunctionalErrorHandlingService> logger)
-    {
-        _logger = logger;
-    }
-
-    public async Task<T> ExecuteWithFallbackAsync<T>(Func<CancellationToken, Task<T>> operation, Func<Exception, T> fallback, CancellationToken cancellationToken)
-    {
-        try
-        {
-            return await operation(cancellationToken);
-        }
-        catch (Exception ex) when (ex is not OperationCanceledException)
-        {
-            _logger.LogError(ex, "Operation failed; applying fallback");
-            return fallback(ex);
-        }
     }
 }
 
