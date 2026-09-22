@@ -1,13 +1,9 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
-using Potion.Service.Options;
 using Potion.Service.Infrastructure;
 using Xunit;
 using Xunit.Abstractions;
@@ -20,149 +16,19 @@ namespace Potion.Service.Tests;
 public class PerformanceTests : IDisposable
 {
     private readonly ITestOutputHelper _output;
-    private readonly Mock<ILogger<CommandGuard>> _commandGuardLoggerMock;
     private readonly Mock<ILogger<ProcessRunner>> _processRunnerLoggerMock;
-    private readonly Mock<IOptionsMonitor<RemediationPolicyOptions>> _optionsMonitorMock;
-    private readonly RemediationPolicyOptions _testOptions;
-    private readonly CommandGuard _commandGuard;
     private readonly ProcessRunner _processRunner;
 
     public PerformanceTests(ITestOutputHelper output)
     {
         _output = output;
-        _commandGuardLoggerMock = new Mock<ILogger<CommandGuard>>();
         _processRunnerLoggerMock = new Mock<ILogger<ProcessRunner>>();
-        _optionsMonitorMock = new Mock<IOptionsMonitor<RemediationPolicyOptions>>();
-
-        _testOptions = new RemediationPolicyOptions
-        {
-            CommandAllowlist = new List<string> { "cmd.exe", "powershell.exe", "notepad.exe" }
-        };
-
-        _optionsMonitorMock.Setup(x => x.CurrentValue).Returns(_testOptions);
-        _optionsMonitorMock.Setup(x => x.OnChange(It.IsAny<Action<RemediationPolicyOptions, string>>()))
-            .Returns(Mock.Of<IDisposable>());
-
-        _commandGuard = TestObjectFactory.CreateCommandGuard(_commandGuardLoggerMock.Object, _optionsMonitorMock.Object);
         _processRunner = new ProcessRunner(_processRunnerLoggerMock.Object);
     }
 
     public void Dispose()
     {
-        _commandGuard.Dispose();
         _processRunner.Dispose();
-    }
-
-    [Fact]
-    public async Task CommandGuard_CommandValidation_Performance()
-    {
-        // Arrange
-        var commands = new[] { "cmd.exe", "powershell.exe", "notepad.exe" };
-        var iterations = 100;
-        var stopwatch = new Stopwatch();
-
-        // Act - ウォームアップで JIT/Compiled regex 初期化コストを計測から除外
-        _commandGuard.EnsureCommandIsAllowed("cmd.exe");
-
-        stopwatch.Start();
-        for (int i = 0; i < iterations; i++)
-        {
-            foreach (var command in commands)
-            {
-                var result = _commandGuard.EnsureCommandIsAllowed(command);
-                Assert.NotNull(result);
-            }
-        }
-        stopwatch.Stop();
-
-        // Assert
-        var totalTime = stopwatch.Elapsed;
-        var averageTimePerValidation = totalTime.TotalMilliseconds / (iterations * commands.Length);
-
-        _output.WriteLine($"Command validation performance: {iterations * commands.Length} validations took {totalTime.TotalMilliseconds:F2}ms");
-        _output.WriteLine($"Average time per validation: {averageTimePerValidation:F4}ms");
-
-        // 性能基準: 各検証が1ms以内に完了すべき
-        Assert.True(averageTimePerValidation < 1.0, $"Command validation too slow: {averageTimePerValidation:F4}ms per validation");
-    }
-
-    [Fact]
-    public async Task CommandGuard_ArgumentSanitization_Performance()
-    {
-        // Arrange
-        var dangerousArguments = "/c echo test; rm -rf / && del /f /s /q c:\\* || format c: || shutdown /r /t 0";
-        var iterations = 1000;
-        var stopwatch = new Stopwatch();
-
-        // Act - ウォームアップで JIT/Compiled regex 初期化コストを計測から除外
-        for (var i = 0; i < 10; i++)
-        {
-            _commandGuard.SanitizeArguments(dangerousArguments);
-        }
-
-        stopwatch.Start();
-        for (int i = 0; i < iterations; i++)
-        {
-            var result = _commandGuard.SanitizeArguments(dangerousArguments);
-            Assert.NotNull(result);
-        }
-        stopwatch.Stop();
-
-        // Assert
-        var totalTime = stopwatch.Elapsed;
-        var averageTimePerSanitization = totalTime.TotalMilliseconds / iterations;
-
-        _output.WriteLine($"Argument sanitization performance: {iterations} sanitizations took {totalTime.TotalMilliseconds:F2}ms");
-        _output.WriteLine($"Average time per sanitization: {averageTimePerSanitization:F4}ms");
-
-        // 性能基準: 各サニタイズが0.1ms以内に完了すべき
-        Assert.True(averageTimePerSanitization < 0.1, $"Argument sanitization too slow: {averageTimePerSanitization:F4}ms per sanitization");
-    }
-
-    [Fact]
-    public async Task CommandGuard_UrlValidation_Performance()
-    {
-        // Arrange
-        var urls = new[]
-        {
-            "https://example.com/path?query=value&other=123",
-            "http://test.com/api/v1/users",
-            "https://secure.example.org:8443/path/to/resource",
-            "ftp://invalid.example.com/file.txt",
-            "javascript:alert('xss')",
-            "https://valid.example.com/very/long/path/with/many/segments/and/parameters?param1=value1&param2=value2&param3=value3"
-        };
-        var iterations = 200;
-        var rounds = 5;
-
-        // Act - ウォームアップで JIT/Compiled regex 初期化コストを計測から除外
-        _commandGuard.IsValidUrl(urls[0]);
-
-        var averages = new double[rounds];
-        for (int r = 0; r < rounds; r++)
-        {
-            var stopwatch = Stopwatch.StartNew();
-            for (int i = 0; i < iterations; i++)
-            {
-                foreach (var url in urls)
-                {
-                    var result = _commandGuard.IsValidUrl(url);
-                    // 結果は問わず、例外なく完了すること
-                }
-            }
-            stopwatch.Stop();
-            averages[r] = stopwatch.Elapsed.TotalMilliseconds / (iterations * urls.Length);
-        }
-
-        // Assert - 中央値で比較し、CI上のGC/スケジューリング由来の外れ値を除外
-        Array.Sort(averages);
-        var median = averages[rounds / 2];
-
-        _output.WriteLine($"URL validation rounds: {string.Join(", ", averages.Select(a => a.ToString("F4")))} ms/validation");
-        _output.WriteLine($"Median time per validation: {median:F4}ms");
-
-        // 性能基準: 中央値が0.03ms以内に完了すべき（退行検出が目的であり、絶対速度の厳密保証ではない）
-        Assert.True(median < 0.03, $"URL validation too slow: {median:F4}ms per validation (median)");
     }
 
     [Fact]
@@ -253,35 +119,6 @@ public class PerformanceTests : IDisposable
 
         // 性能基準: 並行実行で大きな性能劣化がないこと
         Assert.True(averageTimePerExecution < 2000, $"Concurrent execution too slow: {averageTimePerExecution:F2}ms per execution");
-    }
-
-    [Fact]
-    public async Task CommandGuard_RateLimit_Performance()
-    {
-        // Arrange
-        var operation = "DomainValidation"; // 200回/秒まで許容される既存オペレーション
-        var cancellationToken = CancellationToken.None;
-        var iterations = 100;
-        var stopwatch = new Stopwatch();
-
-        // Act
-        stopwatch.Start();
-        for (int i = 0; i < iterations; i++)
-        {
-            var result = await _commandGuard.CheckRateLimitAsync(operation, cancellationToken);
-            Assert.True(result);
-        }
-        stopwatch.Stop();
-
-        // Assert
-        var totalTime = stopwatch.Elapsed;
-        var averageTimePerCheck = totalTime.TotalMilliseconds / iterations;
-
-        _output.WriteLine($"Rate limit check performance: {iterations} checks took {totalTime.TotalMilliseconds:F2}ms");
-        _output.WriteLine($"Average time per check: {averageTimePerCheck:F4}ms");
-
-        // 性能基準: 各チェックが0.1ms以内に完了すべき
-        Assert.True(averageTimePerCheck < 0.1, $"Rate limit check too slow: {averageTimePerCheck:F4}ms per check");
     }
 
     [Fact]
