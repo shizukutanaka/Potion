@@ -60,7 +60,9 @@ public class PerformanceTests : IDisposable
         var iterations = 100;
         var stopwatch = new Stopwatch();
 
-        // Act
+        // Act - ウォームアップで JIT/Compiled regex 初期化コストを計測から除外
+        _commandGuard.EnsureCommandIsAllowed("cmd.exe");
+
         stopwatch.Start();
         for (int i = 0; i < iterations; i++)
         {
@@ -91,7 +93,12 @@ public class PerformanceTests : IDisposable
         var iterations = 1000;
         var stopwatch = new Stopwatch();
 
-        // Act
+        // Act - ウォームアップで JIT/Compiled regex 初期化コストを計測から除外
+        for (var i = 0; i < 10; i++)
+        {
+            _commandGuard.SanitizeArguments(dangerousArguments);
+        }
+
         stopwatch.Start();
         for (int i = 0; i < iterations; i++)
         {
@@ -127,7 +134,9 @@ public class PerformanceTests : IDisposable
         var iterations = 1000;
         var stopwatch = new Stopwatch();
 
-        // Act
+        // Act - ウォームアップで JIT/Compiled regex 初期化コストを計測から除外
+        _commandGuard.IsValidUrl(urls[0]);
+
         stopwatch.Start();
         for (int i = 0; i < iterations; i++)
         {

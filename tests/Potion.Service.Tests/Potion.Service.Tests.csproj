@@ -4,6 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <Nullable>annotations</Nullable>
+    <!-- 製品APIはWindows専用のため CA1416 プラットフォーム警告と async テストの CS1998 は想定内 -->
+    <NoWarn>CA1416;CS1998</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

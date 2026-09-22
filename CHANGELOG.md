@@ -57,3 +57,12 @@
 - CI/CD でのテスト継続検証を確立
   - `tests/Potion.Service.Tests` を `Potion.sln` に登録（これまで `dotnet test Potion.sln` がテストを実行できていなかった → Windows CI で全126テストが実行可能に）
   - 空の死蔵ディレクトリ `src/Potion.Service.Advanced/` を削除（ソースファイルゼロの nuspec 誤認ファイルのみ、どこからも参照されない）
+
+### Fixed (ビルド警告ゼロ化・フレイキーテスト修正)
+
+- MSBuild 警告を全件解消（ソリューション再ビルドで警告 0 件を確認）
+  - `Potion.Service.csproj`: 存在しない `MinimumRecommendedRules.ruleset` への `<CodeAnalysisRuleSet>` 参照を削除（NU パッケージ版アナライザと二重構成になっていたため）
+  - 実行時未使用の `Microsoft.CodeAnalysis.NetAnalyzers` 8.0.0 と `Microsoft.SourceLink.GitHub` 8.0.0 の PackageReference を削除（CI でのソースリンク生成対象外・依存削減）
+  - `ResiliencePipelines.CreateRemediationPipeline` から未使用の `enableChaos` パラメータを削除（Chaos 実装削除の残滓。唯一の呼び出し元 `Startup.cs` はロガーのみ渡していたため外部影響なし）
+- テストプロジェクトの警告も整理: `<Nullable>annotations</Nullable>` 追加（CS8632 解消）＋ `<NoWarn>CA1416;CS1998</NoWarn>`（製品が Windows 専用のため CA1416 は想定内、async テスト骨格の CS1998 も設計意図どおり）
+- `PerformanceTests`: コールドスタート時に Compiled 正規表現/JIT 初期化コストが性能アサーション（0.1ms/回 等）を超過し偶発失敗していたフレイキーを、計測前ウォームアップ（正規表現ベースの3テスト）で根本原因から修正

@@ -18,8 +18,7 @@ public static class ResiliencePipelines
     /// Creates a comprehensive resilience pipeline for remediation tasks
     /// </summary>
     public static ResiliencePipeline<ProcessResult> CreateRemediationPipeline(
-        ILogger logger,
-        bool enableChaos = false)
+        ILogger logger)
     {
         var bulkheadLimiter = new System.Threading.RateLimiting.ConcurrencyLimiter(
             new System.Threading.RateLimiting.ConcurrencyLimiterOptions
