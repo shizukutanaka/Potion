@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボード ID 不整合 — アラート一覧が常に非表示・更新ごとに例外)
+
+- `updateAlertsBadge` が存在しない `#alerts-count` を参照 — `updateAlertsDisplay` 内で毎回 NPE となり **アラート一覧が例外で表示されなかった**。実在する `#alerts-count-side`（サイドナビバッジ）に修正
+- `updateResourceChart` が存在しない `#resource-chart` canvas を参照 — `loadPerformanceData` の更新サイクル毎に NPE（catch されてコンソール汚染）。実チャートは `renderResourceTrendsChart`（`#resource-trends-chart`）が別途描画するため、**死んだ重複メソッドごと削除**（UI変更: バグ修正のみ、見た目・レイアウト変更なし）
+
 ### Fixed (ダッシュボードUIの死ハンドラ3件 — UI変更: バグ修正のみ、見た目・レイアウト変更なし)
 
 - `openPerformanceDrawer`・`toggleAdvancedSearch`・`applyAdvancedFilters` — HTML の `onclick`/`onchange` から参照されるがグローバル関数が未定義で、押下のたびに `ReferenceError` が発生し何も動作しなかった（メソッド本体は `dashboard` オブジェクト上に実装済み・対象 DOM も存在 — ラッパー欠落のみ）
