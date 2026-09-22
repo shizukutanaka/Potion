@@ -292,6 +292,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var elevated = _sampler.IsElevated();
         var (evtTotal, evtErrors, evtSecurity, evtCritical, evtLast) = _sampler.WindowsEventCounts();
         var restorePoint = _sampler.RestorePointAvailable();
+        var ioOpsRate = _sampler.IoOpsRate();
         var perf = _requestMetrics.Snapshot();
         var currentProcess = Process.GetCurrentProcess();
 
@@ -308,7 +309,8 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new SecurityContextMetrics(Environment.UserName, elevated, elevated, true),
             new RuntimePerformanceMetrics(perf.Rps, perf.AverageLatencyMs, perf.ErrorRate, currentProcess.Threads.Count,
                 OperatingSystem.IsWindows() ? currentProcess.HandleCount : 0),
-            new ResourceMonitoringMetrics(Environment.TickCount64 / 1000.0, 0, GC.CollectionCount(0)),
+            new ResourceMonitoringMetrics(currentProcess.TotalProcessorTime.TotalSeconds, ioOpsRate,
+                GC.CollectionCount(0) + GC.CollectionCount(1) + GC.CollectionCount(2)),
             new ResourcePressureMetrics(
                 ToPressure(cpuPercent),
                 ToPressure(usedPercent),
@@ -672,6 +674,47 @@ internal sealed class SystemMetricsSampler
         }
 
         return (total, errors, critical, lastAt);
+    }
+
+    private (long Ops, DateTimeOffset At)? _lastIoSample;
+
+    // Process I/O ops/sec from /proc/self/io (syscr+syscw delta). Windows has no cheap
+    // per-process I/O counter without instance-name fragility; returns 0 off-Linux.
+    public double IoOpsRate()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            return 0;
+        }
+
+        try
+        {
+            long ops = 0;
+            foreach (var line in File.ReadLines("/proc/self/io"))
+            {
+                if (line.StartsWith("syscr:", StringComparison.Ordinal) ||
+                    line.StartsWith("syscw:", StringComparison.Ordinal))
+                {
+                    ops += long.Parse(line.AsSpan(line.IndexOf(':') + 1).Trim());
+                }
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            if (_lastIoSample is { } prev)
+            {
+                var elapsed = (now - prev.At).TotalSeconds;
+                var rate = elapsed > 0 ? Math.Max(0, (ops - prev.Ops) / elapsed) : 0;
+                _lastIoSample = (ops, now);
+                return rate;
+            }
+
+            _lastIoSample = (ops, now);
+            return 0;
+        }
+        catch
+        {
+            return 0;
+        }
     }
 
     public bool RestorePointAvailable()
