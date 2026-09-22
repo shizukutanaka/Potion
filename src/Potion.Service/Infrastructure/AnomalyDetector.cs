@@ -142,19 +142,19 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
             metricName, value, score, anomalyType);
 
         // Enhanced remediation based on anomaly type and severity
-        switch (metricName.ToLower())
+        switch (metricName.ToLowerInvariant())
         {
-            case "cpu_usage_percent":
+            case "cpuusage":
                 HandleCpuAnomaly(score, anomalyType);
                 break;
-            case "memory_used_percent":
+            case "memoryusage":
                 HandleMemoryAnomaly(score, anomalyType);
                 break;
-            case "disk_used_percent":
+            case "diskusage":
                 HandleDiskAnomaly(score, anomalyType);
                 break;
-            case "network_bytes_received_per_sec":
-            case "network_bytes_sent_per_sec":
+            case "bytesreceivedpersec":
+            case "bytessentpersec":
                 HandleNetworkAnomaly(score, anomalyType);
                 break;
             default:

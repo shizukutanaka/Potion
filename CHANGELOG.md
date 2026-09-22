@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (異常検知ルーティングのケース不一致)
+
+- `AnomalyDetector.HandleAdvancedAnomaly` の switch ケースが `cpu_usage_percent` 等の旧キー名で、実際に供給されるキー（`CpuUsage`/`MemoryUsage`/`DiskUsage`/`Bytes*PerSec`）と全不一致 → 全異常が Generic 経路へ落ちていた実バグ。実キーの小文字形に修正（`ToLower`→`ToLowerInvariant` も併せて）
+
 ### Fixed (ResourceMonitoringMetrics の値ミスマッチ修正)
 
 - `CpuTimeSeconds` — `Environment.TickCount64`（システム稼働時間）が入っていた実バグを `Process.TotalProcessorTime`（プロセスCPU時間）に修正
