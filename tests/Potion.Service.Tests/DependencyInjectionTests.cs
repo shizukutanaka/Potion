@@ -27,7 +27,6 @@ public sealed class DependencyInjectionTests
         var configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["RemediationPolicy:Enabled"] = "false",
                 ["FeatureFlags:test"] = "false",
             })
             .Build();
