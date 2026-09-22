@@ -91,6 +91,7 @@
     <!-- ML.NET packages removed: no code references Microsoft.ML (anomaly detection is statistical, not ML.NET-based). Re-add when a real ML.NET pipeline lands. -->
 
     <!-- Core Infrastructure -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.12" />
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.Threading.Channels" Version="9.0.4" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.12" />
