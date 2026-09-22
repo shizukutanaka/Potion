@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (ServiceMetrics・Firewall の macOS 実測化)
+
+- **`ServiceMetrics` が macOS で全て固定0だった** — `launchctl list` で実測（PID=running・`"-"`=stopped・非0 exit status=failed）。実機で total=502/running=217 を確認。30秒キャッシュ済み
+- **`SecurityState.Firewall` が macOS で固定falseだった** — `defaults read /Library/Preferences/com.apple.alf globalstate` で実測（実機で false=実際にFW無効・正直な値）
+
 ### Fixed (HandleCount・MachineInventory の macOS 実測化)
 
 - **`HandleCount` が macOS で固定0だった** — `proc_pidinfo(PROC_PIDLISTFDS)` でオープンFD数を実測（実機で 83 確認）

@@ -847,13 +847,13 @@ internal sealed class SystemMetricsSampler
 
     public (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) ServiceCounts()
     {
-        if (OperatingSystem.IsLinux())
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
         {
             if (_serviceCountsCache is { } cached && DateTimeOffset.UtcNow - _serviceCountsAt < SpawnedProbeTtl)
             {
                 return cached;
             }
-            var fresh = LinuxServiceCounts();
+            var fresh = OperatingSystem.IsLinux() ? LinuxServiceCounts() : MacServiceCounts();
             _serviceCountsCache = fresh;
             _serviceCountsAt = DateTimeOffset.UtcNow;
             return fresh;
@@ -960,6 +960,64 @@ internal sealed class SystemMetricsSampler
         }
     }
 
+    // launchd is the macOS service manager — `launchctl list` prints one row
+    // per loaded job: "PID\tLastExitStatus\tLabel". A numeric PID means the
+    // job is running; "-" status means stopped cleanly; a numeric status is
+    // the exit code of a crashed/killed job (= failed).
+    private static (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) MacServiceCounts()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "launchctl",
+                ArgumentList = { "list" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return (0, 0, 0, 0, Array.Empty<string>());
+            }
+            var output = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(10000);
+
+            var total = 0;
+            var running = 0;
+            var stopped = 0;
+            var failedNames = new List<string>();
+            foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var fields = line.Split('\t', StringSplitOptions.TrimEntries);
+                if (fields.Length < 3 || fields[0].Equals("PID", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+                total++;
+                if (int.TryParse(fields[0], out _))
+                {
+                    running++;
+                }
+                else
+                {
+                    stopped++;
+                    if (int.TryParse(fields[1], out var exitCode) && exitCode != 0)
+                    {
+                        failedNames.Add(fields[2]);
+                    }
+                }
+            }
+            return (total, running, stopped, failedNames.Count, failedNames);
+        }
+        catch
+        {
+            return (0, 0, 0, 0, Array.Empty<string>());
+        }
+    }
+
     public (bool Defender, bool Firewall, int ActiveThreats, bool SecureBoot, DateTimeOffset LastScan) SecurityState()
     {
         var lastScan = DateTimeOffset.UtcNow;
@@ -974,6 +1032,15 @@ internal sealed class SystemMetricsSampler
             _firewallCache = linuxFirewall;
             _firewallAt = DateTimeOffset.UtcNow;
             return (false, linuxFirewall, 0, LinuxSecureBootEnabled(), lastScan);
+        }
+        if (OperatingSystem.IsMacOS())
+        {
+            var macFirewall = _firewallCache is { } cachedFw && DateTimeOffset.UtcNow - _firewallAt < SpawnedProbeTtl
+                ? cachedFw
+                : MacFirewallEnabled();
+            _firewallCache = macFirewall;
+            _firewallAt = DateTimeOffset.UtcNow;
+            return (false, macFirewall, 0, false, lastScan);
         }
         if (!OperatingSystem.IsWindows())
         {
@@ -1086,6 +1153,37 @@ internal sealed class SystemMetricsSampler
         catch
         {
             return string.Empty;
+        }
+    }
+
+    // macOS Application Firewall state lives in the ALF preferences domain:
+    // globalstate 1/2 = enabled, 0 = off. `defaults read` is the sanctioned
+    // read path (the file itself is a binary plist).
+    private static bool MacFirewallEnabled()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "defaults",
+                ArgumentList = { "read", "/Library/Preferences/com.apple.alf", "globalstate" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return false;
+            }
+            var output = proc.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit(5000);
+            return output is "1" or "2";
+        }
+        catch
+        {
+            return false;
         }
     }
 
