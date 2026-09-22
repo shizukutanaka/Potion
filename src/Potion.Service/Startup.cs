@@ -9,6 +9,7 @@ using Potion.Service.Hubs;
 using Potion.Service.Infrastructure;
 using Potion.Service.Options;
 using Potion.Service.Remediation;
+using Potion.Service.Scheduling;
 
 namespace Potion.Service;
 
@@ -75,9 +76,6 @@ public class Startup
         services.AddOptions<CollaborationOptions>();
 
         // Self-healing monitoring loop: observation and reporting only.
-        // Repair-execution services (AutoRecoveryManager, PerformanceOptimizer,
-        // PredictiveRemediationService, EventDrivenRemediationService) stay
-        // unregistered pending explicit approval — they run OS-level repairs.
         services.AddSingleton<ISystemHealthMonitor, SystemHealthMonitor>();
         services.AddHostedService<MemoryMonitor>();
         services.AddHostedService<AnomalyDetector>();
@@ -87,6 +85,22 @@ public class Startup
         services.AddOptions<PerformanceOptimizerOptions>();
         services.AddOptions<EventCorrelationOptions>();
         services.AddOptions<ComplianceOptions>();
+
+        // Repair-execution tier: these services run OS-level repairs
+        // autonomously (service restarts, SFC/DISM, performance tuning), so
+        // they are wired only when the operator opts in via the
+        // "FeatureFlags:RepairExecutionEnabled" flag — disabled by default.
+        // PredictiveRemediationService stays unregistered: its
+        // IRemediationScheduler dependency has no implementation yet.
+        if (Configuration.GetValue<bool>("FeatureFlags:RepairExecutionEnabled"))
+        {
+            services.Configure<RemediationPolicyOptions>(Configuration.GetSection("RemediationPolicy"));
+            services.AddSingleton<IProcessRunner, ProcessRunner>();
+            services.AddSingleton<IRemediationTaskExecutor, RemediationTaskExecutor>();
+            services.AddHostedService<AutoRecoveryManager>();
+            services.AddHostedService<PerformanceOptimizer>();
+            services.AddHostedService<EventDrivenRemediationService>();
+        }
 
         var supportedCultures = new[]
         {

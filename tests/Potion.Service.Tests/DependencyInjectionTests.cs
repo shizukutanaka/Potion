@@ -7,6 +7,8 @@ using Moq;
 using Potion.Service;
 using Potion.Service.Hubs;
 using Potion.Service.Infrastructure;
+using Potion.Service.Remediation;
+using Potion.Service.Scheduling;
 using Xunit;
 
 namespace Potion.Service.Tests;
@@ -78,5 +80,55 @@ public sealed class DependencyInjectionTests
 
         Assert.Contains(services, d => d.ServiceType == typeof(CollaborationService));
         Assert.Contains(services, d => d.ServiceType == typeof(ISystemHealthMonitor));
+    }
+
+    [Fact]
+    public void RepairTier_StaysOffByDefault()
+    {
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection().Build();
+        var services = new ServiceCollection();
+        new Startup(configuration).ConfigureServices(services);
+
+        var hosted = services
+            .Where(d => d.ServiceType == typeof(IHostedService))
+            .Select(d => d.ImplementationType)
+            .ToHashSet();
+
+        Assert.DoesNotContain(typeof(AutoRecoveryManager), hosted);
+        Assert.DoesNotContain(typeof(EventDrivenRemediationService), hosted);
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IRemediationTaskExecutor));
+    }
+
+    [Fact]
+    public void RepairTier_ResolvesWhenFlagEnabled()
+    {
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FeatureFlags:RepairExecutionEnabled"] = "true",
+            })
+            .Build();
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddSingleton(new Mock<IHostApplicationLifetime>().Object);
+        new Startup(configuration).ConfigureServices(services);
+
+        // throws if any gated registration is unresolvable
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateOnBuild = true,
+            ValidateScopes = true,
+        });
+
+        var hosted = services
+            .Where(d => d.ServiceType == typeof(IHostedService))
+            .Select(d => d.ImplementationType)
+            .ToHashSet();
+        Assert.Contains(typeof(AutoRecoveryManager), hosted);
+        Assert.Contains(typeof(PerformanceOptimizer), hosted);
+        Assert.Contains(typeof(EventDrivenRemediationService), hosted);
+        Assert.Equal(
+            typeof(RemediationTaskExecutor),
+            provider.GetRequiredService<IRemediationTaskExecutor>().GetType());
     }
 }

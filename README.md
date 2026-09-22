@@ -9,7 +9,7 @@ A production-grade Windows system automation and monitoring service with autonom
 - **Reliability**: Polly circuit-breaker/retry resilience pipelines, dependency injection validated at startup
 - **Observability**: Serilog logging, OpenTelemetry metrics + traces, Prometheus `/metrics` endpoint
 - **Collaboration**: SignalR hub at `/collaboration` and a static dashboard (`wwwroot/`)
-- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk) through the allowlist — the autonomous repair-execution services are present but not wired into DI pending an explicit product decision (see CHANGELOG)
+- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk) through the allowlist — the autonomous repair-execution services (`AutoRecoveryManager`, `PerformanceOptimizer`, `EventDrivenRemediationService`) are wired behind the `FeatureFlags:RepairExecutionEnabled` flag, off by default (see CHANGELOG)
 
 ## Quick Start
 
@@ -49,7 +49,7 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 
 - `RemediationPolicy` — repair command allowlist and remediation policy options
 - `TelemetryRetention` — telemetry retention settings
-- `FeatureFlags` — feature toggles consumed by `ConfigurationManagementService`
+- `FeatureFlags` — feature toggles consumed by `ConfigurationManagementService`; `RepairExecutionEnabled` (default `false`) activates the autonomous repair-execution services
 - `Serilog`, `AllowedHosts`, `Kestrel` — framework settings
 
 ## Tests
