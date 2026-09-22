@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (WindowsEventMetrics の非Windows固定0を実測化)
+
+- **`WindowsEventMetrics` が非Windowsで全て固定0だった** — Linux で `journalctl`（24h窓・最大5000件）を実測: Total=全エントリ・Errors=エラーマーカー・Critical=crit/emerg/panic/segfault/oom マーカー・Security=sudo/sshd/polkit/audit 由来ユニット・LastAt=最新エントリ時刻。macOS は `log show` が高コスト → 正直な0
+
 ### Fixed (ServiceCounts の非Windows固定0を実測化)
 
 - **`ServiceMetrics` が非Windowsで全て固定0だった** — Linux で `systemctl list-units --type=service --all` を実測（total/running/stopped・sub-state `failed` のユニットを FailedNames として収集 — Windows「Auto起動構成だが停止」相当）。macOS はサービスマネージャ概念なし → 正直な0

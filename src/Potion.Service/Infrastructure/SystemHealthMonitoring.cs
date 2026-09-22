@@ -992,6 +992,11 @@ internal sealed class SystemMetricsSampler
 
     public (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) WindowsEventCounts()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            return LinuxEventCounts();
+        }
+
         if (!OperatingSystem.IsWindows())
         {
             return (0, 0, 0, 0, DateTimeOffset.MinValue);
@@ -1003,6 +1008,81 @@ internal sealed class SystemMetricsSampler
             var (secTotal, secErrors, secCritical, secLast) = CountEvents("Security");
             return (total + secTotal, errors + secErrors, secTotal, critical + secCritical,
                 lastAt > secLast ? lastAt : secLast);
+        }
+        catch
+        {
+            return (0, 0, 0, 0, DateTimeOffset.MinValue);
+        }
+    }
+
+    // journald is the Linux event log — one `journalctl` call over the same
+    // 24h window yields entries tagged with their syslog priority. Priority
+    // 0-2 (emerg/alert/crit) = Critical, 3 (err) = Errors; Security counts
+    // entries from auth/security units (sudo/sshd/polkit/auditd).
+    private static (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) LinuxEventCounts()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "journalctl",
+                ArgumentList = { "-o", "short-iso", "--no-pager", "-q", "--since", "-24 hours", "-n", MaxEventsToScan.ToString() },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return (0, 0, 0, 0, DateTimeOffset.MinValue);
+            }
+            var output = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(15000);
+
+            var total = 0;
+            var errors = 0;
+            var security = 0;
+            var critical = 0;
+            var lastAt = DateTimeOffset.MinValue;
+            // short-iso rows: "2026-09-22T07:30:00+0000 host unit[pid]: message"
+            // journalctl does not emit the numeric priority in this format —
+            // error severity is inferred from well-known markers instead.
+            foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var fields = line.Split(' ', 4, StringSplitOptions.RemoveEmptyEntries);
+                if (fields.Length < 4)
+                {
+                    continue;
+                }
+                total++;
+                var body = fields[3];
+                if (body.Contains("crit", StringComparison.OrdinalIgnoreCase) ||
+                    body.Contains("emerg", StringComparison.OrdinalIgnoreCase) ||
+                    body.Contains("panic", StringComparison.OrdinalIgnoreCase) ||
+                    body.Contains("segfault", StringComparison.OrdinalIgnoreCase) ||
+                    body.Contains("oom-killer", StringComparison.OrdinalIgnoreCase))
+                {
+                    critical++;
+                }
+                else if (body.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                    body.Contains("failed", StringComparison.OrdinalIgnoreCase))
+                {
+                    errors++;
+                }
+                if (fields[2].Contains("sudo", StringComparison.OrdinalIgnoreCase) ||
+                    fields[2].Contains("sshd", StringComparison.OrdinalIgnoreCase) ||
+                    fields[2].Contains("polkit", StringComparison.OrdinalIgnoreCase) ||
+                    fields[2].Contains("audit", StringComparison.OrdinalIgnoreCase))
+                {
+                    security++;
+                }
+                if (DateTimeOffset.TryParse(fields[0], out var at) && at > lastAt)
+                {
+                    lastAt = at;
+                }
+            }
+            return (total, errors, security, critical, lastAt);
         }
         catch
         {
