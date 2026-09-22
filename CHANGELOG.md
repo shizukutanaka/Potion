@@ -101,3 +101,8 @@
   - 維持したセクション: `Serilog`/`AllowedHosts`/`Kestrel`（フレームワーク消費）、`RemediationPolicy`/`TelemetryRetention`/`FeatureFlags`（`GetSection` で実バインド確認済み）
   - `Options/*.cs` の `SectionName` 定数は未使用だがクラス自体は存続コードが利用するため温存
 - ルート `appsettings.Personal.json` を削除 — csproj はプロジェクトディレクトリ内の `appsettings*.json` のみコピーするため、リポジトリルートのこのファイルは一切ロードされない設定残滓
+
+### Fixed (ランタイム監査で検出した実バグ)
+
+- `CollaborationService` を DI 登録（`services.AddSingleton<CollaborationService>()` + `AddOptions<CollaborationOptions>()`）— `/collaboration` にマップされた `CollaborationHub` が生成時に同クラスを注入するが未登録だったため、SignalR 接続のたびに DI 解決失敗していた実バグを修正
+- ランタイム監査の補足所見（要判断事項として報告）: `AutoRecoveryManager`/`MemoryMonitor`/`PerformanceOptimizer`/`PredictiveRemediationService` 等の `BackgroundService`/`IHostedService` 実装が存在するが `AddHostedService` 登録がゼロのため、自己修復監視ループは現状起動しない設計。また `wwwroot/`（index.html/styles.css/dashboard.js）は `UseStaticFiles` 未呼び出しで配信されない
