@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (消費者ゼロの死ファイル2件 — 1,099行)＋ 生型の移設
+
+- `Infrastructure/SecureLogService.cs`（617行）削除 — `ISecureLogService`/`SecureLogService`/`LogEntry`/`LogSecurityReport`/`LogAccessControl` 全て参照ゼロ（DI 登録・サービス消費・テスト利用なし）。ファイル内の `LogLevel` enum は `ErrorHandler.HandleError` の公開API型（内部で MEL `LogLevel` へ序数キャスト）のため **`ErrorHandler.cs` へ移設**
+- `Infrastructure/AutomaticDiagnostics.cs`（482行）削除 — `IAutomaticDiagnostics`/`AutomaticDiagnostics` は DI 未登録・消費者ゼロ。ただし `DiagnosticReport`/`DiagnosticCheck`/`DiagnosticRecommendation`/`DiagnosticSeverity` は `ResiliencePipelines.CreateDiagnosticPipeline`（`ResiliencePipeline<DiagnosticReport>`、Startup 登録済み）が使用のため **同ファイルへ移設**
+- 検証: 0警告0エラー・ErrorHandler/DI テスト 32/32
+
 ### Removed (起動不能の compose 派生2ファイル)
 
 - `docker-compose.enterprise.yml`（201行）削除 — 参照する `./nginx.conf`・`./prometheus.yml`（ルート）・`./fluentd.conf`・`./redis-data`・`./postgres-data` 等が全て不存在で起動不能。`potion/enterprise:latest` イメージもビルド経路なし。postgres/redis/elasticsearch はアプリ未使用の死依存
