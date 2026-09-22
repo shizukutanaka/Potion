@@ -29,6 +29,21 @@
 - `appsettings.simple.json` を削除 — `appsettings.{Environment}.json` の環境命名規約にも `AddJsonFile` にも合致しない未ロード設定残滓（内部の `Potion:` セクションも未バインド）
 - 検証: 0警告0エラー・131/131テスト
 
+||||||| parent of b980600 (fix: wire Serilog so configured sinks/enrichers actually run)
+### Fixed (Serilog の実配線 — 宣言のみだった構造化ログの有効化)
+
+- `Program.cs` に `.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration))` を追加 — Serilog パッケージと `Serilog` 設定セクションは存在したが `UseSerilog` が未呼出で、全てのログは Serilog を経由していなかった（wwwroot と同型の「設定済み・未配信」）。Console/File/EventLog シンク・エンリッチャー・`ServiceVersion` プロパティが全て初めて動作
+- パッケージ変更（追加6件＋升級4件 — appsettings が宣言する機能を実際に動作させるために必要。Serilog 3.x 系では `Sinks.EventLog`/`Sinks.Console 6.x` と非互換のため **Serilog 4.3.1 系で一式整合**）:
+  - 升級: `Serilog` 3.1.1→4.3.1、`Sinks.File` 5.0.0→6.0.0、`Extensions.Logging` 8.0.0→9.0.2
+  - 追加: `Sinks.Console` 6.0.0、`Sinks.EventLog` 4.0.0、`Extensions.Hosting` 9.0.0（`UseSerilog`）、`Settings.Configuration` 9.0.0（`ReadFrom.Configuration`）、`Enrichers.Environment`/`Process`/`Thread`（宣言済み `WithMachineName`/`WithProcessId`/`WithThreadId`）
+- 設定内の実バグ修正:
+  - `otedama-.log` → `potion-.log`（全3環境 — 別プロジェクト名の残滓）
+  - `%ProgramData%` → `C:/ProgramData/Potion/logs/`（環境変数プレースホルダは Serilog 設定で展開されず、リテラルディレクトリが作られていた）
+  - 死 `Override` キー削除: `Potion.Service.Controllers`（コントローラ不存在）、`Potion.Service.Infrastructure.Security`/`Performance`（名字空間不存在）
+  - `ServiceVersion` `2.0.0`/`2.0.0-dev` → `1.0.0`/`1.0.0-dev`（csproj 無指定＝実アセンブリバージョンと一致させた）
+- 開発環境のログパスはリポジトリ相対 `logs/dev-potion-.log`（非 Windows でも書込み可能）
+- 検証: 0警告0エラー・131/131テスト・起動時に Serilog テンプレート出力＋ファイルシンクによる `dev-potion-*.log` 実生成を確認
+
 ### Added (修復実行ティアの FeatureFlags ゲート付き有効化)
 
 - 修復実行系サービスを `FeatureFlags:RepairExecutionEnabled`（既定 OFF）で登録可能に — 運用者が設定変更のみで製品中核の自律修復ループを起動できるようになった（コード変更不要）。フラグ ON で以下が起動:
