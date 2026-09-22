@@ -23,8 +23,6 @@ public class Startup
 
     public void ConfigureServices(IServiceCollection services)
     {
-
-
         // OpenTelemetry observability (Phase 1 enhancement)
         services.AddOpenTelemetry()
             .WithMetrics(metrics =>
@@ -70,10 +68,6 @@ public class Startup
             var logger = sp.GetRequiredService<ILogger<Startup>>();
             return ResiliencePipelines.CreateDiagnosticPipeline(logger);
         });
-
-
-
-
 
         services.AddSignalR();
         services.AddHttpClient();
