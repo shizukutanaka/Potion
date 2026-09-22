@@ -28,7 +28,6 @@ public sealed class DependencyInjectionTests
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
                 ["RemediationPolicy:Enabled"] = "false",
-                ["TelemetryRetention:Enabled"] = "false",
                 ["FeatureFlags:test"] = "false",
             })
             .Build();
