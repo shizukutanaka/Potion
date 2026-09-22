@@ -259,7 +259,6 @@ public class ErrorHandlerTests : IDisposable
     {
         // Arrange
         var exception = new TimeoutException("Network error");
-        var attemptNumber = 1;
         var cancellationToken = CancellationToken.None;
 
         // Act - リトライ上限超過の失敗を閾値（5回）まで記録し回路遮断器を開く
