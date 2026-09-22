@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (HTTP パフォーマンスの実測化)
+
+- `RequestMetricsMiddleware` + `RequestMetricsTracker`（1分ローリング窓、スレッドセーフ）を新規追加し `RuntimePerformanceMetrics` の RequestsPerSecond/AverageLatencyMs/ErrorRate を実測化（固定0解消）。`/collaboration`（長時間接続）と `/metrics`（スクレイプ）は計測除外。登録は `UseStaticFiles` 後 — API/SignalR/health トラフィックのみ対象
+
 ### Fixed (WindowsEventMetrics / 復元ポイントの実測化)
 
 - `WindowsEventMetrics` — `EventLogReader` の XPath クエリ（`TimeCreated[timediff <= 24h]`）で System/Security ログの直近24時間イベント数・エラー・Critical・最新時刻を実測（`System.Diagnostics.EventLog` 10.0.12 を明示追加 — 既に推移導入済みの同バージョン。走査上限5,000件。他OSは0）

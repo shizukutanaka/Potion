@@ -83,6 +83,7 @@ public class Startup
         services.AddHostedService<MemoryMonitor>();
         services.AddHostedService<AnomalyDetector>();
         services.AddSingleton<EventCorrelationStats>();
+        services.AddSingleton<RequestMetricsTracker>();
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();
         services.AddHealthChecks();
@@ -185,6 +186,7 @@ public class Startup
     {
         app.UseRequestLocalization();
         app.UseStaticFiles();
+        app.UseMiddleware<RequestMetricsMiddleware>();
         app.UseRouting();
 
         // Map Prometheus metrics endpoint (OpenTelemetry export)
