@@ -50,7 +50,9 @@ public class ComplianceReportService : IHostedService, IDisposable
         return Task.CompletedTask;
     }
 
-    private async void GenerateComplianceReport(object? state)
+    private void GenerateComplianceReport(object? state) => _ = GenerateComplianceReportAsync();
+
+    private async Task GenerateComplianceReportAsync()
     {
         try
         {
