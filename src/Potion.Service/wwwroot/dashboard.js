@@ -13,7 +13,8 @@ class PotionDashboard {
         this.currentAlertSearch = '';
         this.currentSecurityTab = 'components';
         this.currentChartRange = '24h';
-        this.chartData = this.generateMockChartData();
+        // Rolling window of real metric samples collected by the poller.
+        this.chartData = [];
         this.searchResults = [];
         this.currentSearchCategory = 'all';
         this.contextualHelpTimeout = null;
@@ -578,23 +579,10 @@ class PotionDashboard {
         this.uploadedFiles = Array.from(files);
 
         if (this.uploadedFiles.length > 0) {
-            this.showProgressModal('Uploading Files', `Processing ${this.uploadedFiles.length} file(s)...`);
-
-            // Simulate file upload progress
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        this.closeProgressModal();
-                        this.showNotification(`${this.uploadedFiles.length} file(s) uploaded successfully`, 'success');
-                        this.hideFileUpload();
-                    }, 500);
-                }
-                this.updateProgress(progress, `Uploading file ${Math.floor(progress / 20) + 1} of ${this.uploadedFiles.length}...`);
-            }, 200);
+            // The service exposes no file-upload endpoint — say so honestly
+            // instead of simulating fake progress.
+            this.showNotification('File upload is not supported by this service', 'warning');
+            this.hideFileUpload();
         }
     }
 
@@ -822,22 +810,56 @@ class PotionDashboard {
 
     generateSearchResults(query) {
         const results = [];
-        const categories = ['alerts', 'logs', 'metrics'];
+        const q = query.toLowerCase();
+        const include = cat => this.currentSearchCategory === 'all' || this.currentSearchCategory === cat;
 
-        categories.forEach(category => {
-            if (this.currentSearchCategory === 'all' || this.currentSearchCategory === category) {
-                for (let i = 0; i < Math.min(3, Math.floor(Math.random() * 5) + 1); i++) {
-                    results.push({
-                        id: `${category}-${i}`,
-                        category: category,
-                        title: `${query} result ${i + 1}`,
-                        subtitle: `In ${category} section`,
-                        type: category,
-                        url: `#${category}`
-                    });
-                }
-            }
-        });
+        // Search the real data the dashboard already holds.
+        if (include('alerts') && Array.isArray(this.alertsData)) {
+            this.alertsData
+                .filter(a => JSON.stringify(a).toLowerCase().includes(q))
+                .forEach((a, i) => results.push({
+                    id: `alert-${i}`,
+                    category: 'alerts',
+                    title: a.title || 'Alert',
+                    subtitle: `${a.severity} · ${a.component || ''}`,
+                    type: 'alerts',
+                    url: '#alerts'
+                }));
+        }
+
+        if (include('logs') && Array.isArray(this.logsData)) {
+            this.logsData
+                .filter(l => `${l.message} ${l.source}`.toLowerCase().includes(q))
+                .slice(0, 10)
+                .forEach((l, i) => results.push({
+                    id: `log-${i}`,
+                    category: 'logs',
+                    title: l.message,
+                    subtitle: `${l.level} · ${l.source}`,
+                    type: 'logs',
+                    url: '#logs'
+                }));
+        }
+
+        if (include('metrics') && this.lastMetrics) {
+            const m = this.lastMetrics;
+            const entries = {
+                'CPU usage': `${m.cpu.usagePercent.toFixed(1)}%`,
+                'Memory usage': `${m.memory.usedPercent.toFixed(1)}%`,
+                'Disk usage': `${m.disk.usedPercent.toFixed(1)}%`,
+                'Network connections': `${m.network.activeConnections}`
+            };
+            Object.entries(entries)
+                .filter(([name]) => name.toLowerCase().includes(q))
+                .forEach(([name, value], i) => results.push({
+                    id: `metric-${i}`,
+                    category: 'metrics',
+                    title: `${name}: ${value}`,
+                    subtitle: 'Current value',
+                    type: 'metrics',
+                    url: '#performance'
+                }));
+        }
 
         return results;
     }
@@ -956,6 +978,10 @@ class PotionDashboard {
             const response = await fetch(`${this.apiBaseUrl}/api/health`);
             const data = await response.json();
 
+            this.lastMetrics = data.metrics;
+            this.alertsData = data.alerts || [];
+            this.recordChartSample(data.metrics);
+
             this.updateHealthOverview(data);
             this.updateServicesOverview(data.metrics.services);
             this.updateSecurityOverview(data.metrics.security);
@@ -963,6 +989,20 @@ class PotionDashboard {
 
         } catch (error) {
             console.error('Failed to load overview data:', error);
+        }
+    }
+
+    // Append the latest real sample to the rolling chart window (max 24 pts).
+    recordChartSample(metrics) {
+        this.chartData.push({
+            timestamp: new Date(),
+            cpu: metrics.cpu.usagePercent,
+            memory: metrics.memory.usedPercent,
+            disk: metrics.disk.usedPercent,
+            network: Math.min(metrics.network.bytesReceivedPerSec / 1048576, 100)
+        });
+        if (this.chartData.length > 24) {
+            this.chartData.shift();
         }
     }
 
@@ -1352,7 +1392,7 @@ class PotionDashboard {
         filteredAlerts.forEach(alert => {
             const alertItem = document.createElement('div');
             alertItem.className = `alert-item ${alert.severity.toLowerCase()}`;
-            alertItem.dataset.alertId = alert.id || Math.random().toString(36);
+            alertItem.dataset.alertId = alert.alertId || `${alert.component}-${alert.timestamp}`;
 
             const isSelected = this.selectedAlerts.has(alertItem.dataset.alertId);
 
@@ -1514,45 +1554,42 @@ class PotionDashboard {
     }
 
     loadSecurityPolicies() {
-        // Mock security policies data
-        const policies = [
+        // Render the real security state reported by /api/health/metrics
+        // (from the last overview fetch); fall back to a refresh if empty.
+        const sec = this.lastMetrics?.security;
+        const ctx = this.lastMetrics?.securityContext;
+        const policies = sec ? [
             {
-                title: 'Password Policy',
-                description: 'Enforce strong password requirements and regular rotation',
-                status: 'enabled',
-                lastUpdated: '2024-01-15'
+                title: 'Windows Defender',
+                description: 'Real-time antivirus protection',
+                status: sec.windowsDefenderEnabled ? 'enabled' : 'disabled',
+                lastUpdated: sec.lastSecurityScan ? new Date(sec.lastSecurityScan).toLocaleDateString('ja-JP') : '-'
             },
             {
-                title: 'Account Lockout',
-                description: 'Lock accounts after failed login attempts',
-                status: 'enabled',
-                lastUpdated: '2024-01-10'
+                title: 'Windows Firewall',
+                description: 'Network traffic filtering',
+                status: sec.firewallEnabled ? 'enabled' : 'disabled',
+                lastUpdated: '-'
             },
             {
-                title: 'Two-Factor Authentication',
-                description: 'Require 2FA for all administrative accounts',
-                status: 'warning',
-                lastUpdated: '2024-01-08'
+                title: 'Secure Boot',
+                description: 'Boot-time integrity verification',
+                status: sec.isSecureBootEnabled ? 'enabled' : 'disabled',
+                lastUpdated: '-'
             },
             {
-                title: 'Session Timeout',
-                description: 'Automatically log out inactive sessions',
-                status: 'enabled',
-                lastUpdated: '2024-01-12'
+                title: 'Active Threats',
+                description: 'Threats currently flagged by Defender',
+                status: sec.activeThreatCount > 0 ? 'warning' : 'enabled',
+                lastUpdated: `${sec.activeThreatCount} detected`
             },
             {
-                title: 'Audit Logging',
-                description: 'Log all security-relevant events',
-                status: 'enabled',
-                lastUpdated: '2024-01-14'
-            },
-            {
-                title: 'Network Encryption',
-                description: 'Enforce encrypted connections for all network traffic',
-                status: 'disabled',
-                lastUpdated: '2024-01-05'
+                title: 'Service Context',
+                description: ctx ? `${ctx.currentUser} (${ctx.isElevated ? 'elevated' : 'standard'})` : 'Unknown',
+                status: ctx?.isElevated ? 'warning' : 'enabled',
+                lastUpdated: '-'
             }
-        ];
+        ] : [];
 
         const container = document.getElementById('security-policies');
         container.innerHTML = '';
@@ -1584,25 +1621,6 @@ class PotionDashboard {
     // Advanced Chart Functionality
     initializeCharts() {
         this.renderResourceTrendsChart();
-    }
-
-    generateMockChartData() {
-        const data = [];
-        const now = new Date();
-
-        // Generate data for the last 24 hours (24 data points)
-        for (let i = 23; i >= 0; i--) {
-            const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-            data.push({
-                timestamp: timestamp,
-                cpu: Math.random() * 100,
-                memory: 60 + Math.random() * 30,
-                disk: 40 + Math.random() * 40,
-                network: Math.random() * 20
-            });
-        }
-
-        return data;
     }
 
     renderResourceTrendsChart() {

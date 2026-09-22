@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボードのモックデータ実バグ・残り4件)
+
+- **リソース推移チャートがランダム生成データを描画していた実バグ** — `generateMockChartData()` が24時間分の仮想値を生成 → 実ポーリング履歴（`recordChartSample`、24点ローリング窓）へ修正
+- **セキュリティポリシー一覧が固定値を表示していた実バグ** — `loadSecurityPolicies()` が2024年日付入りの固定リストを表示 → `/api/health/metrics` の実セキュリティ状態（Defender/Firewall/SecureBoot/Threat/実行コンテキスト）へ
+- **検索がモック結果を返していた実バグ** — `generateSearchResults()` が `${query} result N` の空文字列ヒットを生成 → 実アラート/ログ/メトリクスを対象にした実検索へ
+- **ファイルアップロード進行が偽装されていた実バグ** — `handleFileUpload()` が `Math.random` の擬似プログレスを表示（アップロードAPIは存在しない）→ 「非対応」の正直な通知へ
+- `Math.random` によるアラートIDフォールバック → 実 `alertId` へ
+
 ### Fixed (EventCorrelation 相関ルールの永久不発バグ)
 
 - **2ルールが発行経路の無いイベント型を参照し永久不発だった実バグ** — 実発行イベント型は `cpu_usage`・`memory_usage`・`disk_usage`・`network_bytes_per_sec`・`health.alert` のみだが、「Network + Disk I/O Storm」は `disk_write_bytes_per_sec`、「Service Failures Cascade」は `service_failed`/`error_logged` を参照（発行経路ゼロ → 条件評価まで到達せず）。実発行型へ修正（network+disk_usage 相関、health.alert バースト検知）— `EventCorrelation.Enabled=true` で稼働中のため実効果あり
