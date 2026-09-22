@@ -185,6 +185,11 @@ public class Startup
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
     {
+        // Force PotionMetrics' static constructor to run at startup: its
+        // ObservableGauge/Counter instruments only exist after first access,
+        // so without this the potion.* series never reach the /metrics export.
+        _ = Infrastructure.PotionMetrics.SystemHealthScore;
+
         app.UseRequestLocalization();
         app.UseDefaultFiles();
         app.UseStaticFiles();

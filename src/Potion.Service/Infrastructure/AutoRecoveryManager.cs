@@ -111,6 +111,7 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         {
             var success = await ExecuteRecoveryActionAsync(component, recoveryAction, cancellationToken);
 
+            PotionMetrics.RecordSelfHealingAttempt(component, success);
             RecoveryAttempted?.Invoke(this, new RecoveryAttemptEventArgs(
                 component,
                 recoveryAction,

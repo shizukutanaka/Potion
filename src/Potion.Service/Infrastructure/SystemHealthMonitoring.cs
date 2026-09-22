@@ -255,6 +255,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             Severity = level == PressureLevel.Critical ? AlertSeverity.Critical : AlertSeverity.Warning,
         };
         alerts.Add(alert);
+        PotionMetrics.RecordAnomaly(component, label);
         HealthAlert?.Invoke(this, alert);
     }
 
@@ -297,7 +298,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var perf = _requestMetrics.Snapshot();
         var currentProcess = Process.GetCurrentProcess();
 
-        return new SystemMetrics(
+        var metrics = new SystemMetrics(
             new CpuMetrics(cpuPercent, 0, 0, Environment.ProcessorCount, Environment.ProcessorCount),
             new MemoryMetrics(usedPercent, availableBytes, totalMemory, managedMemory, managedMemory, 0),
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
@@ -319,6 +320,20 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
                 PressureLevel.None),
             new EventCorrelationMetrics(_correlationStats.CorrelatedEventCount, _correlationStats.ActiveCorrelationRules),
             new CompatibilityMetrics(Environment.Version.ToString(), true));
+
+        // Feed the OTel instruments — without a producer the potion.* meter
+        // surface never materializes and /metrics exports nothing app-specific.
+        PotionMetrics.UpdateCpuUsage(cpuPercent);
+        PotionMetrics.UpdateMemoryUsage(usedPercent);
+        PotionMetrics.UpdateDiskAvailable((long)(diskFreeBytes / (1024.0 * 1024.0 * 1024.0)));
+        PotionMetrics.UpdateHealthScore(HealthScore(metrics));
+        return metrics;
+    }
+
+    private static double HealthScore(SystemMetrics m)
+    {
+        var worst = Math.Max(Math.Max(m.Cpu.UsagePercent, m.Memory.UsedPercent), m.Disk.UsedPercent);
+        return Math.Clamp(1.0 - worst / 100.0, 0.0, 1.0);
     }
 
     private static PressureLevel ToPressure(double usedPercent) =>

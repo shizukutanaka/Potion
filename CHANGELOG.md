@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (/metrics が potion_* メトリクスを全く出力しなかった実ギャップ)
+
+- **Prometheus 監視が空転していた実ギャップ** — `PotionMetrics` は無消費の static クラスで、計器は初アクセス時にのみ生成されるため `/metrics` は `process_*` 実行時メトリクスのみ（potion_* ゼロ）。`SystemHealthMonitor` の実測値（CPU/メモリ/ディスク/ヘルススコア）をゲージへ配線、`RecordAnomaly`・`RecordRemediationTask`・`RecordSelfHealingAttempt` を各経路へ接続、起動時に計器を必ず生成する初期化を追加 — 実検証で `potion_system_health_score`/`cpu_usage`/`memory_usage`/`disk_available_gigabytes` 等が実値出力を確認（OTel はドット→アンダースコア変換）
+- **`rules.yml` に実メトリクスへのアラート3件追加** — `PotionHighCpuUsage`（>95%・5m）/`PotionHighMemoryUsage`（>95%・5m）/`PotionLowDiskSpace`（<5GB・5m）。従来の `PotionServiceDown` のみではアプリの状態異常が全く検知できなかった
+
 ### Fixed (コンテナ環境でアプリが起動不能になる実バグ — Production 設定は Windows 専用)
 
 - **Linux コンテナでアプリが起動しない実バグ** — `ASPNETCORE_ENVIRONMENT=Production` 配下で読み込まれる `appsettings.Production.json` は Windows 専用設定（EventLog シンクは Windows API、ファイルシンクは `C:\ProgramData\...` パス）のため Linux で EventLog 作成失敗 + `C:` ジャンクディレクトリ生成。実際に macOS 上でも `src/Potion.Service/C:/ProgramData/...` のジャンクディレクトリが生成されていた（証跡確認済み）。新規 `appsettings.Container.json`（Console+File シンク・Kestrel `http://+:80`）を追加し、docker-compose / k8s を `ASPNETCORE_ENVIRONMENT=Container` へ切替 — 実検証で 4 エンドポイント全 200・EventLog/C: エラーなし
