@@ -128,6 +128,8 @@ public class Startup
         });
 
         services.AddSignalR();
+        services.AddSingleton<CollaborationService>();
+        services.AddOptions<CollaborationOptions>();
 
         var supportedCultures = new[]
         {
