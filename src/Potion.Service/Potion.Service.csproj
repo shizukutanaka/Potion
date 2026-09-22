@@ -13,6 +13,9 @@
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>link</TrimMode>
     <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
+    <!-- PublishTrimmed は JsonSerializer のリフレクションベース解決を既定で無効化する。
+         AOT ではなくトリムのみのためリフレクションを再有効化し、Minimal API / SecureLogService 等の動的シリアライズを機能させる -->
+    <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <!-- 高度な最適化 -->
     <Optimize>true</Optimize>
     <DebugType>portable</DebugType>

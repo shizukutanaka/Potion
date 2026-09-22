@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added (ダッシュボード API `/api/health*` — 配信のみだった監視 UI の実稼働化)
+
+- `wwwroot` ダッシュボードが参照する4エンドポイントを `ISystemHealthMonitor` スナップショットから実装 — これまで全て404で UI は表示されるがデータゼロだった（Serilog・wwwroot と同型の「配線済み宣言・未実装」クラス）。**API 追加（UI変更の説明）**: ダッシュボードが fetch する経路を既存モニターデータで満たす最小 API で、UI 側の変更はない
+  - `GET /api/health` → `{metrics, alerts}`（スナップショット全体、camelCase でダッシュボード期待値に一致）
+  - `GET /api/health/metrics` → `SystemMetrics`（cpu/memory/disk/services/security/windowsEvents）
+  - `GET /api/health/security` → `{defenderStatus, firewallStatus, realTimeProtection, securityCount, securityAlerts}`
+  - `GET /api/health/security/summary` → `{securityScore}`（Defender/Firewall 状態と脅威数から算出）
+- 併せて潜伏バグ修正: csproj `PublishTrimmed=true` が `JsonSerializerIsReflectionEnabledByDefault=false` を暗黙設定し、Minimal API の複雑型シリアライズが `NoMetadataForType` で**実行時クラッシュ**していた → 同フラグを `true` で明示（AOT ではなくトリムのみのためリフレクション有効が正）。この潜伏バグは `SecureLogService`/`ComplianceReportService` の JSON エクスポート経路にも波及していた
+- 検証: 0警告0エラー・全4エンドポイントが実 JSON を返却（macOS では Windows 専用メトリクスが 0、memory は実値）・134/134 相当（既知フレイク1件は再実行でパス）
+
 ### Removed (認証なしの `UseAuthorization` ミドルウェア)
 
 - `app.UseAuthorization()` を削除 — `AddAuthentication`/`AddAuthorization` 登録も `[Authorize]` 属性も存在せず、何もしないデッドミドルウェアだった
