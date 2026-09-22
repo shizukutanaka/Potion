@@ -1,5 +1,11 @@
 version: '3.8'
 
+# Minimal working stack: the app plus the observability configs that
+# actually exist in ./monitoring. The previous file also defined
+# postgres/redis (nothing in the app connects to them) and
+# grafana/loki/tempo (all of whose mounted config files were missing),
+# so half the services could not start.
+
 services:
   potion-service:
     build:
@@ -7,50 +13,16 @@ services:
       dockerfile: Dockerfile
     ports:
       - "5000:80"
-      - "5443:443"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=https://+:443;http://+:80
-      - ASPNETCORE_HTTPS_PORT=443
-      - ASPNETCORE_Kestrel__Certificates__Default__Password=password
-      - ASPNETCORE_Kestrel__Certificates__Default__Path=/https/aspnetapp.pfx
+      - ASPNETCORE_URLS=http://+:80
     volumes:
       - ./src/Potion.Service/appsettings.Development.json:/app/appsettings.Development.json
       - ./src/Potion.Service/Resources:/app/Resources
       - ./logs:/app/logs
-      - ~/.aspnet/https:/https:ro
-    depends_on:
-      - postgres
-      - redis
     networks:
       - potion-network
     restart: unless-stopped
-
-  postgres:
-    image: postgres:15-alpine
-    environment:
-      - POSTGRES_DB=Potion
-      - POSTGRES_USER=potion_user
-      - POSTGRES_PASSWORD=potion_password_2024
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-      - ./scripts/init.sql:/docker-entrypoint-initdb.d/init.sql
-    networks:
-      - potion-network
-    restart: unless-stopped
-
-  redis:
-    image: redis:7-alpine
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    networks:
-      - potion-network
-    restart: unless-stopped
-    command: redis-server --appendonly yes --requirepass potion_redis_2024
 
   prometheus:
     image: prom/prometheus:latest
@@ -61,43 +33,8 @@ services:
     networks:
       - potion-network
     restart: unless-stopped
-
-  grafana:
-    image: grafana/grafana:latest
-    ports:
-      - "3000:3000"
-    environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards
-      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning
-    networks:
-      - potion-network
-    restart: unless-stopped
-
-  loki:
-    image: grafana/loki:latest
-    ports:
-      - "3100:3100"
-    volumes:
-      - loki_data:/loki
-      - ./monitoring/loki-config.yml:/etc/loki/local-config.yaml
-    networks:
-      - potion-network
-    restart: unless-stopped
-
-  tempo:
-    image: grafana/tempo:latest
-    ports:
-      - "14268:14268"
-      - "3200:3200"
-    volumes:
-      - tempo_data:/tmp/tempo
-      - ./monitoring/tempo-config.yml:/etc/tempo/tempo.yaml
-    networks:
-      - potion-network
-    restart: unless-stopped
+    depends_on:
+      - potion-service
 
   alertmanager:
     image: prom/alertmanager:latest
@@ -109,12 +46,7 @@ services:
       - potion-network
     restart: unless-stopped
 
-volumes:
-  postgres_data:
-  redis_data:
-  grafana_data:
-  loki_data:
-  tempo_data:
+volumes: {}
 
 networks:
   potion-network:
