@@ -50,7 +50,6 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
 {
     private readonly ILogger<AutoRecoveryManager> _logger;
     private readonly IOptionsMonitor<RemediationPolicyOptions> _options;
-    private readonly IServiceProvider _serviceProvider;
     private readonly Dictionary<string, ComponentHealth> _componentHealth = new();
     private readonly ConcurrentDictionary<string, int> _failureCounts = new(StringComparer.OrdinalIgnoreCase);
     private readonly TimeSpan _healthCheckInterval = TimeSpan.FromMinutes(1);
@@ -61,12 +60,10 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
 
     public AutoRecoveryManager(
         ILogger<AutoRecoveryManager> logger,
-        IOptionsMonitor<RemediationPolicyOptions> options,
-        IServiceProvider serviceProvider)
+        IOptionsMonitor<RemediationPolicyOptions> options)
     {
         _logger = logger;
         _options = options;
-        _serviceProvider = serviceProvider;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -344,34 +341,12 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         }
     }
 
-    private async Task<bool> ResetConfigurationAsync(CancellationToken cancellationToken)
+    private Task<bool> ResetConfigurationAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            _logger.LogInformation("Attempting to reset configuration");
-
-            // 設定のリセット処理
-            var configManager = _serviceProvider.GetService(typeof(IConfigurationManager)) as IConfigurationManager;
-            if (configManager != null)
-            {
-                // デフォルト設定を生成
-                var defaultConfig = GenerateDefaultConfiguration();
-                var updateResult = await configManager.UpdateConfigurationAsync(defaultConfig, cancellationToken);
-
-                if (updateResult.Success)
-                {
-                    _logger.LogInformation("Configuration reset completed");
-                    return true;
-                }
-            }
-
-            return false;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to reset configuration");
-            return false;
-        }
+        // 設定リセットの協調コンポーネントは登録されていないため、この
+        // リカバリアクションは実行できない。
+        _logger.LogWarning("Configuration reset is not available: no configuration manager registered");
+        return Task.FromResult(false);
     }
 
     private async Task<bool> PerformFailoverAsync(string component, CancellationToken cancellationToken)
@@ -548,41 +523,11 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         }
     }
 
-    private async Task<bool> CheckSecurityHealth(CancellationToken cancellationToken)
+    private Task<bool> CheckSecurityHealth(CancellationToken cancellationToken)
     {
-        try
-        {
-            // セキュリティ関連の基本チェック
-            var securityAuditor = _serviceProvider.GetService(typeof(ISecurityAuditor)) as ISecurityAuditor;
-            if (securityAuditor != null)
-            {
-                var auditResult = await securityAuditor.PerformSecurityAuditAsync(cancellationToken);
-                return auditResult.IsSecure;
-            }
-
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        // セキュリティ監査の協調コンポーネントは登録されていないため、
+        // このチェックは常に健全として扱う。
+        return Task.FromResult(true);
     }
 
-    private string GenerateDefaultConfiguration()
-    {
-        // デフォルト設定を生成（実際の実装では適切なデフォルト値を使用）
-        return @"{
-  ""RemediationPolicy"": {
-    ""MaxConcurrency"": 2,
-    ""SchedulerIntervalSeconds"": 300,
-    ""CommandAllowlist"": [""sfc.exe"", ""dism.exe"", ""cleanmgr.exe""],
-    ""Tasks"": []
-  },
-  ""TelemetryRetention"": {
-    ""Enabled"": true,
-    ""RetentionDays"": 30,
-    ""CleanupIntervalHours"": 12
-  }
-}";
-    }
 }

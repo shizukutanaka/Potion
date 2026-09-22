@@ -152,6 +152,22 @@ public sealed record ResourceMonitoringMetrics(
     double IoOperationsPerSecond,
     double GcCollectionCount);
 
+public enum PressureLevel
+{
+    None = 0,
+    Medium = 1,
+    High = 2,
+    Critical = 3
+}
+
+public enum AlertSeverity
+{
+    Info,
+    Warning,
+    Error,
+    Critical
+}
+
 public sealed record ResourcePressureMetrics(
     PressureLevel Cpu,
     PressureLevel Memory,
