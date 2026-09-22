@@ -9,7 +9,7 @@ A production-grade Windows system automation and monitoring service with autonom
 - **Reliability**: Polly circuit-breaker/retry resilience pipelines, dependency injection validated at startup
 - **Observability**: Serilog logging, OpenTelemetry metrics + traces, Prometheus `/metrics` endpoint
 - **Collaboration**: SignalR hub at `/collaboration` and a static dashboard (`wwwroot/`)
-- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk) through the allowlist — the autonomous repair-execution services (`AutoRecoveryManager`, `PerformanceOptimizer`, `EventDrivenRemediationService`) are wired behind the `FeatureFlags:RepairExecutionEnabled` flag, off by default (see CHANGELOG)
+- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk) through the allowlist — the autonomous repair-execution services (`AutoRecoveryManager`, `PerformanceOptimizer`, `EventDrivenRemediationService`, `PredictiveRemediationService`) are wired behind the `FeatureFlags:RepairExecutionEnabled` flag, off by default (see CHANGELOG)
 
 ## Quick Start
 

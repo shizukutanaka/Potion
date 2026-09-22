@@ -96,7 +96,9 @@ public sealed class DependencyInjectionTests
 
         Assert.DoesNotContain(typeof(AutoRecoveryManager), hosted);
         Assert.DoesNotContain(typeof(EventDrivenRemediationService), hosted);
+        Assert.DoesNotContain(typeof(PredictiveRemediationService), hosted);
         Assert.DoesNotContain(services, d => d.ServiceType == typeof(IRemediationTaskExecutor));
+        Assert.DoesNotContain(services, d => d.ServiceType == typeof(IRemediationScheduler));
     }
 
     [Fact]
@@ -127,8 +129,12 @@ public sealed class DependencyInjectionTests
         Assert.Contains(typeof(AutoRecoveryManager), hosted);
         Assert.Contains(typeof(PerformanceOptimizer), hosted);
         Assert.Contains(typeof(EventDrivenRemediationService), hosted);
+        Assert.Contains(typeof(PredictiveRemediationService), hosted);
         Assert.Equal(
             typeof(RemediationTaskExecutor),
             provider.GetRequiredService<IRemediationTaskExecutor>().GetType());
+        Assert.Equal(
+            typeof(RemediationScheduler),
+            provider.GetRequiredService<IRemediationScheduler>().GetType());
     }
 }

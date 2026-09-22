@@ -90,16 +90,18 @@ public class Startup
         // autonomously (service restarts, SFC/DISM, performance tuning), so
         // they are wired only when the operator opts in via the
         // "FeatureFlags:RepairExecutionEnabled" flag — disabled by default.
-        // PredictiveRemediationService stays unregistered: its
-        // IRemediationScheduler dependency has no implementation yet.
         if (Configuration.GetValue<bool>("FeatureFlags:RepairExecutionEnabled"))
         {
             services.Configure<RemediationPolicyOptions>(Configuration.GetSection("RemediationPolicy"));
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<IRemediationTaskExecutor, RemediationTaskExecutor>();
+            services.AddSingleton<RemediationScheduler>();
+            services.AddSingleton<IRemediationScheduler>(sp => sp.GetRequiredService<RemediationScheduler>());
+            services.AddHostedService(sp => sp.GetRequiredService<RemediationScheduler>());
             services.AddHostedService<AutoRecoveryManager>();
             services.AddHostedService<PerformanceOptimizer>();
             services.AddHostedService<EventDrivenRemediationService>();
+            services.AddHostedService<PredictiveRemediationService>();
         }
 
         var supportedCultures = new[]

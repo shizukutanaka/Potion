@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added (IRemediationScheduler 実装 — 予防修復ループの完成)
+
+- `Scheduling/RemediationScheduler.cs` 新規実装 — `PredictiveRemediationService` が依存する `IRemediationScheduler` の実装が存在しなかったため、予知修復がフラグ配下でも起動できなかった問題を解消:
+  - `Channel<RemediationTask>` ベースの遅延実行キュー — `ScheduleTaskAsync` で受け取ったタスクを指定時刻（`task.Schedule`）まで待機し `IRemediationTaskExecutor` へディスパッチ
+  - `EventDrivenRemediationService` と同じ ad-hoc `RemediationTaskDescriptor` 生成規約に準拠
+  - `IRemediationScheduler` と `IHostedService` を同一シングルトンで提供（キュー状態の一元化）
+- `PredictiveRemediationService` を FeatureFlags ブロックへ追加 — これで修復実行ティア全4サービスが `FeatureFlags:RepairExecutionEnabled` で起動可能に
+- DI 回帰テスト更新 — フラグ ON で `PredictiveRemediationService`・`IRemediationScheduler`→`RemediationScheduler` の解決を検証
+- 検証: 0警告0エラー・131/131テスト・フラグ ON 実起動で全5ホステッドサービス（スケジューラ含む）の起動ログ確認
+
 ### Added (修復実行ティアの FeatureFlags ゲート付き有効化)
 
 - 修復実行系サービスを `FeatureFlags:RepairExecutionEnabled`（既定 OFF）で登録可能に — 運用者が設定変更のみで製品中核の自律修復ループを起動できるようになった（コード変更不要）。フラグ ON で以下が起動:
