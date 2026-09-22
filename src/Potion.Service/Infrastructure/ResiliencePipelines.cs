@@ -7,6 +7,41 @@ using Microsoft.Extensions.Logging;
 
 namespace Potion.Service.Infrastructure;
 
+/// <summary>Results of system diagnostics</summary>
+public sealed record DiagnosticReport(
+    DateTime ExecutedAt,
+    TimeSpan ExecutionDuration,
+    List<DiagnosticCheck> Checks,
+    List<DiagnosticRecommendation> Recommendations,
+    DiagnosticSeverity OverallSeverity
+);
+
+/// <summary>Individual diagnostic check</summary>
+public sealed record DiagnosticCheck(
+    string Name,
+    DiagnosticSeverity Severity,
+    bool Passed,
+    string? Message,
+    Dictionary<string, object> Metrics
+);
+
+/// <summary>Diagnostic recommendation for remediation</summary>
+public sealed record DiagnosticRecommendation(
+    string Title,
+    string Description,
+    DiagnosticSeverity Severity,
+    string? RemedyCommand,
+    int Priority
+);
+
+public enum DiagnosticSeverity
+{
+    Healthy = 0,
+    Warning = 1,
+    Error = 2,
+    Critical = 3
+}
+
 /// <summary>
 /// Polly v9 resilience pipelines for remediation operations.
 /// Implements Circuit Breaker, Bulkhead Isolation, Retry with Exponential Backoff,
