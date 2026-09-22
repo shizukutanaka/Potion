@@ -74,3 +74,10 @@
   - `BillingTests.cs`/`PerformanceOptimizerTests.cs`/`SystemHealthMonitorTests.cs`/`RemediationSchedulerTests.cs`/`SecurityAndPerformanceTests.cs`: 対象サービスが全て DI 未登録の到達不能コードであり、削除済み・改名済みメンバを参照しコンパイル不能。`SecurityAndPerformanceTests` の `CommandGuardTests`/`PerformanceTests`/`IntegrationTests` は同名クラスとして現行のコンパイル済みテストが網羅済み
   - 判断基準: DI 登録がないサービス = 実行パスに到達しないため、テスト復元は維持コストのみ増大する無駄（利用者が実際に使わない機能）
 - 不存在 `TestData` ディレクトリへの `<None Update>` エントリを csproj から除去
+
+### Removed (製品側デッドコードの削除)
+
+- DI 登録・テスト参照のいずれからも到達不能なサービス群 **81 ファイル・約 37,700 行** を削除
+  - 到達性解析（DI 登録型＋テスト参照型からの推移閉包）で算出したデッド集合を `git rm` し、全削除後に `dotnet build` が 0 警告・0 エラー・テスト 126/126 成功を維持することを検証済み
+  - 削除対象: 未登録サービス群（Billing/Performance/SystemHealthMonitor/RemediationScheduler/SecurityAuditor/Backup 等）、未使用の `MachineLearning/`/`PersonalPC/`/`Remediation/`/`Scheduling/`/`Security/`/`Storage/`/`Updates/`/`Compliance/`/`Configuration/` ディレクトリ全体、孤立 Options 4 件
+  - 判断基準: 到達不能コードは「利用者が使わない機能」であり維持コストのみ発生するため、リファクタリング条件（重複削除・保守性向上）に基づき削除
