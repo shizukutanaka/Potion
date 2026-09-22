@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added (RemediationScheduler のユニットテスト — 131→134)
+
+- `Scheduling/RemediationSchedulerTests` 新規3件 — 予防修復スケジューラ（PR #13 で追加）の振る舞いを直接検証:
+  - `ScheduleTaskAsync(null)` が `ArgumentNullException` を投げること
+  - 期限超過タスクが即時 `IRemediationTaskExecutor` へディスパッチされ、`RemediationTaskDescriptor`（Name/Command/Enabled）へ正しく変換されること
+  - 未来時刻タスクが指定時刻前に実行されないこと（遅延スケジューリングの確認）
+- 検証: 0警告0エラー・134/134テスト
+
 ### Added (ヘルスプローブ `/health`)
 
 - `AddHealthChecks` + `MapHealthChecks("/health")` を追加 — Dockerfile の `HEALTHCHECK` が不存在エンドポイントを指して削除済みだった経緯があり、稼働中サービスに死活監視用エンドポイントが存在しなかった。`GET /health` は 200 `Healthy` を返す（ASP.NET Core 標準機構・新規パッケージ不要）
