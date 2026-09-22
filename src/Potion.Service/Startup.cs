@@ -78,6 +78,7 @@ public class Startup
         services.AddSingleton<ISystemHealthMonitor, SystemHealthMonitor>();
         services.AddHostedService<MemoryMonitor>();
         services.AddHostedService<AnomalyDetector>();
+        services.AddSingleton<EventCorrelationStats>();
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();
         services.AddHealthChecks();

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (EventCorrelationMetrics の実測化)
+
+- `EventCorrelationStats` 共有カウンタを新設し、`EventCorrelationService` が稼働ルール数・累計検出相関数を記録、`SystemHealthMonitor` がスナップショットに反映（固定 0 解消）。`EventCorrelationService`/`SystemHealthMonitor` の ctor に DI 注入として追加
+
 ### Fixed (Windows 固有スタブの実測化)
 
 - `SecurityMetrics` — `MSFT_MpComputerStatus`（Defender サービス/AV 有効・最終スキャン時刻）と `MSFT_MpThreat`（検出脅威数）を `root\Microsoft\Windows\Defender` から、ファイアウォールは `root\StandardCimv2` の `MSFT_NetFirewallProfile`（全プロファイル有効時のみ true）から、Secure Boot はレジストリ `SYSTEM\CurrentControlSet\Control\SecureBoot\State` から取得（`System.Management` 既参照・新規パッケージなし。他OSは false/0）

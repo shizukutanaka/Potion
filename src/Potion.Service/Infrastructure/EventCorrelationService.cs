@@ -31,6 +31,7 @@ public class EventCorrelationService : IHostedService, IDisposable
     private readonly ILogger<EventCorrelationService> _logger;
     private readonly EventCorrelationOptions _options;
     private readonly ISystemHealthMonitor _healthMonitor;
+    private readonly EventCorrelationStats _stats;
     private readonly ConcurrentQueue<SystemEvent> _eventBuffer = new();
     private readonly List<CorrelationRule> _rules = new();
     private Timer? _correlationTimer;
@@ -38,12 +39,15 @@ public class EventCorrelationService : IHostedService, IDisposable
     public EventCorrelationService(
         ILogger<EventCorrelationService> logger,
         IOptions<EventCorrelationOptions> options,
-        ISystemHealthMonitor healthMonitor)
+        ISystemHealthMonitor healthMonitor,
+        EventCorrelationStats stats)
     {
         _logger = logger;
         _options = options.Value;
         _healthMonitor = healthMonitor;
+        _stats = stats;
         InitializeRules();
+        _stats.ActiveCorrelationRules = _rules.Count;
     }
 
     private void InitializeRules()
@@ -162,6 +166,7 @@ public class EventCorrelationService : IHostedService, IDisposable
                 return;
 
             var correlations = FindCorrelations(recentEvents);
+            _stats.CorrelatedEventCount += correlations.Count;
 
             foreach (var correlation in correlations)
             {
@@ -290,6 +295,16 @@ public class EventCorrelationService : IHostedService, IDisposable
     {
         _correlationTimer?.Dispose();
     }
+}
+
+/// <summary>
+/// Shared counters so the health snapshot can report live correlation state.
+/// </summary>
+public sealed class EventCorrelationStats
+{
+    public int CorrelatedEventCount;
+
+    public int ActiveCorrelationRules;
 }
 
 public class SystemEvent
