@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (アラートエピソードIDの衝突排除)
+
+- **解除→再発火が同一ミリ秒内で AlertId が衝突しうる実バグ** — AlertId のタイムスタンプがミリ秒解像度まででも、高速ポーリング環境で解除直後の再発火と同一エピソード扱いになる余地があった（回帰テストで再現）。AlertId を `{component}-{level}-{発火時刻}-{エピソード番号}` へ拡張し、`_alertState` にエピソードシーケンスを保持して ID をエピソード単位で一意化
+- **回帰テスト `SystemHealthMonitorAlertTests` 8件追加**（発火・持続ID一致・ヒステリシス保持・80%未満解除→再発火新ID・無発火・クールダウン中イベント1回・スナップショット継続・レベルエスカレーション新ID）。`EvaluatePressureAlerts`/`EmitPressureAlert` を internal 化＋`InternalsVisibleTo` でテスト可能に
+
 ### Fixed (AnomalyDetector の虚偽ログ文言)
 
 - **異常検出ハンドラが「remediation を実行した」かのようなログを出していた** — `HandleCpuAnomaly` 等が「triggering emergency remediation」「triggering garbage collection」「clearing caches」「archiving old files」と記録するが実際はコメントのみで何も実行していない（旧 AutoRecoveryManager の偽装と同型）。検出専用の正直な文言へ修正し、修復実行層は FeatureFlags 配下である旨を注記。検出→消費経路（monitor→RecordMetric→時系列→多層判定）は実在を確認

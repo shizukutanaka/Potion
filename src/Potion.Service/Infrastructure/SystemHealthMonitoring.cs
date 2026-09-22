@@ -217,11 +217,12 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
     }
 
     private static readonly TimeSpan AlertCooldown = TimeSpan.FromMinutes(15);
-    private readonly ConcurrentDictionary<string, (PressureLevel Level, DateTimeOffset At)> _alertState = new();
+    private long _episodeSequence;
+    private readonly ConcurrentDictionary<string, (PressureLevel Level, DateTimeOffset At, long Seq)> _alertState = new();
 
     // Raise one alert per component per level, re-firing at most every AlertCooldown while the
     // condition persists; clears when pressure drops below High.
-    private List<SystemHealthAlert> EvaluatePressureAlerts(SystemMetrics metrics)
+    internal List<SystemHealthAlert> EvaluatePressureAlerts(SystemMetrics metrics)
     {
         var alerts = new List<SystemHealthAlert>();
         EmitPressureAlert(alerts, "cpu", "CPU usage", metrics.Cpu.UsagePercent, metrics.ResourcePressure.Cpu);
@@ -230,7 +231,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         return alerts;
     }
 
-    private void EmitPressureAlert(List<SystemHealthAlert> alerts, string component, string label, double valuePercent, PressureLevel level)
+    internal void EmitPressureAlert(List<SystemHealthAlert> alerts, string component, string label, double valuePercent, PressureLevel level)
     {
         var now = DateTimeOffset.UtcNow;
         var hasEpisode = _alertState.TryGetValue(component, out var previous);
@@ -261,12 +262,13 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         // not just alerts fired this call — otherwise an ongoing condition
         // vanishes from /api/health for the rest of its cooldown.
         var firingSince = withinCooldown ? previous.At : now;
+        var seq = withinCooldown ? previous.Seq : Interlocked.Increment(ref _episodeSequence);
         var alert = new SystemHealthAlert
         {
             // Stable per firing episode: same condition => same id, so clients
             // can acknowledge/dedup; a new episode (after resolve or cooldown
             // expiry) gets a new id and surfaces again.
-            AlertId = $"{component}-{level.ToString().ToLowerInvariant()}-{firingSince:yyyyMMddHHmmss}",
+            AlertId = $"{component}-{level.ToString().ToLowerInvariant()}-{firingSince:yyyyMMddHHmmssfff}-{seq}",
             Component = component,
             Title = $"{label} is {level.ToString().ToLowerInvariant()}",
             Message = $"{label} at {valuePercent:F1}%",
@@ -280,7 +282,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             return;
         }
 
-        _alertState[component] = (level, now);
+        _alertState[component] = (level, now, seq);
         PotionMetrics.RecordAnomaly(component, label);
         HealthAlert?.Invoke(this, alert);
     }
