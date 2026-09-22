@@ -1,7 +1,10 @@
 using Potion.Service;
+using Serilog;
 
 var builder = Host.CreateDefaultBuilder(args)
     .UseWindowsService()
+    .UseSerilog((context, loggerConfiguration) =>
+        loggerConfiguration.ReadFrom.Configuration(context.Configuration))
     .UseContentRoot(AppContext.BaseDirectory)
     .UseServiceProviderFactory(new DefaultServiceProviderFactory(new ServiceProviderOptions
     {
