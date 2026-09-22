@@ -128,3 +128,9 @@
 - コントローラがリポジトリ内に1つも存在しないため、MVC/Swagger/APIバージョニングの設定一式を削除 — `AddControllers`/`AddEndpointsApiExplorer`/`AddSwaggerGen`/`AddApiVersioning`/`UseSwagger`/`UseSwaggerUI`/`MapControllers` は全て無効構成であり、起動時の「No action descriptors found」警告の根本原因だった
 - パッケージ削除（ライブラリ削除の説明）: `Swashbuckle.AspNetCore` 8.1.4 と `Microsoft.AspNetCore.Mvc.Versioning` 5.1.0 — エンドポイント0件の API 面のみに使用されており未使用化。将来コントローラ追加時は csproj + Startup に再追加するだけで復元可能
 - 維持: SignalR Hub（`/collaboration`）と Prometheus `/metrics` は存続し全て 200 を確認。`swagger` エンドポイントは空の API を文書化していただけのため廃止
+
+### Removed (到達不能サービスの最終整理)
+
+- 到達性解析（DI登録型＋テスト参照型を起点に型参照の推移閉包）で到達不能と確定した18ファイルを削除 — `AdvancedAuthenticationService`/`DeviceTrustService`/`NotificationService`/`RateLimitingService`/`RemoteManagementClient`/`SecureCommunicator`/`SecurityPolicyEngine`/`TenantService`/`UserBehaviorAnalyzer`/`ZeroTrustSecurityService`（全て DI 未登録）と、削除済みサービスの孤立 Options 8件（Backup/Billing/CloudIntegration/LogCompression/RemoteManagementConfigValidator/Report/SystemDiagnostics/WindowsRepair）
+- `ZeroTrustSecurityService` は削除済み依存（DeviceTrust/UserBehavior/SecurityPolicyEngine）に依存しており非修復系のため同様に削除
+- 削除後検証: `dotnet build` 0警告0エラー・126/126テスト — 実行時動作への影響なし
