@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (async void タイマーコールバック解消)
+
+- `ComplianceReportService.GenerateComplianceReport` の `async void` を廃止 — 同期コールバックから `_ = GenerateComplianceReportAsync()` を火消し起動する形に変更（`async void` 特有の未観測例外・同期コンテキスト問題を解消。コードベース内の `async void` はこれで全滅）
+
 ### Fixed (監視サービスの既定無効化＋ServicePaths クロスプラットフォーム破損)
 
 - `appsettings.json` に `EventCorrelation.Enabled`/`Compliance.Enabled` を `true` で追加 — 両サービスのオプション既定が false・設定セクション不在で常時自己無効化していた（相関ループ・アラート購読・コンプライアンスレポートが全て不発）
