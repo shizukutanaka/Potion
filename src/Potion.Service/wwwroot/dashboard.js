@@ -9,6 +9,7 @@ class PotionDashboard {
 
         // Advanced features properties
         this.selectedAlerts = new Set();
+        this.acknowledgedAlertIds = new Set();
         this.currentAlertFilter = 'all';
         this.currentAlertSearch = '';
         this.currentSecurityTab = 'components';
@@ -20,7 +21,6 @@ class PotionDashboard {
         this.contextualHelpTimeout = null;
         this.dragCounter = 0;
         this.uploadedFiles = [];
-        this.inlineEditors = new Map();
 
         this.init();
     }
@@ -30,9 +30,19 @@ class PotionDashboard {
         this.setupKeyboardNavigation();
         this.setupTooltips();
         this.setupDragAndDrop();
-        this.setupInlineEditing();
         this.setupAdvancedSearch();
-        this.startAutoRefresh();
+
+        // Restore persisted settings before starting the poller.
+        const storedSettings = this.getStoredSettings();
+        if (storedSettings.theme) {
+            this.applyTheme(storedSettings.theme);
+        }
+        if (Number.isFinite(storedSettings.refreshIntervalMs) && storedSettings.refreshIntervalMs > 0) {
+            this.refreshInterval = storedSettings.refreshIntervalMs;
+        }
+        if (storedSettings.autoRefresh !== false) {
+            this.startAutoRefresh();
+        }
         this.showLoadingState();
         await this.refreshAllData();
         this.hideLoadingState();
@@ -71,23 +81,6 @@ class PotionDashboard {
             const files = e.dataTransfer.files;
             this.handleFileUpload(files);
         }, false);
-    }
-
-    setupInlineEditing() {
-        // Set up click handlers for inline editable elements
-        document.addEventListener('click', (e) => {
-            const inlineDisplay = e.target.closest('.inline-display');
-            if (inlineDisplay && !inlineDisplay.closest('.inline-editor').classList.contains('editing')) {
-                this.startInlineEditing(inlineDisplay);
-            }
-        });
-
-        // Handle escape key for inline editing
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.cancelAllInlineEditing();
-            }
-        });
     }
 
     setupAdvancedSearch() {
@@ -402,6 +395,10 @@ class PotionDashboard {
             this.autoRefreshTimer = null;
         }
 
+        // Persist so the choices survive a reload.
+        const stored = this.getStoredSettings();
+        this.saveSettings({ ...stored, theme, autoRefresh, refreshIntervalMs: refreshInterval });
+
         this.closeTopModal();
         this.showNotification('Settings saved successfully', 'success');
     }
@@ -627,66 +624,6 @@ class PotionDashboard {
         });
     }
 
-    // Inline Editing Functionality
-    startInlineEditing(displayElement) {
-        const editor = displayElement.closest('.inline-editor');
-        const input = editor.querySelector('.inline-input');
-        const currentValue = displayElement.textContent.trim();
-
-        editor.classList.add('editing');
-        input.value = currentValue;
-        input.focus();
-        input.select();
-
-        // Handle save/cancel actions
-        const saveHandler = () => {
-            const newValue = input.value.trim();
-            if (newValue && newValue !== currentValue) {
-                displayElement.textContent = newValue;
-                this.showNotification('Value updated successfully', 'success');
-            }
-            this.endInlineEditing(editor);
-        };
-
-        const cancelHandler = () => {
-            this.endInlineEditing(editor);
-        };
-
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                saveHandler();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                cancelHandler();
-            }
-        });
-
-        // Set up action buttons
-        const saveBtn = editor.querySelector('.inline-actions button:first-child');
-        const cancelBtn = editor.querySelector('.inline-actions button:last-child');
-
-        if (saveBtn) saveBtn.onclick = saveHandler;
-        if (cancelBtn) cancelBtn.onclick = cancelHandler;
-
-        this.inlineEditors.set(editor, { saveHandler, cancelHandler });
-    }
-
-    endInlineEditing(editor) {
-        editor.classList.remove('editing');
-        const actions = this.inlineEditors.get(editor);
-        if (actions) {
-            // Clean up event listeners if needed
-            this.inlineEditors.delete(editor);
-        }
-    }
-
-    cancelAllInlineEditing() {
-        document.querySelectorAll('.inline-editor.editing').forEach(editor => {
-            this.endInlineEditing(editor);
-        });
-    }
-
     // Help and Documentation
     showHelp() {
         const modal = document.getElementById('help-modal');
@@ -804,6 +741,7 @@ class PotionDashboard {
 
     performSearch(query) {
         // Mock search results
+        // Search across the real alerts, logs, and metrics the dashboard holds
         const results = this.generateSearchResults(query);
         this.displaySearchResults(results);
     }
@@ -983,6 +921,7 @@ class PotionDashboard {
             this.recordChartSample(data.metrics);
 
             this.updateHealthOverview(data);
+            this.updateAlertsDisplay(this.alertsData);
             this.updateServicesOverview(data.metrics.services);
             this.updateSecurityOverview(data.metrics.security);
             this.updateEventsOverview(data.metrics.windowsEvents);
@@ -1369,9 +1308,17 @@ class PotionDashboard {
         this.renderLogsTable();
     }
 
+    alertKey(alert) {
+        return alert.alertId || `${alert.component}-${alert.timestamp}`;
+    }
+
     updateAlertsDisplay(alerts) {
         const container = document.getElementById('alerts-container');
+        if (!container) return;
         container.innerHTML = '';
+
+        // Acknowledged alerts stay hidden until the condition clears.
+        alerts = (alerts || []).filter(a => !this.acknowledgedAlertIds.has(this.alertKey(a)));
 
         if (!alerts || alerts.length === 0) {
             container.innerHTML = '<div class="no-alerts">No active alerts</div>';
@@ -1392,7 +1339,7 @@ class PotionDashboard {
         filteredAlerts.forEach(alert => {
             const alertItem = document.createElement('div');
             alertItem.className = `alert-item ${alert.severity.toLowerCase()}`;
-            alertItem.dataset.alertId = alert.alertId || `${alert.component}-${alert.timestamp}`;
+            alertItem.dataset.alertId = this.alertKey(alert);
 
             const isSelected = this.selectedAlerts.has(alertItem.dataset.alertId);
 
@@ -1509,8 +1456,10 @@ class PotionDashboard {
 
     bulkAcknowledge() {
         const count = this.selectedAlerts.size;
-        this.showNotification(`${count} alert${count > 1 ? 's' : ''} acknowledged`, 'success');
+        this.selectedAlerts.forEach(id => this.acknowledgedAlertIds.add(id));
         this.clearAlertSelection();
+        this.updateAlertsDisplay(this.alertsData);
+        this.showNotification(`${count} alert${count > 1 ? 's' : ''} acknowledged`, 'success');
     }
 
     exportAlerts() {

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボードの死ワイヤ・偽アクション実バグ3件)
+
+- **アラート一覧が永久に空だった実バグ** — `updateAlertsDisplay()` がどこからも呼ばれず `#alerts-container` が未描画。`/api/health` のポーリング結果から実描画するよう配線
+- **Acknowledge ボタンが何もしなかった実バグ** — `bulkAcknowledge()` がトーストを出すだけでアラートは残ったまま。クライアント側承認（`acknowledgedAlertIds`、状態が解消するまで非表示）を実装
+- **設定モーダルの「保存」が永続化しなかった実バグ** — テーマ/自動更新/間隔がリロードで消失。localStorage へ永続化し起動時に復元
+- 死コード削除: DOM に存在しない `.inline-editor` 用のインライン編集ブロック一式（約70行）
+
 ### Fixed (ダッシュボードのモックデータ実バグ・残り4件)
 
 - **リソース推移チャートがランダム生成データを描画していた実バグ** — `generateMockChartData()` が24時間分の仮想値を生成 → 実ポーリング履歴（`recordChartSample`、24点ローリング窓）へ修正
