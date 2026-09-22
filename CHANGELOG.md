@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added (Prometheus→Alertmanager→サービスのアラート連鎖を実装 — 宣言済みだが全て休眠だった)
+
+- **`POST /api/health/alerts/webhook` エンドポイント新設** — `monitoring/alertmanager.yml` が指していた契約を実装: Alertmanager v4 webhook ペイロードを受信し firing は警告・resolved は情報として記録（API追加のため注記 — 既存APIの変更なし）
+- `monitoring/alertmanager.yml` — `potion-team` webhook が不存在エンドポイントを指し全配信が 404 失敗する欠陥を修正、example.com SMTP/`YOUR/SLACK/WEBHOOK` プレースホルダ受信先を除去（実認証情報が無いと常に失敗 — 実 creds 追加時の拡張はコメントに記載）
+- `monitoring/prometheus.yml` — alerting 設定が一切無く **alertmanager にアラートが一度も届かない状態**を修正: `alerting.alertmanagers` + `rule_files` 追加
+- `monitoring/rules.yml` 新規 — `PotionServiceDown`（`up{job="potion-service"} == 0` を1分継続）を実働ルールとして定義
+- `docker-compose.yml` — rules.yml を prometheus コンテナへマウント、`depends_on: alertmanager` 追加（実稼働連鎖が成立）
+
 ### Fixed (RemediationPolicy のオプションバインドクラッシュ — env: 記法の未対応)
 
 - **`"MaxConcurrency": "env:POTION_MAX_CONCURRENCY:default:4"` が初回オプション読取で `InvalidOperationException` を投げる休眠バグ** — .NET の設定プロバイダは `env:` 補間を解釈せずリテラル文字列のまま int へ変換失敗（実機検証済み）。`FeatureFlags:RepairExecutionEnabled` 有効時、CommandValidator 等が `CurrentValue` を初回アクセスした時点でクラッシュ。値を `4` に修正（環境変数オーバーライドは .NET の標準 `RemediationPolicy__MaxConcurrency` 形式で既に可能）

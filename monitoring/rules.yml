@@ -1,0 +1,12 @@
+groups:
+  - name: potion-service
+    rules:
+      - alert: PotionServiceDown
+        expr: up{job="potion-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: potion-service
+        annotations:
+          summary: "Potion service is not reachable"
+          description: "Prometheus has been unable to scrape potion-service for more than 1 minute."

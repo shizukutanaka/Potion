@@ -1,6 +1,7 @@
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Text.Json;
 using System.Threading;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Caching.Memory;
@@ -234,6 +235,37 @@ public class Startup
                     - (s.FirewallEnabled ? 0 : 30)
                     - Math.Min(s.ActiveThreatCount * 10, 40);
                 return Results.Ok(new { securityScore = Math.Max(score, 0) });
+            });
+
+            // Alertmanager webhook receiver — monitoring/alertmanager.yml posts here.
+            endpoints.MapPost("/api/health/alerts/webhook", async (HttpContext ctx, ILoggerFactory loggerFactory, CancellationToken ct) =>
+            {
+                var logger = loggerFactory.CreateLogger("Potion.Alerts.Webhook");
+                var received = 0;
+
+                using var document = await JsonDocument.ParseAsync(ctx.Request.Body, cancellationToken: ct);
+                if (document.RootElement.TryGetProperty("alerts", out var alerts))
+                {
+                    foreach (var alert in alerts.EnumerateArray())
+                    {
+                        var status = alert.TryGetProperty("status", out var s) ? s.GetString() : "unknown";
+                        var name = alert.TryGetProperty("labels", out var l) && l.TryGetProperty("alertname", out var an) ? an.GetString() : "unknown";
+                        var summary = alert.TryGetProperty("annotations", out var a) && a.TryGetProperty("summary", out var sum) ? sum.GetString() : null;
+
+                        if (status == "resolved")
+                        {
+                            logger.LogInformation("Alert resolved: {AlertName} - {Summary}", name, summary);
+                        }
+                        else
+                        {
+                            logger.LogWarning("Alert firing: {AlertName} - {Summary}", name, summary);
+                        }
+
+                        received++;
+                    }
+                }
+
+                return Results.Ok(new { received });
             });
 
             // Prometheus metrics endpoint for scraping

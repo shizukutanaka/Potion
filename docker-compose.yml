@@ -30,11 +30,13 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/rules.yml:/etc/prometheus/rules.yml
     networks:
       - potion-network
     restart: unless-stopped
     depends_on:
       - potion-service
+      - alertmanager
 
   alertmanager:
     image: prom/alertmanager:latest
