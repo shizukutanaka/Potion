@@ -6,6 +6,7 @@ using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Management;
 using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
@@ -288,10 +289,10 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
 
     private SystemMetrics CreateMetrics()
     {
-        var totalMemory = (double)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+        var (usedPercent, osAvailBytes, osTotalBytes, osUsedBytes) = _sampler.OsMemoryUsage();
         var managedMemory = (double)GC.GetTotalMemory(forceFullCollection: false);
-        var usedPercent = totalMemory > 0 ? Math.Clamp(managedMemory / totalMemory * 100.0, 0.0, 100.0) : 0.0;
-        var availableBytes = Math.Max(totalMemory - managedMemory, 0.0);
+        var totalMemory = (double)osTotalBytes;
+        var availableBytes = (double)osAvailBytes;
         var now = DateTimeOffset.UtcNow;
 
         var cpuPercent = _sampler.CpuUsagePercent();
@@ -311,7 +312,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
 
         var metrics = new SystemMetrics(
             new CpuMetrics(cpuPercent, 0, 0, Environment.ProcessorCount, Environment.ProcessorCount),
-            new MemoryMetrics(usedPercent, availableBytes, totalMemory, managedMemory, managedMemory, 0),
+            new MemoryMetrics(usedPercent, availableBytes, totalMemory, osUsedBytes, managedMemory, 0),
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
             new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast == DateTimeOffset.MinValue ? now : evtLast),
@@ -372,6 +373,7 @@ internal sealed class SystemMetricsSampler
     private DateTimeOffset _lastNetSampleTime;
     private double _netRxRate;
     private double _netTxRate;
+    private (long busy, long total)? _lastMacCpu;
 
     public double CpuUsagePercent()
     {
@@ -393,7 +395,140 @@ internal sealed class SystemMetricsSampler
             return LinuxCpuPercent();
         }
 
+        if (OperatingSystem.IsMacOS())
+        {
+            return MacCpuPercent();
+        }
+
         return 0.0;
+    }
+
+    // Real OS memory usage — the managed heap is a tiny fraction of RAM and
+    // must not drive pressure alerts or dashboard cards.
+    public (double usedPercent, long freeBytes, long totalBytes, long usedBytes) OsMemoryUsage()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var status = new SamplerMemoryStatusEx { dwLength = (uint)Marshal.SizeOf<SamplerMemoryStatusEx>() };
+                if (SamplerGlobalMemoryStatusEx(ref status))
+                {
+                    var total = (long)status.ullTotalPhys;
+                    var avail = (long)status.ullAvailPhys;
+                    var used = total - avail;
+                    return (total > 0 ? used / (double)total * 100.0 : 0.0, avail, total, used);
+                }
+                return (0.0, 0, 0, 0);
+            }
+
+            if (OperatingSystem.IsLinux())
+            {
+                long memTotal = 0, memAvailable = 0;
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    if (line.StartsWith("MemTotal:", StringComparison.Ordinal))
+                    {
+                        memTotal = ParseMeminfoKb(line);
+                    }
+                    else if (line.StartsWith("MemAvailable:", StringComparison.Ordinal))
+                    {
+                        memAvailable = ParseMeminfoKb(line);
+                    }
+
+                    if (memTotal > 0 && memAvailable > 0)
+                    {
+                        break;
+                    }
+                }
+
+                if (memTotal <= 0)
+                {
+                    return (0.0, 0, 0, 0);
+                }
+
+                var total = memTotal * 1024L;
+                var avail = memAvailable * 1024L;
+                var used = total - avail;
+                return (used / (double)total * 100.0, avail, total, used);
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                // HOST_VM_INFO: page counts; free+inactive is reclaimable
+                // (matches what Activity Monitor treats as available).
+                var port = mach_host_self();
+                var info = new int[HOST_VM_INFO_COUNT];
+                var count = HOST_VM_INFO_COUNT;
+                if (host_statistics(port, HOST_VM_INFO, info, ref count) != KERN_SUCCESS)
+                {
+                    return (0.0, 0, 0, 0);
+                }
+
+                var pageSize = (long)Environment.SystemPageSize;
+                var freePages = (long)(uint)info[0];       // free_count
+                var inactivePages = (long)(uint)info[2];   // inactive_count
+                var total = (long)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+                var avail = (freePages + inactivePages) * pageSize;
+                avail = Math.Min(avail, total);
+                var used = total - avail;
+                return (total > 0 ? used / (double)total * 100.0 : 0.0, avail, total, used);
+            }
+        }
+        catch
+        {
+            // fall through — report zeros rather than fail the poll
+        }
+
+        return (0.0, 0, 0, 0);
+    }
+
+    private static long ParseMeminfoKb(string line)
+    {
+        // "MemTotal:       16384000 kB"
+        var value = 0L;
+        foreach (var part in line.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (long.TryParse(part, out var parsed))
+            {
+                value = parsed;
+                break;
+            }
+        }
+        return value;
+    }
+
+    private double MacCpuPercent()
+    {
+        // HOST_CPU_LOAD_INFO: cumulative tick counters [user, system, idle, nice]
+        var port = mach_host_self();
+        var info = new int[HOST_CPU_LOAD_INFO_COUNT];
+        var count = HOST_CPU_LOAD_INFO_COUNT;
+        if (host_statistics(port, HOST_CPU_LOAD_INFO, info, ref count) != KERN_SUCCESS)
+        {
+            return 0.0;
+        }
+
+        long user = (uint)info[0];
+        long system = (uint)info[1];
+        long idle = (uint)info[2];
+        long nice = (uint)info[3];
+        var busy = user + system + nice;
+        var total = busy + idle;
+
+        var percent = 0.0;
+        if (_lastMacCpu is { } last)
+        {
+            var dBusy = busy - last.busy;
+            var dTotal = total - last.total;
+            if (dTotal > 0)
+            {
+                percent = Math.Clamp(dBusy / (double)dTotal * 100.0, 0.0, 100.0);
+            }
+        }
+
+        _lastMacCpu = (busy, total);
+        return percent;
     }
 
     public (double usedPercent, double freeBytes, double totalBytes) SystemDriveCapacity()
@@ -859,4 +994,34 @@ internal sealed class SystemMetricsSampler
             return _linuxCpuPercent;
         }
     }
+
+    private const int KERN_SUCCESS = 0;
+    private const int HOST_VM_INFO = 2;
+    private const int HOST_VM_INFO_COUNT = 12;
+    private const int HOST_CPU_LOAD_INFO = 3;
+    private const int HOST_CPU_LOAD_INFO_COUNT = 5;
+
+    [DllImport("libc")]
+    private static extern int mach_host_self();
+
+    [DllImport("libc")]
+    private static extern int host_statistics(int host, int flavor, int[] info, ref int count);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SamplerMemoryStatusEx
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SamplerGlobalMemoryStatusEx(ref SamplerMemoryStatusEx lpBuffer);
 }

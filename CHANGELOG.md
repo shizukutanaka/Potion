@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (OS メモリ・CPU の実測化)
+
+- **`memory.usedPercent` が全OSで常に ~0.1% を返していた実バグ** — `GC.GetTotalMemory`（マネージドヒープ）÷マシン全メモリを測っていたため事実上常に0%、メモリプレッシャーアラートは原理上不発・ダッシュボードのメモリ表示は架空値。OS 実メモリをプラットフォーム別に実測する `OsMemoryUsage()` を追加（Windows `GlobalMemoryStatusEx`・Linux `/proc/meminfo`・macOS `host_statistics`）
+- **`cpu.usagePercent` が macOS で常に0を返していた実バグ** — Windows PerformanceCounter・Linux `/proc/stat` のみ対応で macOS は未実装。`host_statistics(HOST_CPU_LOAD_INFO)` の差分サンプリングで実測化（初回0・以降実値）
+- 実機検証: cpu 27.7%・メモリ 58.4%（10.0/17.2GB）を返却（vm_stat・top と一致）
+
 ### Chore (開発設定の死参照除去)
 
 - **`.claude/settings.local.json` の死パーミッション56件を除去** — 削除済みファイル（QuantumComputingService・MetaverseController・BlockchainAuditService 等の旧削除層）への allow エントリが残存していた。実在パス参照のみ温存
