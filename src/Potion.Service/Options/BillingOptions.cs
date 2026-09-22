@@ -84,6 +84,12 @@ public sealed class BillingOptions
     /// </summary>
     public string BillingApiKey { get; set; } = "";
 
+    /// <summary>課金APIキー</summary>
+    public string ApiKey { get; set; } = "";
+
+    /// <summary>課金APIエンドポイント</summary>
+    public string Endpoint { get; set; } = "";
+
     /// <summary>
     /// デバッグモード - 課金チェックをスキップ
     /// </summary>

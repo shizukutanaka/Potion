@@ -90,7 +90,7 @@ public sealed class SecurityAuditor : BackgroundService, ISecurityAuditor
         _securityOptionsChangeRegistration = _securityOptions.OnChange(OnSecurityOptionsChanged);
     }
 
-    private void OnSecurityOptionsChanged(SecurityAuditOptions updated, string _)
+    private void OnSecurityOptionsChanged(SecurityAuditOptions updated, string? _)
     {
         _auditInterval = ResolveAuditInterval(updated);
         _logger.LogInformation("Security audit interval updated to {Interval} hours", _auditInterval.TotalHours);
@@ -565,7 +565,7 @@ public sealed class SecurityAuditor : BackgroundService, ISecurityAuditor
                 _ => LogLevel.Warning
             };
 
-            _logger.Log(logLevel, "Security issue [{Category}]: {Title} - {Description}", issue.Category, issue.Title, issue.Description);
+            _logger.Log((Microsoft.Extensions.Logging.LogLevel)logLevel, "Security issue [{Category}]: {Title} - {Description}", issue.Category, issue.Title, issue.Description);
         }
 
         foreach (var alert in result.Alerts)
@@ -579,7 +579,7 @@ public sealed class SecurityAuditor : BackgroundService, ISecurityAuditor
                 _ => LogLevel.Warning
             };
 
-            _logger.Log(logLevel, "Security alert [{Category}]: {Message}", alert.Category, alert.Message);
+            _logger.Log((Microsoft.Extensions.Logging.LogLevel)logLevel, "Security alert [{Category}]: {Message}", alert.Category, alert.Message);
 
             // イベントを発行
             SecurityAlert?.Invoke(this, alert);
@@ -635,7 +635,9 @@ public sealed class SecurityAuditor : BackgroundService, ISecurityAuditor
         WriteIndented = true
     };
 
-    public sealed record SecurityAuditScore(SecurityAuditGrade Grade, double RiskScore, IReadOnlyList<SecurityCategoryScore> CategoryBreakdown)
+}
+
+public sealed record SecurityAuditScore(SecurityAuditGrade Grade, double RiskScore, IReadOnlyList<SecurityCategoryScore> CategoryBreakdown)
     {
         public static SecurityAuditScore Calculate(IReadOnlyList<SecurityIssue> issues, IReadOnlyList<SecurityEvaluation> evaluations)
         {
@@ -673,7 +675,7 @@ public sealed class SecurityAuditor : BackgroundService, ISecurityAuditor
         }
     }
 
-    public sealed record SecurityCategoryScore(string Category, SecurityAuditGrade Grade, double RiskScore, int IssueCount)
+public sealed record SecurityCategoryScore(string Category, SecurityAuditGrade Grade, double RiskScore, int IssueCount)
     {
         public static SecurityCategoryScore FromIssues(string category, IReadOnlyList<SecurityIssue> issues)
         {
@@ -714,9 +716,9 @@ public sealed class SecurityAuditor : BackgroundService, ISecurityAuditor
         }
     }
 
-    public sealed record SecurityEvaluation(string Category, string ControlId, SecurityAuditGrade Grade, string Notes);
+public sealed record SecurityEvaluation(string Category, string ControlId, SecurityAuditGrade Grade, string Notes);
 
-    public enum SecurityAuditGrade
+public enum SecurityAuditGrade
     {
         A,
         B,
@@ -724,4 +726,3 @@ public sealed class SecurityAuditor : BackgroundService, ISecurityAuditor
         D,
         F
     }
-}

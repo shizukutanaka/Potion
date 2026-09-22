@@ -30,7 +30,7 @@ public sealed class ResourceAccessControlService : IResourceAccessControlService
     /// <summary>
     /// リソースへのアクセスをチェック
     /// </summary>
-    public bool CheckAccess(string resourcePath, ResourceOperation operation, string userId = null)
+    public bool CheckAccess(string resourcePath, ResourceOperation operation, string? userId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourcePath, nameof(resourcePath));
 
@@ -50,7 +50,7 @@ public sealed class ResourceAccessControlService : IResourceAccessControlService
                     }
 
                     // パスチェック
-                    if (IsPathMatched(normalizedPath, rule.ResourcePath, rule.PathPattern))
+                    if (IsPathMatched(normalizedPath, rule.ResourcePath!, rule.PathPattern!))
                     {
                         var allowed = rule.Allow;
 
@@ -76,7 +76,7 @@ public sealed class ResourceAccessControlService : IResourceAccessControlService
     /// <summary>
     /// リソースのアクセス権限を検証
     /// </summary>
-    public ResourceAccessResult ValidateAccess(string resourcePath, ResourceOperation operation, string userId = null)
+    public ResourceAccessResult ValidateAccess(string resourcePath, ResourceOperation operation, string? userId = null)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(resourcePath, nameof(resourcePath));
 
@@ -173,7 +173,7 @@ public sealed class ResourceAccessControlService : IResourceAccessControlService
         lock (_lock)
         {
             return _accessRules.Values
-                .Where(rule => IsPathMatched(path, rule.ResourcePath, rule.PathPattern))
+                .Where(rule => IsPathMatched(path, rule.ResourcePath!, rule.PathPattern!))
                 .OrderByDescending(rule => rule.Priority)
                 .ToList();
         }
@@ -287,8 +287,8 @@ public sealed class ResourceAccessControlService : IResourceAccessControlService
 /// </summary>
 public interface IResourceAccessControlService
 {
-    bool CheckAccess(string resourcePath, ResourceOperation operation, string userId = null);
-    ResourceAccessResult ValidateAccess(string resourcePath, ResourceOperation operation, string userId = null);
+    bool CheckAccess(string resourcePath, ResourceOperation operation, string? userId = null);
+    ResourceAccessResult ValidateAccess(string resourcePath, ResourceOperation operation, string? userId = null);
     void AddAccessRule(string name, ResourceAccessRule rule);
     bool RemoveAccessRule(string name);
     IReadOnlyDictionary<string, ResourceAccessRule> GetAccessRules();

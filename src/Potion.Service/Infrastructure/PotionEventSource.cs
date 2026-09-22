@@ -256,6 +256,76 @@ public sealed class PotionEventSource : EventSource
             WriteEvent(24, windowTag, tasksCompleted);
     }
 
+    /// <summary>Event ID 25: ML model trained</summary>
+    [Event(25, Level = EventLevel.Informational,
+           Keywords = Keywords.Prediction,
+           Message = "ML model trained: {0}")]
+    public void MachineLearningModelTrained(string modelName)
+    {
+        if (IsEnabled())
+            WriteEvent(25, modelName);
+    }
+
+    /// <summary>Event ID 26: Remediation executed</summary>
+    [Event(26, Level = EventLevel.Informational,
+           Keywords = Keywords.Remediation,
+           Message = "Remediation executed: {0} - {1} - {2}")]
+    public void RemediationExecuted(string remediationId, string anomalyType, string status)
+    {
+        if (IsEnabled())
+            WriteEvent(26, remediationId, anomalyType, status);
+    }
+
+    /// <summary>Event ID 27: Security threat indicators blocked</summary>
+    [Event(27, Level = EventLevel.Warning,
+           Keywords = Keywords.Security,
+           Message = "Threat indicators blocked: {0} IOCs, {1} malware samples")]
+    public void SecurityThreatIndicatorBlocked(int blockedIocs, int blockedMalware)
+    {
+        if (IsEnabled())
+            WriteEvent(27, blockedIocs, blockedMalware);
+    }
+
+    /// <summary>Event ID 28: Security configuration applied</summary>
+    [Event(28, Level = EventLevel.Informational,
+           Keywords = Keywords.Security,
+           Message = "Security configuration applied: {0}")]
+    public void SecurityConfigurationApplied(string configurationName)
+    {
+        if (IsEnabled())
+            WriteEvent(28, configurationName);
+    }
+
+    /// <summary>Event ID 29: Security incident response initiated</summary>
+    [Event(29, Level = EventLevel.Warning,
+           Keywords = Keywords.Security,
+           Message = "Incident response initiated: {0} - {1}")]
+    public void SecurityIncidentResponseInitiated(string incidentId, string title)
+    {
+        if (IsEnabled())
+            WriteEvent(29, incidentId, title);
+    }
+
+    /// <summary>Event ID 30: Security audit event recorded</summary>
+    [Event(30, Level = EventLevel.Informational,
+           Keywords = Keywords.Security,
+           Message = "Audit event recorded: {0} by {1} on {2}")]
+    public void SecurityAuditEventRecorded(string action, string actor, string resource)
+    {
+        if (IsEnabled())
+            WriteEvent(30, action, actor, resource);
+    }
+
+    /// <summary>Event ID 31: Hotpatch applied</summary>
+    [Event(31, Level = EventLevel.Informational,
+           Keywords = Keywords.Remediation,
+           Message = "Hotpatch applied: {0} - {1}")]
+    public void HotpatchApplied(string patchId, string status)
+    {
+        if (IsEnabled())
+            WriteEvent(31, patchId, status);
+    }
+
     /// <summary>ETW Keywords for event filtering</summary>
     public static class Keywords
     {

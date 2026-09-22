@@ -85,6 +85,7 @@ public class OnboardingProgress
     public string UserId { get; set; } = string.Empty;
     public OnboardingStatus Status { get; set; } = OnboardingStatus.NotStarted;
     public List<CompletedStep> CompletedSteps { get; set; } = new();
+    public List<OnboardingStep>? Steps { get; set; }
     public OnboardingStep CurrentStep { get; set; } = new();
     public DateTime StartedAt { get; set; } = DateTime.UtcNow;
     public DateTime? CompletedAt { get; set; }
@@ -199,14 +200,14 @@ public class OnboardingNotification
 {
     public string Title { get; set; } = string.Empty;
     public string Message { get; set; } = string.Empty;
-    public NotificationType Type { get; set; }
+    public OnboardingNotificationType Type { get; set; }
     public Dictionary<string, object> Actions { get; set; } = new();
 }
 
 /// <summary>
 /// 通知タイプ
 /// </summary>
-public enum NotificationType
+public enum OnboardingNotificationType
 {
     Welcome,
     StepCompleted,
@@ -290,7 +291,7 @@ public class UserOnboardingService : IUserOnboardingService
             {
                 Title = "Welcome to Potion!",
                 Message = $"We've prepared a {steps.Count}-step onboarding to help you get started.",
-                Type = NotificationType.Welcome
+                Type = OnboardingNotificationType.Welcome
             });
 
             return result;
@@ -346,7 +347,7 @@ public class UserOnboardingService : IUserOnboardingService
                 {
                     Title = "Congratulations! 🎉",
                     Message = "You've completed the onboarding process. Welcome to Potion!",
-                    Type = NotificationType.StepCompleted
+                    Type = OnboardingNotificationType.StepCompleted
                 });
             }
             else
@@ -497,7 +498,7 @@ public class UserOnboardingService : IUserOnboardingService
                 if (completedOnboardings.Any())
                 {
                     analytics.AverageCompletionTime = completedOnboardings
-                        .Average(p => (p.CompletedAt.Value - p.StartedAt).TotalHours);
+                        .Average(p => (p.CompletedAt!.Value - p.StartedAt).TotalHours);
                 }
 
                 // ステップ分析
@@ -906,7 +907,7 @@ public class UserOnboardingService : IUserOnboardingService
             {
                 Title = "Welcome to Potion!",
                 Message = "Thank you for joining us. Let's get you started with a quick onboarding process.",
-                Type = NotificationType.Welcome
+                Type = OnboardingNotificationType.Welcome
             });
         }
 
@@ -916,7 +917,7 @@ public class UserOnboardingService : IUserOnboardingService
             {
                 Title = "Great Progress! 🎉",
                 Message = $"You've reached an important milestone: {milestone}",
-                Type = NotificationType.MilestoneReached
+                Type = OnboardingNotificationType.MilestoneReached
             });
         }
 
@@ -926,7 +927,7 @@ public class UserOnboardingService : IUserOnboardingService
             {
                 Title = "Don't Forget Your Onboarding",
                 Message = "You have an incomplete onboarding process. Continue where you left off!",
-                Type = NotificationType.Reminder,
+                Type = OnboardingNotificationType.Reminder,
                 Actions = new Dictionary<string, object>
                 {
                     ["resumeUrl"] = "/onboarding/resume"

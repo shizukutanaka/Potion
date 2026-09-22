@@ -44,7 +44,7 @@ public static class PotionMetrics
     public static readonly ObservableGauge<double> SystemHealthScore =
         Meter.CreateObservableGauge<double>(
             "potion.system.health_score",
-            observeValue: () => GetCurrentHealthScore(),
+            observeValues: GetCurrentHealthScore,
             unit: "{score}",
             description: "Current system health score (0-1)");
 
@@ -59,7 +59,7 @@ public static class PotionMetrics
     public static readonly ObservableGauge<double> SystemCpuUsage =
         Meter.CreateObservableGauge<double>(
             "potion.system.cpu_usage",
-            observeValue: () => GetCurrentCpuUsage(),
+            observeValues: GetCurrentCpuUsage,
             unit: "{percent}",
             description: "Current system CPU usage percentage (0-100)");
 
@@ -67,7 +67,7 @@ public static class PotionMetrics
     public static readonly ObservableGauge<double> SystemMemoryUsage =
         Meter.CreateObservableGauge<double>(
             "potion.system.memory_usage",
-            observeValue: () => GetCurrentMemoryUsage(),
+            observeValues: GetCurrentMemoryUsage,
             unit: "{percent}",
             description: "Current system memory usage percentage (0-100)");
 
@@ -75,7 +75,7 @@ public static class PotionMetrics
     public static readonly ObservableGauge<long> SystemDiskAvailable =
         Meter.CreateObservableGauge<long>(
             "potion.system.disk_available",
-            observeValue: () => GetCurrentDiskAvailable(),
+            observeValues: GetCurrentDiskAvailable,
             unit: "GB",
             description: "Available disk space in gigabytes");
 
@@ -111,7 +111,7 @@ public static class PotionMetrics
     public static readonly ObservableGauge<int> ConcurrentOperations =
         Meter.CreateObservableGauge<int>(
             "potion.resilience.concurrent_operations",
-            observeValue: () => GetCurrentConcurrentOperations(),
+            observeValues: GetCurrentConcurrentOperations,
             unit: "{operations}",
             description: "Number of currently executing remediation operations");
 
@@ -140,7 +140,7 @@ public static class PotionMetrics
     public static readonly ObservableGauge<double> LastHealthCheckDuration =
         Meter.CreateObservableGauge<double>(
             "potion.monitoring.health_check_duration",
-            observeValue: () => GetLastHealthCheckDuration(),
+            observeValues: GetLastHealthCheckDuration,
             unit: "ms",
             description: "Duration of the last health check in milliseconds");
 

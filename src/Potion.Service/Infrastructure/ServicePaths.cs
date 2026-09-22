@@ -22,6 +22,9 @@ public static class ServicePaths
     public static string Security => Ensure(Path.Combine(Base, "security"));
     public static string Backups => Ensure(Path.Combine(Base, "backups"));
     public static string Reports => Ensure(Path.Combine(Base, "reports"));
+    public static string ConfigBackups => Ensure(Path.Combine(Base, "backups", "config"));
+    public static string BaseDirectory => Base;
+    public static string ConfigurationFile => Path.Combine(Base, "config", "appsettings.json");
 
     private static readonly SecurityIdentifier[] PrivilegedSecurityIdentifiers =
     {

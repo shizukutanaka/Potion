@@ -129,7 +129,7 @@ public sealed class SystemReportService : ISystemReportService
                 new SystemHealthSnapshot(new SystemMetrics(
                     new CpuMetrics(0, 0, 0, 0, 0),
                     new MemoryMetrics(0, 0, 0, 0, 0, 0),
-                    new DiskMetrics(0, 0, 0, 0, 0, 0),
+                    new DiskMetrics(0, 0, 0, 0, 0),
                     new NetworkMetrics(0, 0, 0),
                     new WindowsEventMetrics(0, 0, 0, 0, DateTimeOffset.UtcNow),
                     new ServiceMetrics(0, 0, 0, 0, Array.Empty<string>()),
@@ -137,7 +137,7 @@ public sealed class SystemReportService : ISystemReportService
                     new SystemIntegrityMetrics(false, 0, 0, false, DateTimeOffset.UtcNow),
                     new InventoryMetrics(Environment.MachineName, "", "", "", ""),
                     new SecurityContextMetrics("", false, false, false),
-                    new PerformanceMetrics(0, 0, 0, 0, 0),
+                    new RuntimePerformanceMetrics(0, 0, 0, Environment.ProcessorCount, 0),
                     new ResourceMonitoringMetrics(0, 0, 0),
                     new ResourcePressureMetrics(PressureLevel.None, PressureLevel.None, PressureLevel.None, PressureLevel.None),
                     new EventCorrelationMetrics(0, 0),
@@ -145,7 +145,7 @@ public sealed class SystemReportService : ISystemReportService
                     Array.Empty<SystemHealthAlert>()),
                 new LogErrorStatistics(0, 0, 0, Array.Empty<string>(), startTime, DateTimeOffset.UtcNow),
                 new LogPerformanceStatistics(0, 0, 0, 0, Array.Empty<PerformanceMetric>()),
-                new SecurityAuditResult(false, Array.Empty<SecurityIssue>(), Array.Empty<SecurityAlert>()),
+                new SecurityAuditResult(DateTimeOffset.UtcNow, false, Array.Empty<SecurityIssue>(), Array.Empty<SecurityAlert>(), new SecurityAuditScore(SecurityAuditGrade.F, 0, Array.Empty<SecurityCategoryScore>()), Array.Empty<SecurityEvaluation>()),
                 Array.Empty<BackupFileInfo>(),
                 new ReportMetadata("1.0", Environment.MachineName, TimeSpan.Zero, 1));
 

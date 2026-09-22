@@ -16,7 +16,7 @@ public sealed class MaintenanceWindowEvaluator : IMaintenanceWindowEvaluator, ID
 {
     private readonly ILogger<MaintenanceWindowEvaluator> _logger;
     private readonly IOptionsMonitor<RemediationPolicyOptions> _optionsMonitor;
-    private readonly IDisposable _subscription;
+    private readonly IDisposable? _subscription;
     private IReadOnlyDictionary<string, MaintenanceWindowSnapshot> _windows;
 
     private sealed record MaintenanceWindowSnapshot(string Tag, TimeSpan Start, TimeSpan End, IReadOnlySet<DayOfWeek> Days);
@@ -64,7 +64,7 @@ public sealed class MaintenanceWindowEvaluator : IMaintenanceWindowEvaluator, ID
 
     public void Dispose()
     {
-        _subscription.Dispose();
+        _subscription?.Dispose();
     }
 
     private IReadOnlyDictionary<string, MaintenanceWindowSnapshot> BuildLookup(RemediationPolicyOptions options)

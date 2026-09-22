@@ -207,7 +207,7 @@ internal static class NetworkSecurityGuard
                 return false;
             }
 
-            if (label.StartsWith('-', StringComparison.Ordinal) || label.EndsWith('-', StringComparison.Ordinal))
+            if (label.StartsWith("-", StringComparison.Ordinal) || label.EndsWith("-", StringComparison.Ordinal))
             {
                 return false;
             }

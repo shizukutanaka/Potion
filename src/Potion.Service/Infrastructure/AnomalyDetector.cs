@@ -5,6 +5,15 @@ using System.Collections.Concurrent;
 
 namespace Potion.Service.Infrastructure;
 
+public interface IAnomalyDetector : IHostedService
+{
+    void RecordMetric(string metricName, double value, DateTimeOffset? timestamp = null);
+
+    bool IsAnomaly(string metricName, double value);
+
+    double GetAnomalyScore(string metricName);
+}
+
 public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
 {
     private readonly ILogger<AnomalyDetector> _logger;
@@ -411,7 +420,7 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
             return numerator / (denominator1 * denominator2);
         }
 
-        private double CalculatePatternDeviation(double value)
+        internal double CalculatePatternDeviation(double value)
         {
             if (Patterns.Count == 0) return 0.0;
 
@@ -424,7 +433,7 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
             return Math.Abs(value - patternMean) / patternStdDev;
         }
 
-        private double CalculateTrendChange(double value)
+        internal double CalculateTrendChange(double value)
         {
             if (_count < 10) return 0.0;
 

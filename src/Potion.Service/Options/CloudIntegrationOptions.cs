@@ -49,4 +49,5 @@ public class CloudProviderOptions
     public bool MonitorPods { get; set; } = true;
     public bool MonitorServices { get; set; } = true;
     public bool MonitorDeployments { get; set; } = true;
+    public bool MonitorSQL { get; set; } = false;
 }

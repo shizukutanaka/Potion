@@ -1,4 +1,5 @@
 using System;
+using System.Text.Json;
 using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 using System.Linq;
@@ -14,7 +15,7 @@ namespace Potion.Service.Infrastructure;
 public interface IAdvancedInputValidator
 {
     ValidationResult ValidateInput<T>(T input, string fieldName, InputValidationRule rule);
-    ValidationResult ValidateString(string input, string fieldName, StringValidationOptions options = null);
+    ValidationResult ValidateString(string input, string fieldName, StringValidationOptions? options = null);
     ValidationResult ValidateNumericInput<T>(T input, string fieldName) where T : struct, IComparable<T>;
     ValidationResult ValidateEmail(string email, string fieldName);
     ValidationResult ValidateUrl(string url, string fieldName);
@@ -56,7 +57,7 @@ public class StringValidationOptions
 {
     public int? MinLength { get; set; }
     public int? MaxLength { get; set; }
-    public Regex Pattern { get; set; }
+    public Regex Pattern { get; set; } = null!;
     public bool AllowWhitespace { get; set; } = true;
     public bool AllowSpecialChars { get; set; } = false;
     public string[] AllowedValues { get; set; } = Array.Empty<string>();
@@ -168,13 +169,13 @@ public class AdvancedInputValidator : IAdvancedInputValidator
             return rule switch
             {
                 InputValidationRule.Required => ValidateRequired(input, fieldName),
-                InputValidationRule.Email => ValidateEmail(Convert.ToString(input), fieldName),
-                InputValidationRule.Url => ValidateUrl(Convert.ToString(input), fieldName),
-                InputValidationRule.Numeric => ValidateNumericInput(input, fieldName),
-                InputValidationRule.FilePath => ValidateFilePath(Convert.ToString(input), fieldName),
-                InputValidationRule.Json => ValidateJson(Convert.ToString(input), fieldName),
-                InputValidationRule.Xml => ValidateXml(Convert.ToString(input), fieldName),
-                _ => ValidateString(Convert.ToString(input), fieldName)
+                InputValidationRule.Email => ValidateEmail(Convert.ToString(input) ?? string.Empty, fieldName),
+                InputValidationRule.Url => ValidateUrl(Convert.ToString(input) ?? string.Empty, fieldName),
+                InputValidationRule.Numeric => ValidateNumericInput(Convert.ToDouble(input), fieldName),
+                InputValidationRule.FilePath => ValidateFilePath(Convert.ToString(input) ?? string.Empty, fieldName),
+                InputValidationRule.Json => ValidateJson(Convert.ToString(input) ?? string.Empty, fieldName),
+                InputValidationRule.Xml => ValidateXml(Convert.ToString(input) ?? string.Empty, fieldName),
+                _ => ValidateString(Convert.ToString(input) ?? string.Empty, fieldName)
             };
         }
         catch (Exception ex)
@@ -184,7 +185,7 @@ public class AdvancedInputValidator : IAdvancedInputValidator
         }
     }
 
-    public ValidationResult ValidateString(string input, string fieldName, StringValidationOptions options = null)
+    public ValidationResult ValidateString(string input, string fieldName, StringValidationOptions? options = null)
     {
         options ??= new StringValidationOptions();
 
@@ -359,7 +360,7 @@ public class AdvancedInputValidator : IAdvancedInputValidator
                     Path.GetTempPath()
                 };
 
-                if (dangerousPaths.Any(dangerous => fullPath.StartsWith(dangerous, StringComparison.OrdinalIgnoreCase)))
+                if (dangerousPaths.Any(dangerous => fullPath.StartsWith(dangerous!, StringComparison.OrdinalIgnoreCase)))
                 {
                     return ValidationResult.Failure(fieldName, "Access to system directories is not allowed");
                 }

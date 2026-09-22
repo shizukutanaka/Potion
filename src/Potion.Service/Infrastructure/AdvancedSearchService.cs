@@ -158,7 +158,7 @@ public class AdvancedSearchService : IAdvancedSearchService
 {
     private readonly ILogger<AdvancedSearchService> _logger;
     private SearchIndex _searchIndex = new();
-    private readonly List<SearchAnalytics> _searchHistory = new();
+    private readonly List<SearchHistoryEntry> _searchHistory = new();
 
     public AdvancedSearchService(ILogger<AdvancedSearchService> logger)
     {
@@ -831,9 +831,8 @@ public class AdvancedSearchService : IAdvancedSearchService
 
     private void RecordSearch(string query, int resultCount, TimeSpan searchTime)
     {
-        var searchRecord = new SearchAnalytics
+        var searchRecord = new SearchHistoryEntry
         {
-            TotalSearches = 1,
             Timestamp = DateTime.UtcNow,
             Query = query,
             ResultCount = resultCount,
@@ -849,7 +848,7 @@ public class AdvancedSearchService : IAdvancedSearchService
         }
     }
 
-    private class SearchAnalytics
+    private class SearchHistoryEntry
     {
         public DateTime Timestamp { get; set; }
         public string Query { get; set; } = string.Empty;

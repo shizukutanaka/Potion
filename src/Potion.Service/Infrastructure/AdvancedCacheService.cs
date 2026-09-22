@@ -1,3 +1,8 @@
+using System.Collections.Concurrent;
+using Microsoft.Extensions.Caching.Memory;
+
+namespace Potion.Service.Infrastructure;
+
 /// <summary>
 /// キャッシュのサーキットブレーカー状態
 /// </summary>
@@ -42,7 +47,7 @@ public class CacheCircuitBreaker
             Reset(operationKey);
             return result;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             RecordFailure(operationKey);
             throw;
@@ -77,7 +82,6 @@ public class CacheCircuitBreaker
     }
 }
 
-namespace Potion.Service.Infrastructure;
 
 /// <summary>
 /// 高性能な分散キャッシュサービス
@@ -103,10 +107,10 @@ public interface IAdvancedCacheService
 /// </summary>
 public class CacheStatistics
 {
-    public long HitCount { get; set; }
-    public long MissCount { get; set; }
+    public long HitCount;
+    public long MissCount;
     public double HitRate => HitCount + MissCount > 0 ? (double)HitCount / (HitCount + MissCount) : 0;
-    public int ItemCount { get; set; }
+    public int ItemCount;
     public long TotalRequests => HitCount + MissCount;
 }
 
@@ -138,7 +142,7 @@ public class AdvancedCacheService : IAdvancedCacheService, IDisposable
         ArgumentNullException.ThrowIfNull(factory);
 
         // Try to get from cache first
-        if (_memoryCache.TryGetValue(key, out T cachedValue))
+        if (_memoryCache.TryGetValue(key, out var cachedObj) && cachedObj is T cachedValue)
         {
             Interlocked.Increment(ref _statistics.HitCount);
             _logger.LogDebug("Cache hit for key: {Key}", key);
@@ -158,11 +162,11 @@ public class AdvancedCacheService : IAdvancedCacheService, IDisposable
                 try
                 {
                     // Double-check pattern - another thread might have added it
-                    if (_memoryCache.TryGetValue(key, out cachedValue))
+                    if (_memoryCache.TryGetValue(key, out var cachedObj2) && cachedObj2 is T cachedValue2)
                     {
                         Interlocked.Increment(ref _statistics.HitCount);
                         _logger.LogDebug("Cache hit after lock for key: {Key}", key);
-                        return cachedValue;
+                        return cachedValue2;
                     }
 
                     Interlocked.Increment(ref _statistics.MissCount);
@@ -225,7 +229,7 @@ public class AdvancedCacheService : IAdvancedCacheService, IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        if (_memoryCache.TryGetValue(key, out T value))
+        if (_memoryCache.TryGetValue(key, out var valueObj) && valueObj is T value)
         {
             Interlocked.Increment(ref _statistics.HitCount);
             _logger.LogDebug("Cache hit for key: {Key}", key);
@@ -234,7 +238,7 @@ public class AdvancedCacheService : IAdvancedCacheService, IDisposable
 
         Interlocked.Increment(ref _statistics.MissCount);
         _logger.LogDebug("Cache miss for key: {Key}", key);
-        return default;
+        return default!;
     }
 
     public async Task SetAsync<T>(string key, T value, TimeSpan? expiration = null)
@@ -282,6 +286,14 @@ public class AdvancedCacheService : IAdvancedCacheService, IDisposable
 
     public async Task<long> GetMissCountAsync() => Interlocked.Read(ref _statistics.MissCount);
 
+    public async Task<double> GetHitRateAsync()
+    {
+        var hits = Interlocked.Read(ref _statistics.HitCount);
+        var misses = Interlocked.Read(ref _statistics.MissCount);
+        var total = hits + misses;
+        return total == 0 ? 0.0 : (double)hits / total;
+    }
+
     public async Task<CacheCircuitState> GetCircuitBreakerStateAsync(string operationKey)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(operationKey);
@@ -315,12 +327,11 @@ public class AdvancedCacheService : IAdvancedCacheService, IDisposable
         {
             HitCount = Interlocked.Read(ref _statistics.HitCount),
             MissCount = Interlocked.Read(ref _statistics.MissCount),
-            ItemCount = Interlocked.Read(ref _statistics.ItemCount),
-            TotalRequests = Interlocked.Read(ref _statistics.HitCount) + Interlocked.Read(ref _statistics.MissCount)
+            ItemCount = Volatile.Read(ref _statistics.ItemCount)
         };
     }
 
-    private void CleanupExpiredEntries(object state)
+    private void CleanupExpiredEntries(object? state)
     {
         try
         {

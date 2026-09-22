@@ -11,7 +11,7 @@ using Potion.Service.Remediation;
 
 namespace Potion.Service.Scheduling;
 
-public sealed class RemediationScheduler : BackgroundService
+public sealed class RemediationScheduler : BackgroundService, IRemediationScheduler
 {
     private readonly ILogger<RemediationScheduler> _logger;
     private readonly IRemediationTaskCatalog _taskCatalog;
@@ -72,6 +72,21 @@ public sealed class RemediationScheduler : BackgroundService
         _logger.LogInformation("Remediation scheduler stopping");
         _stoppingCts.Cancel();
         await base.StopAsync(cancellationToken);
+    }
+
+    public Task ScheduleTaskAsync(RemediationTask task, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(task);
+
+        var option = new RemediationTaskOption
+        {
+            Name = task.Name,
+            DisplayName = task.Name,
+            Command = task.Command,
+        };
+        var descriptor = new RemediationTaskDescriptor(task.Name, option);
+        _logger.LogInformation("Scheduling remediation task {TaskName} (priority {Priority})", task.Name, task.Priority);
+        return _taskExecutor.ExecuteAsync(descriptor, cancellationToken);
     }
 
     private async Task RunIterationAsync(RemediationPolicyOptions options, CancellationToken cancellationToken)

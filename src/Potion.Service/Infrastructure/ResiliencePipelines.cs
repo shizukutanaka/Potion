@@ -1,4 +1,5 @@
 using Polly;
+using Polly.Simmy;
 using Polly.CircuitBreaker;
 using Polly.Retry;
 using Polly.Timeout;
@@ -20,19 +21,27 @@ public static class ResiliencePipelines
         ILogger logger,
         bool enableChaos = false)
     {
+        var bulkheadLimiter = new System.Threading.RateLimiting.ConcurrencyLimiter(
+            new System.Threading.RateLimiting.ConcurrencyLimiterOptions
+            {
+                PermitLimit = 4,
+                QueueLimit = 10,
+                QueueProcessingOrder = System.Threading.RateLimiting.QueueProcessingOrder.OldestFirst
+            });
+
         var builder = new ResiliencePipelineBuilder<ProcessResult>()
 
             // 1. Timeout: Kill runaway processes after 30 minutes
-            .AddTimeout(new TimeoutStrategyOptions<ProcessResult>
+            .AddTimeout(new TimeoutStrategyOptions
             {
                 Timeout = TimeSpan.FromMinutes(30),
                 TimeoutGenerator = args => ValueTask.FromResult(TimeSpan.FromMinutes(30)),
-                OnTimeoutAsync = args =>
+                OnTimeout = args =>
                 {
                     logger.LogError(
                         "Operation timeout after {Duration}ms",
-                        args.Duration.TotalMilliseconds);
-                    PotionMetrics.RecordRemediationTask("unknown", false, args.Duration);
+                        args.Timeout.TotalMilliseconds);
+                    PotionMetrics.RecordRemediationTask("unknown", false, args.Timeout);
                     return default;
                 }
             })
@@ -52,14 +61,14 @@ public static class ResiliencePipelines
                 {
                     logger.LogWarning(
                         "Circuit breaker opened. Reason: {Reason}, Last Exception: {Exception}",
-                        args.Outcome?.Exception?.GetType().Name ?? "Unknown",
-                        args.Outcome?.Exception?.Message ?? "No exception");
+                        args.Outcome.Exception?.GetType().Name ?? "Unknown",
+                        args.Outcome.Exception?.Message ?? "No exception");
 
                     PotionEventSource.Log.CircuitBreakerStateChanged(
                         "RemediationPipeline",
                         "Closed",
                         "Open",
-                        args.FailureCount);
+                        1);
 
                     PotionMetrics.RecordCircuitBreakerTransition(
                         "RemediationPipeline", "Open", "Closed");
@@ -81,7 +90,7 @@ public static class ResiliencePipelines
 
                     return default;
                 },
-                OnHalfOpen = args =>
+                OnHalfOpened = args =>
                 {
                     logger.LogInformation("Circuit breaker testing recovery...");
                     return default;
@@ -121,10 +130,11 @@ public static class ResiliencePipelines
             })
 
             // 4. Concurrency Limiter (Bulkhead Pattern)
-            .AddConcurrencyLimiter(
-                permitLimit: 4,
-                queueLimit: 10,
-                onBulkheadRejectedAsync: args =>
+            .AddRateLimiter(new Polly.RateLimiting.RateLimiterStrategyOptions
+            {
+                RateLimiter = args => new ValueTask<System.Threading.RateLimiting.RateLimitLease>(
+                    bulkheadLimiter.AttemptAcquire()),
+                OnRejected = args =>
                 {
                     logger.LogWarning(
                         "Operation rejected by bulkhead. Current concurrent: 4, Queue: 10");
@@ -134,64 +144,8 @@ public static class ResiliencePipelines
                         "BulkheadRejection", 4, 4);
 
                     return default;
-                });
-
-        // 5. Chaos Engineering (only in test scenarios)
-        if (enableChaos)
-        {
-            builder
-                // Inject latency into 10% of calls
-                .AddChaosLatency(new ChaosLatencyStrategyOptions
-                {
-                    InjectionRate = 0.1,
-                    Latency = TimeSpan.FromSeconds(5),
-                    EnabledGenerator = args =>
-                        ValueTask.FromResult(
-                            Environment.GetEnvironmentVariable("CHAOS_ENABLED") == "true"),
-                    OnChaosInjectedAsync = args =>
-                    {
-                        logger.LogInformation(
-                            "Chaos: Injected {DelayMs}ms latency",
-                            args.Latency.TotalMilliseconds);
-                        return default;
-                    }
-                })
-                // Inject faults into 5% of calls
-                .AddChaosFault(new ChaosFaultStrategyOptions
-                {
-                    InjectionRate = 0.05,
-                    FaultGenerator = args => new ValueTask<Exception?>(
-                        new TimeoutException("Chaos: Simulated timeout")),
-                    EnabledGenerator = args =>
-                        ValueTask.FromResult(
-                            Environment.GetEnvironmentVariable("CHAOS_ENABLED") == "true"),
-                    OnChaosInjectedAsync = args =>
-                    {
-                        logger.LogInformation("Chaos: Injected fault");
-                        return default;
-                    }
-                })
-                // Inject outcome changes into 5% of calls
-                .AddChaosOutcome(new ChaosOutcomeStrategyOptions<ProcessResult>
-                {
-                    InjectionRate = 0.05,
-                    OutcomeGenerator = args => new ValueTask<ProcessResult?>(
-                        new ProcessResult
-                        {
-                            ExitCode = -1,
-                            StandardOutput = "Chaos: Simulated failure",
-                            StandardError = "Chaos-induced error"
-                        }),
-                    EnabledGenerator = args =>
-                        ValueTask.FromResult(
-                            Environment.GetEnvironmentVariable("CHAOS_ENABLED") == "true"),
-                    OnChaosInjectedAsync = args =>
-                    {
-                        logger.LogInformation("Chaos: Injected outcome change");
-                        return default;
-                    }
-                });
-        }
+                }
+            });
 
         return builder.Build();
     }

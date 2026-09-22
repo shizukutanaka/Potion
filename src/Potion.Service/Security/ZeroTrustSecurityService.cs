@@ -277,7 +277,7 @@ public class ZeroTrustSecurityService : IHostedService
         return new MFAResult
         {
             Success = isValid,
-            Reason = isValid ? null : "Invalid MFA token"
+            Reason = isValid ? null! : "Invalid MFA token"
         };
     }
 
@@ -447,7 +447,7 @@ public class ZeroTrustSecurityService : IHostedService
         return new PermissionCheckResult
         {
             Allowed = allowed,
-            Reason = allowed ? null : "Insufficient permissions",
+            Reason = allowed ? null! : "Insufficient permissions",
             Conditions = allowed ? new List<string> { "standard_access" } : new List<string>()
         };
     }
@@ -579,7 +579,7 @@ public class ZeroTrustSecurityService : IHostedService
         => new SuspiciousActivityResult { Detected = false };
     private async Task LogAccessDenialAsync(SecurityContext context, AuthorizationRequest request) { }
     private async Task LogSessionRevocationAsync(SecurityContext context) { }
-    private async Task<ResourcePolicy> GetResourcePolicyAsync(string resource) => null;
+    private async Task<ResourcePolicy> GetResourcePolicyAsync(string resource) => null!;
     private bool EvaluateResourcePolicy(SecurityContext context, ResourcePolicy policy, string action) => true;
     private async Task<List<string>> DetectLoginAnomaliesAsync() => new List<string>();
     private async Task<List<string>> DetectNetworkAnomaliesAsync() => new List<string>();
@@ -606,49 +606,49 @@ public class ZeroTrustOptions
 
 public class AuthenticationRequest
 {
-    public string EntityId { get; set; }
-    public string Password { get; set; }
-    public string MFAToken { get; set; }
-    public string DeviceFingerprint { get; set; }
-    public string SourceIP { get; set; }
+    public string EntityId { get; set; } = null!;
+    public string Password { get; set; } = null!;
+    public string MFAToken { get; set; } = null!;
+    public string DeviceFingerprint { get; set; } = null!;
+    public string SourceIP { get; set; } = null!;
     public Dictionary<string, object> AdditionalClaims { get; set; } = new();
 }
 
 public class AuthorizationRequest
 {
-    public string SessionId { get; set; }
-    public string Resource { get; set; }
-    public string Action { get; set; }
+    public string SessionId { get; set; } = null!;
+    public string Resource { get; set; } = null!;
+    public string Action { get; set; } = null!;
     public Dictionary<string, object> Context { get; set; } = new();
 }
 
 public class AuthenticationResult
 {
     public bool Success { get; set; }
-    public string SessionId { get; set; }
+    public string SessionId { get; set; } = null!;
     public double TrustScore { get; set; }
     public RiskLevel RiskLevel { get; set; }
     public DateTimeOffset? ExpiresAt { get; set; }
-    public string Reason { get; set; }
+    public string Reason { get; set; } = null!;
 }
 
 public class AuthorizationResult
 {
     public bool Allowed { get; set; }
-    public SecurityContext Context { get; set; }
+    public SecurityContext Context { get; set; } = null!;
     public List<string> Conditions { get; set; } = new();
-    public string Reason { get; set; }
+    public string Reason { get; set; } = null!;
 }
 
 public class SecurityContext
 {
-    public string SessionId { get; set; }
-    public string EntityId { get; set; }
+    public string SessionId { get; set; } = null!;
+    public string EntityId { get; set; } = null!;
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset ExpiresAt { get; set; }
     public double TrustScore { get; set; }
-    public string DeviceFingerprint { get; set; }
-    public string SourceIP { get; set; }
+    public string DeviceFingerprint { get; set; } = null!;
+    public string SourceIP { get; set; } = null!;
     public List<string> ResourceConstraints { get; set; } = new();
     public List<string> ActionConstraints { get; set; } = new();
     public List<AccessRecord> AccessHistory { get; set; } = new();
@@ -658,14 +658,14 @@ public class SecurityContext
 public class AccessRecord
 {
     public DateTimeOffset Timestamp { get; set; }
-    public string Resource { get; set; }
-    public string Action { get; set; }
+    public string Resource { get; set; } = null!;
+    public string Action { get; set; } = null!;
     public bool Allowed { get; set; }
 }
 
 public class TrustScore
 {
-    public string EntityId { get; set; }
+    public string EntityId { get; set; } = null!;
     public double Score { get; set; }
     public DateTimeOffset LastUpdated { get; set; }
 }
@@ -698,7 +698,7 @@ public enum ThreatType
 public class MFAResult
 {
     public bool Success { get; set; }
-    public string Reason { get; set; }
+    public string Reason { get; set; } = null!;
 }
 
 public class DeviceVerificationResult
@@ -723,19 +723,19 @@ public class BehavioralAnalysisResult
 public class ContextValidationResult
 {
     public bool IsValid { get; set; }
-    public string Reason { get; set; }
+    public string Reason { get; set; } = null!;
 }
 
 public class PermissionCheckResult
 {
     public bool Allowed { get; set; }
-    public string Reason { get; set; }
+    public string Reason { get; set; } = null!;
     public List<string> Conditions { get; set; } = new();
 }
 
 public class ResourcePolicy
 {
-    public string Resource { get; set; }
+    public string Resource { get; set; } = null!;
     public List<string> AllowedActions { get; set; } = new();
     public List<string> RequiredConditions { get; set; } = new();
 }
@@ -743,13 +743,13 @@ public class ResourcePolicy
 public class SuspiciousActivityResult
 {
     public bool Detected { get; set; }
-    public string Reason { get; set; }
+    public string Reason { get; set; } = null!;
 }
 
 public class SecurityThreat
 {
     public ThreatType Type { get; set; }
     public ThreatSeverity Severity { get; set; }
-    public string Description { get; set; }
+    public string Description { get; set; } = null!;
     public DateTimeOffset DetectedAt { get; set; } = DateTimeOffset.UtcNow;
 }

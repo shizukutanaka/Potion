@@ -119,7 +119,7 @@ public class CollaborationService
         }
     }
 
-    public async Task BroadcastAlertAsync(string alertType, string message, object data = null)
+    public async Task BroadcastAlertAsync(string alertType, string message, object? data = null)
     {
         if (!_options.EnableRealTimeAlerts) return;
 
@@ -162,7 +162,7 @@ public class CollaborationService
         });
     }
 
-    public async Task NotifyTaskCompletedAsync(string taskName, bool success, object result = null)
+    public async Task NotifyTaskCompletedAsync(string taskName, bool success, object? result = null)
     {
         await BroadcastAlertAsync("task", $"Task {taskName} {(success ? "completed" : "failed")}", new
         {
@@ -185,7 +185,7 @@ public class CollaborationService
 
     public int GetActiveUserCount()
     {
-        return _activeUsers.Count(u => u.IsActive);
+        return _activeUsers.Count(u => u.Value.IsActive);
     }
 }
 

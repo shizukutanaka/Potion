@@ -20,7 +20,7 @@ public sealed class BillingService : BackgroundService, IDisposable
     private readonly ILogger<BillingService> _logger;
     private readonly IOptionsMonitor<BillingOptions> _optionsMonitor;
     private readonly IHttpClientFactory _httpClientFactory;
-    private readonly IDisposable _optionsChangeSubscription;
+    private readonly IDisposable? _optionsChangeSubscription;
 
     private BillingStatus _currentStatus;
     private DateTimeOffset _lastCheckTime = DateTimeOffset.MinValue;
@@ -214,9 +214,10 @@ public sealed class BillingService : BackgroundService, IDisposable
         }
     }
 
-    public void Dispose()
+    public override void Dispose()
     {
         _optionsChangeSubscription?.Dispose();
+        base.Dispose();
     }
 
     /// <summary>

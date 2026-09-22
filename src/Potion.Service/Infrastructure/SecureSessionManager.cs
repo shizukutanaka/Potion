@@ -73,7 +73,7 @@ public class SecureSessionManager : ISecureSessionManager, IDisposable
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
 
         // 定期的なセッションクリーンアップ
-        _cleanupTimer = new Timer(CleanupExpiredSessions, null, _options.CleanupInterval, _options.CleanupInterval);
+        _cleanupTimer = new Timer(_ => CleanupExpiredSessions(), null, _options.CleanupInterval, _options.CleanupInterval);
 
         _logger.LogInformation("Secure session manager initialized with timeout: {Timeout}", _options.DefaultTimeout);
     }
@@ -241,7 +241,7 @@ public class SecureSessionManager : ISecureSessionManager, IDisposable
             return sessionInfo;
         }
 
-        return null;
+        return null!;
     }
 
     public async Task<IEnumerable<SessionInfo>> GetActiveSessionsAsync()

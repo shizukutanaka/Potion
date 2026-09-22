@@ -330,6 +330,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
     public async Task<OptimizationResult> OptimizeBasedOnAnalyticsAsync(CancellationToken cancellationToken)
     {
         _logger.LogInformation("Optimizing system based on analytics");
+        var sw = System.Diagnostics.Stopwatch.StartNew();
 
         var analysis = await AnalyzePerformanceAsync(cancellationToken);
         var recommendations = await GetOptimizationRecommendationsAsync(cancellationToken);
@@ -354,10 +355,12 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
 
         return new OptimizationResult(
             Success: errors.Count == 0,
-            ImplementedOptimizations: implementedOptimizations,
-            Errors: errors,
-            PerformanceImprovement: CalculateImprovementFromOptimizations(implementedOptimizations),
-            AnalyzedAt: DateTimeOffset.UtcNow
+            ActionsTaken: implementedOptimizations,
+            Recommendations: errors,
+            Duration: sw.Elapsed,
+            MemoryFreedBytes: 0,
+            PerformanceScoreBefore: analysis.OverallScore,
+            PerformanceScoreAfter: analysis.OverallScore + CalculateImprovementFromOptimizations(implementedOptimizations)
         );
     }
 
@@ -503,7 +506,7 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
         return totalWeight > 0 ? weightedScore / totalWeight : 0;
     }
 
-    private void CollectPerformanceMetrics(object state)
+    private void CollectPerformanceMetrics(object? state)
     {
         try
         {
@@ -1034,10 +1037,4 @@ public class PerformanceAnalyticsService : IPerformanceAnalyticsService
         }
     }
 
-    private sealed record OptimizationResult(
-        bool Success,
-        IReadOnlyList<string> ImplementedOptimizations,
-        IReadOnlyList<string> Errors,
-        double PerformanceImprovement,
-        DateTimeOffset AnalyzedAt);
 }

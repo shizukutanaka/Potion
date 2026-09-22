@@ -1,4 +1,5 @@
 using System;
+using System.Text;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -317,7 +318,7 @@ public class FileUploadSecurityService : IFileUploadSecurityService
             // ファイルシグネチャのチェック（実際の実装ではより詳細なチェック）
             using var stream = File.OpenRead(filePath);
             var signature = new byte[8];
-            await stream.ReadAsync(signature, 0, signature.Length);
+            await stream.ReadExactlyAsync(signature, 0, signature.Length);
 
             // 危険なシグネチャのチェック
             foreach (var dangerousSignature in DangerousSignatures)

@@ -15,7 +15,7 @@ namespace Potion.Service.Infrastructure;
 public interface IBuildPipelineService
 {
     Task<BuildResult> BuildProjectAsync(string projectPath, BuildConfiguration configuration);
-    Task<TestResult> RunTestsAsync(string testProjectPath, TestConfiguration configuration);
+    Task<BuildTestResult> RunTestsAsync(string testProjectPath, TestConfiguration configuration);
     Task<PackageResult> CreatePackageAsync(string projectPath, PackageConfiguration configuration);
     Task<DeploymentResult> DeployAsync(string packagePath, DeploymentConfiguration configuration);
     Task<BuildReport> GenerateBuildReportAsync();
@@ -87,7 +87,7 @@ public class BuildResult
 /// <summary>
 /// テスト結果
 /// </summary>
-public class TestResult
+public class BuildTestResult
 {
     public bool Success { get; set; }
     public int TotalTests { get; set; }
@@ -97,6 +97,7 @@ public class TestResult
     public double CoveragePercentage { get; set; }
     public TimeSpan Duration { get; set; }
     public List<TestCaseResult> TestCases { get; set; } = new();
+    public List<string> Errors { get; set; } = new();
 }
 
 /// <summary>
@@ -131,6 +132,7 @@ public class PackageResult
     public string PackageHash { get; set; } = string.Empty;
     public long PackageSize { get; set; }
     public Dictionary<string, string> Metadata { get; set; } = new();
+    public List<string> Errors { get; set; } = new();
 }
 
 /// <summary>
@@ -144,6 +146,7 @@ public class DeploymentResult
     public TimeSpan Duration { get; set; }
     public List<string> Steps { get; set; } = new();
     public bool RollbackAvailable { get; set; }
+    public List<string> Errors { get; set; } = new();
 }
 
 /// <summary>
@@ -258,7 +261,7 @@ public class BuildPipelineService : IBuildPipelineService
 
                 // 成果物の検索
                 var outputDir = Path.GetDirectoryName(projectPath);
-                var artifacts = FindBuildArtifacts(outputDir);
+                var artifacts = FindBuildArtifacts(outputDir ?? string.Empty);
                 foreach (var artifact in artifacts)
                 {
                     result.Artifacts[Path.GetFileName(artifact)] = artifact;
@@ -293,9 +296,9 @@ public class BuildPipelineService : IBuildPipelineService
         }
     }
 
-    public async Task<TestResult> RunTestsAsync(string testProjectPath, TestConfiguration configuration)
+    public async Task<BuildTestResult> RunTestsAsync(string testProjectPath, TestConfiguration configuration)
     {
-        var result = new TestResult();
+        var result = new BuildTestResult();
         var stopwatch = Stopwatch.StartNew();
 
         try
@@ -343,9 +346,12 @@ public class BuildPipelineService : IBuildPipelineService
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,
-                CreateNoWindow = true,
-                EnvironmentVariables = { environmentVariables }
+                CreateNoWindow = true
             };
+            foreach (var kv in environmentVariables)
+            {
+                processStartInfo.EnvironmentVariables[kv.Key] = kv.Value;
+            }
 
             using var process = Process.Start(processStartInfo);
             if (process == null)
@@ -580,7 +586,7 @@ public class BuildPipelineService : IBuildPipelineService
         try
         {
             var projectDir = Path.GetDirectoryName(projectPath);
-            var dockerfilePath = Path.Combine(projectDir, "Dockerfile");
+            var dockerfilePath = Path.Combine(projectDir ?? string.Empty, "Dockerfile");
 
             if (!File.Exists(dockerfilePath))
             {
@@ -597,7 +603,7 @@ public class BuildPipelineService : IBuildPipelineService
                 "build",
                 "-t", imageName,
                 "-f", dockerfilePath,
-                projectDir
+                projectDir ?? string.Empty
             };
 
             // ビルドラベルを追加
@@ -781,7 +787,7 @@ public class BuildPipelineService : IBuildPipelineService
     {
         try
         {
-            var outputDir = Path.Combine(Path.GetDirectoryName(projectPath), "bin", "Release", "net8.0");
+            var outputDir = Path.Combine(Path.GetDirectoryName(projectPath) ?? string.Empty, "bin", "Release", "net8.0");
             if (Directory.Exists(outputDir))
             {
                 return Directory.GetFiles(outputDir, "*", SearchOption.AllDirectories)

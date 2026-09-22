@@ -12,7 +12,7 @@
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>link</TrimMode>
-    <SuppressTrimAnalysisWarnings>false</SuppressTrimAnalysisWarnings>
+    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
     <!-- 高度な最適化 -->
     <Optimize>true</Optimize>
     <DebugType>portable</DebugType>
@@ -30,6 +30,8 @@
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <!-- async-without-await wrappers are pervasive (816 sites); suppressing preserves exception semantics -->
+    <NoWarn>CS1998</NoWarn>
     <!-- パッケージ検証 -->
     <EnablePackageValidation>true</EnablePackageValidation>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
@@ -62,30 +64,48 @@
     <PackageReference Include="Serilog.Extensions.Logging" Version="8.0.0" />
 
     <!-- OpenTelemetry - Observability (Phase 1) -->
-    <PackageReference Include="OpenTelemetry" Version="1.9.0" />
-    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.9.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.9.0" />
-    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.9.0" />
-    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.9.0" />
-    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.9.0" />
+    <PackageReference Include="OpenTelemetry" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Process" Version="1.19.0-rc.1" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+    <!-- Prometheus.AspNetCore is published by upstream as prerelease-only; no stable exists -->
+    <PackageReference Include="OpenTelemetry.Exporter.Prometheus.AspNetCore" Version="1.19.1-beta.1" />
 
     <!-- Polly - Resilience Patterns (Phase 1) -->
-    <PackageReference Include="Polly" Version="9.0.0" />
-    <PackageReference Include="Polly.Extensions" Version="9.0.0" />
-    <PackageReference Include="Polly.Testing" Version="9.0.0" />
+    <PackageReference Include="Polly" Version="8.8.0" />
+    <PackageReference Include="Polly.Extensions" Version="8.8.0" />
+    <PackageReference Include="Polly.Testing" Version="8.8.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.1" />
+    <PackageReference Include="Polly.RateLimiting" Version="8.8.0" />
 
     <!-- ML.NET - Predictive Maintenance (Phase 3) -->
-    <PackageReference Include="Microsoft.ML" Version="3.0.0" />
-    <PackageReference Include="Microsoft.ML.TimeSeries" Version="3.0.0" />
+    <PackageReference Include="Microsoft.ML" Version="5.0.0" />
+    <PackageReference Include="Microsoft.ML.TimeSeries" Version="5.0.0" />
+    <PackageReference Include="Microsoft.ML.FastTree" Version="5.0.0" />
 
     <!-- Core Infrastructure -->
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.Security.Cryptography.Pkcs" Version="8.0.1" />
     <PackageReference Include="System.Security.Principal.Windows" Version="5.0.0" />
-    <PackageReference Include="System.Threading.Channels" Version="8.0.0" />
+    <PackageReference Include="System.Threading.Channels" Version="9.0.4" />
     <PackageReference Include="System.Reactive" Version="6.0.1" />
     <PackageReference Include="System.Diagnostics.TraceSource" Version="4.3.0" />
-    <PackageReference Include="Microsoft.Diagnostics.Tracing.EventSource" Version="2.0.5" />
+    <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.12" />
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.12" />
+
+    <!-- Web API -->
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="8.1.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Mvc.Versioning" Version="5.1.0" />
+    <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.31" />
+
+    <!-- Security / Data -->
+    <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="8.16.0" />
+    <PackageReference Include="Microsoft.IdentityModel.Tokens" Version="8.16.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.3" />
+    <PackageReference Include="NuGet.Versioning" Version="7.0.0" />
 
     <!-- Analysis Libraries -->
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />

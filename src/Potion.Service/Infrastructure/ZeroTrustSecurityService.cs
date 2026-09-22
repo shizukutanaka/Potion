@@ -22,7 +22,7 @@ public interface IZeroTrustSecurityService
     Task<bool> ValidateDeviceTrustAsync(HttpContext context);
     Task<bool> ValidateUserBehaviorAsync(HttpContext context);
     Task<SecurityDecision> MakeSecurityDecisionAsync(HttpContext context, string resource, string action);
-    Task LogSecurityEventAsync(HttpContext context, SecurityEventType eventType, string description);
+    Task LogSecurityEventAsync(HttpContext context, ZeroTrustSecurityEventType eventType, string description);
 }
 
 /// <summary>
@@ -66,7 +66,7 @@ public class SecurityDecision
 /// <summary>
 /// セキュリティイベントタイプ
 /// </summary>
-public enum SecurityEventType
+public enum ZeroTrustSecurityEventType
 {
     AccessGranted,
     AccessDenied,
@@ -106,7 +106,7 @@ public class ZeroTrustSecurityService : IZeroTrustSecurityService
             var securityContext = await GetSecurityContextAsync(context);
             var decision = await MakeSecurityDecisionAsync(context, resource, action);
 
-            await LogSecurityEventAsync(context, decision.AllowAccess ? SecurityEventType.AccessGranted : SecurityEventType.AccessDenied,
+            await LogSecurityEventAsync(context, decision.AllowAccess ? ZeroTrustSecurityEventType.AccessGranted : ZeroTrustSecurityEventType.AccessDenied,
                 $"Access {decision.AllowAccess} for resource {resource}, action {action}. Reason: {decision.Reason}");
 
             return decision.AllowAccess;
@@ -114,7 +114,7 @@ public class ZeroTrustSecurityService : IZeroTrustSecurityService
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error during access verification for resource {Resource}, action {Action}", resource, action);
-            await LogSecurityEventAsync(context, SecurityEventType.PolicyViolation, $"Access verification error: {ex.Message}");
+            await LogSecurityEventAsync(context, ZeroTrustSecurityEventType.PolicyViolation, $"Access verification error: {ex.Message}");
             return false;
         }
     }
@@ -222,7 +222,7 @@ public class ZeroTrustSecurityService : IZeroTrustSecurityService
         }
     }
 
-    public async Task LogSecurityEventAsync(HttpContext context, SecurityEventType eventType, string description)
+    public async Task LogSecurityEventAsync(HttpContext context, ZeroTrustSecurityEventType eventType, string description)
     {
         var securityEvent = new SecurityEventLog
         {
@@ -350,7 +350,7 @@ public class ZeroTrustSecurityService : IZeroTrustSecurityService
 /// </summary>
 public class SecurityEventLog
 {
-    public SecurityEventType EventType { get; set; }
+    public ZeroTrustSecurityEventType EventType { get; set; }
     public DateTime Timestamp { get; set; }
     public string UserId { get; set; } = string.Empty;
     public string IpAddress { get; set; } = string.Empty;
@@ -359,16 +359,6 @@ public class SecurityEventLog
     public string Action { get; set; } = string.Empty;
     public string Description { get; set; } = string.Empty;
     public SecurityRiskLevel RiskLevel { get; set; }
-}
-
-/// <summary>
-/// デバイス信頼性サービス
-/// </summary>
-public interface IDeviceTrustService
-{
-    Task<bool> IsDeviceTrustedAsync(string deviceId, HttpContext context);
-    Task RegisterDeviceAsync(string deviceId, DeviceTrustInfo trustInfo);
-    Task RevokeDeviceTrustAsync(string deviceId);
 }
 
 /// <summary>
@@ -385,16 +375,6 @@ public class DeviceTrustInfo
 }
 
 /// <summary>
-/// ユーザ行動分析サービス
-/// </summary>
-public interface IUserBehaviorAnalyzer
-{
-    Task<double> AnalyzeBehaviorAsync(HttpContext context);
-    Task<BehaviorPattern> GetBehaviorPatternAsync(string userId);
-    Task ReportSuspiciousActivityAsync(string userId, string activity, HttpContext context);
-}
-
-/// <summary>
 /// 行動パターン
 /// </summary>
 public class BehaviorPattern
@@ -405,16 +385,6 @@ public class BehaviorPattern
     public HashSet<string> CommonUserAgents { get; set; } = new();
     public TimeSpan AverageSessionDuration { get; set; }
     public int RiskScore { get; set; }
-}
-
-/// <summary>
-/// セキュリティポリシーエンジン
-/// </summary>
-public interface ISecurityPolicyEngine
-{
-    Task<PolicyDecision> EvaluatePolicyAsync(HttpContext context, string resource, string action);
-    Task<IEnumerable<SecurityPolicy>> GetActivePoliciesAsync();
-    Task UpdatePolicyAsync(SecurityPolicy policy);
 }
 
 /// <summary>

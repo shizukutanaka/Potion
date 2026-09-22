@@ -196,7 +196,7 @@ public class ApiSecurityService : IApiSecurityService
             return apiKeyInfo;
         }
 
-        return null;
+        return null!;
     }
 
     public async Task<IEnumerable<ApiKeyInfo>> GetUserApiKeysAsync(string userId)
@@ -419,7 +419,7 @@ public class ApiSecurityService : IApiSecurityService
         }
     }
 
-    private void CleanupExpiredKeys(object state)
+    private void CleanupExpiredKeys(object? state)
     {
         try
         {
@@ -518,9 +518,9 @@ public class ApiSecurityService : IApiSecurityService
 
         public static void AddApiSecurityHeaders(HttpResponse response)
         {
-            response.Headers.Add("X-API-Security-Version", "1.0");
-            response.Headers.Add("X-Rate-Limit-Enabled", "true");
-            response.Headers.Add("X-Signature-Required", "true");
+            response.Headers.Append("X-API-Security-Version", "1.0");
+            response.Headers.Append("X-Rate-Limit-Enabled", "true");
+            response.Headers.Append("X-Signature-Required", "true");
         }
     }
 }

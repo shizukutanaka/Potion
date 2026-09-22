@@ -13,12 +13,12 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface IUserFriendlyErrorService
 {
-    ErrorResponse CreateUserFriendlyError(Exception exception, string requestId = null);
-    ErrorResponse CreateUserFriendlyError(string errorCode, string userMessage, string technicalMessage = null);
+    ErrorResponse CreateUserFriendlyError(Exception exception, string? requestId = null);
+    ErrorResponse CreateUserFriendlyError(string errorCode, string userMessage, string? technicalMessage = null);
     string GetLocalizedErrorMessage(string errorCode, string culture = "en-US");
     ErrorResponse CreateValidationError(Dictionary<string, List<string>> validationErrors);
-    ErrorResponse CreateBusinessError(string errorCode, string userMessage, Dictionary<string, object> context = null);
-    Task<ErrorResponse> LogAndCreateErrorAsync(Exception exception, string requestId = null);
+    ErrorResponse CreateBusinessError(string errorCode, string userMessage, Dictionary<string, object>? context = null);
+    Task<ErrorResponse> LogAndCreateErrorAsync(Exception exception, string? requestId = null);
 }
 
 /// <summary>
@@ -56,14 +56,6 @@ public enum ErrorCategory
 /// <summary>
 /// エラー重大度
 /// </summary>
-public enum ErrorSeverity
-{
-    Low,
-    Medium,
-    High,
-    Critical
-}
-
 /// <summary>
 /// ユーザーフレンドリーエラーサービス実装
 /// </summary>
@@ -78,7 +70,7 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
         InitializeErrorDefinitions();
     }
 
-    public ErrorResponse CreateUserFriendlyError(Exception exception, string requestId = null)
+    public ErrorResponse CreateUserFriendlyError(Exception exception, string? requestId = null)
     {
         var errorId = Guid.NewGuid().ToString();
         var errorCode = GetErrorCodeFromException(exception);
@@ -112,7 +104,7 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
         return errorResponse;
     }
 
-    public ErrorResponse CreateUserFriendlyError(string errorCode, string userMessage, string technicalMessage = null)
+    public ErrorResponse CreateUserFriendlyError(string errorCode, string userMessage, string? technicalMessage = null)
     {
         var errorId = Guid.NewGuid().ToString();
 
@@ -122,7 +114,7 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
             {
                 Code = errorCode,
                 UserMessage = userMessage,
-                TechnicalMessage = technicalMessage,
+                TechnicalMessage = technicalMessage ?? string.Empty,
                 Category = ErrorCategory.System,
                 Severity = ErrorSeverity.Medium
             };
@@ -133,7 +125,7 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
             ErrorId = errorId,
             ErrorCode = errorCode,
             UserMessage = errorDefinition.UserMessage,
-            TechnicalMessage = errorDefinition.TechnicalMessage ?? technicalMessage,
+            TechnicalMessage = errorDefinition.TechnicalMessage ?? technicalMessage ?? string.Empty,
             Category = errorDefinition.Category,
             Severity = errorDefinition.Severity,
             Suggestions = errorDefinition.Suggestions,
@@ -180,7 +172,7 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
         };
     }
 
-    public ErrorResponse CreateBusinessError(string errorCode, string userMessage, Dictionary<string, object> context = null)
+    public ErrorResponse CreateBusinessError(string errorCode, string userMessage, Dictionary<string, object>? context = null)
     {
         var errorId = Guid.NewGuid().ToString();
 
@@ -209,7 +201,7 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
         };
     }
 
-    public async Task<ErrorResponse> LogAndCreateErrorAsync(Exception exception, string requestId = null)
+    public async Task<ErrorResponse> LogAndCreateErrorAsync(Exception exception, string? requestId = null)
     {
         // 非同期ログ記録（実際の実装ではログサービスを使用）
         await Task.Run(() => _logger.LogError(exception, "Async error logging for request {RequestId}", requestId));
@@ -221,11 +213,11 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
     {
         return exception switch
         {
-            ArgumentException => "INVALID_ARGUMENT",
             ArgumentNullException => "NULL_ARGUMENT",
+            ArgumentException => "INVALID_ARGUMENT",
             InvalidOperationException => "INVALID_OPERATION",
             UnauthorizedAccessException => "UNAUTHORIZED",
-            System.Data.SqlClient.SqlException => "DATABASE_ERROR",
+            Microsoft.Data.SqlClient.SqlException => "DATABASE_ERROR",
             System.Net.Http.HttpRequestException => "NETWORK_ERROR",
             System.IO.FileNotFoundException => "FILE_NOT_FOUND",
             System.IO.DirectoryNotFoundException => "DIRECTORY_NOT_FOUND",
@@ -461,7 +453,7 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
             };
         }
 
-        public static string CreateHelpfulErrorMessage(string errorCode, string userContext = null)
+        public static string CreateHelpfulErrorMessage(string errorCode, string? userContext = null)
         {
             var baseMessage = GetErrorMessageForCode(errorCode);
 
@@ -542,7 +534,7 @@ public class UserFriendlyErrorService : IUserFriendlyErrorService
 /// <summary>
 /// エラーハンドリングミドルウェア拡張
 /// </summary>
-public static class ErrorHandlingExtensions
+public static class UserFriendlyErrorHandlingExtensions
 {
     public static IApplicationBuilder UseUserFriendlyErrorHandling(this IApplicationBuilder app)
     {

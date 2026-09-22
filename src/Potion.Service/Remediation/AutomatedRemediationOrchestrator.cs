@@ -1,4 +1,5 @@
 using System;
+using Potion.Service.Infrastructure;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -199,8 +200,8 @@ public sealed class AutomatedRemediationOrchestrator : IAutomatedRemediationOrch
                         // Attempt rollback on failure
                         if (i > 0)
                         {
-                            var rollbackResult = await RollbackAsync(executedActions, i, cancellationToken);
-                            if (!rollbackResult.RollbackSuccess)
+                            var rollbackSuccess = await RollbackAsync(executedActions, i, cancellationToken);
+                            if (!rollbackSuccess)
                             {
                                 issues.Add("Rollback also failed - manual intervention required");
                             }
@@ -469,7 +470,7 @@ public sealed class AutomatedRemediationOrchestrator : IAutomatedRemediationOrch
         }
     }
 
-    private async Task RollbackAsync(
+    private async Task<bool> RollbackAsync(
         List<RemediationAction> executedActions,
         int failureIndex,
         CancellationToken cancellationToken)
@@ -481,9 +482,18 @@ public sealed class AutomatedRemediationOrchestrator : IAutomatedRemediationOrch
             var action = executedActions[i];
             if (action.RollbackCommand != null)
             {
-                await ExecuteRollbackCommandAsync(action.RollbackCommand, cancellationToken);
+                try
+                {
+                    await ExecuteRollbackCommandAsync(action.RollbackCommand, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Rollback command failed at index {Index}", i);
+                    return false;
+                }
             }
         }
+        return true;
     }
 
     private List<RemediationAction> GetRemediationPlan(string anomalyType, AnomalySeverity severity)

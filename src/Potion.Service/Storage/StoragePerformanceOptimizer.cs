@@ -288,7 +288,7 @@ public sealed class StoragePerformanceOptimizer : IStoragePerformanceOptimizer
                 WriteIops: (long)writeIops,
                 AvgReadLatencyMs: avgReadLatency,
                 AvgWriteLatencyMs: avgWriteLatency,
-                ThroughputMBps: throughput / 256,  // Convert to MB/s
+                ThroughputMBps: (long)(throughput / 256),  // Convert to MB/s
                 QueueDepth: 64,
                 CpuUtilization: 15.5,
                 CacheHitRate: 92.5,

@@ -18,7 +18,7 @@ public sealed class WindowsRepairScheduler : BackgroundService
     private readonly ILogger<WindowsRepairScheduler> _logger;
     private readonly IWindowsRepairService _repairService;
     private readonly IOptionsMonitor<RemediationPolicyOptions> _policyOptions;
-    private readonly IMaintenanceWindowEvaluator _maintenanceWindowEvaluator;
+    private readonly IWindowsRepairMaintenanceEvaluator _maintenanceWindowEvaluator;
 
     private PeriodicTimer? _maintenanceTimer;
     private const int MaintenanceCheckIntervalMinutes = 15;
@@ -27,7 +27,7 @@ public sealed class WindowsRepairScheduler : BackgroundService
         ILogger<WindowsRepairScheduler> logger,
         IWindowsRepairService repairService,
         IOptionsMonitor<RemediationPolicyOptions> policyOptions,
-        IMaintenanceWindowEvaluator maintenanceWindowEvaluator)
+        IWindowsRepairMaintenanceEvaluator maintenanceWindowEvaluator)
     {
         _logger = logger;
         _repairService = repairService;
@@ -185,16 +185,16 @@ public sealed class WindowsRepairScheduler : BackgroundService
 /// <summary>
 /// Evaluates whether current time is within configured maintenance window.
 /// </summary>
-public interface IMaintenanceWindowEvaluator
+public interface IWindowsRepairMaintenanceEvaluator
 {
     bool IsInMaintenanceWindow(MaintenanceWindow? window);
 }
 
-public sealed class MaintenanceWindowEvaluator : IMaintenanceWindowEvaluator
+public sealed class WindowsRepairMaintenanceEvaluator : IWindowsRepairMaintenanceEvaluator
 {
-    private readonly ILogger<MaintenanceWindowEvaluator> _logger;
+    private readonly ILogger<WindowsRepairMaintenanceEvaluator> _logger;
 
-    public MaintenanceWindowEvaluator(ILogger<MaintenanceWindowEvaluator> logger)
+    public WindowsRepairMaintenanceEvaluator(ILogger<WindowsRepairMaintenanceEvaluator> logger)
     {
         _logger = logger;
     }

@@ -77,7 +77,7 @@ public class SelfHealingCollectionsService : ISelfHealingCollectionsService
         {
             try
             {
-                _data[key] = value;
+                _data[key] = value!;
                 _lastAccessTimes[key] = DateTime.UtcNow;
                 _corruptionFlags.TryRemove(key, out _);
 

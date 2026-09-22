@@ -442,7 +442,7 @@ public class DiskStressFaultInjector : IFaultInjector
             while (DateTimeOffset.UtcNow < endTime && !cancellationToken.IsCancellationRequested)
             {
                 var fileName = Path.Combine(tempDir, $"chaos-test-{fileIndex}.tmp");
-                var data = new byte[1024 * intensity]; // サイズはintensityに基づく
+                var data = new byte[(int)(1024 * intensity)]; // サイズはintensityに基づく
 
                 for (int i = 0; i < data.Length; i++)
                 {

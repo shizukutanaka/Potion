@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Data;
-using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -18,32 +18,32 @@ public interface ISqlInjectionGuard
     string SanitizeSqlInput(string input);
     SqlParameter CreateSafeParameter(string name, object value, SqlDbType? dbType = null);
     string CreateSafeQuery(string baseQuery, Dictionary<string, object> parameters);
-    ValidationResult ValidateQueryParameters(Dictionary<string, object> parameters);
+    SqlValidationResult ValidateQueryParameters(Dictionary<string, object> parameters);
 }
 
 /// <summary>
 /// SQLクエリ検証結果
 /// </summary>
-public class ValidationResult
+public class SqlValidationResult
 {
     public bool IsValid { get; set; }
     public List<string> Errors { get; set; } = new();
     public List<string> Warnings { get; set; } = new();
     public string SanitizedQuery { get; set; } = string.Empty;
 
-    public static ValidationResult Success(string sanitizedQuery = "")
+    public static SqlValidationResult Success(string sanitizedQuery = "")
     {
-        return new ValidationResult { IsValid = true, SanitizedQuery = sanitizedQuery };
+        return new SqlValidationResult { IsValid = true, SanitizedQuery = sanitizedQuery };
     }
 
-    public static ValidationResult Failure(params string[] errors)
+    public static SqlValidationResult Failure(params string[] errors)
     {
-        return new ValidationResult { IsValid = false, Errors = errors.ToList() };
+        return new SqlValidationResult { IsValid = false, Errors = errors.ToList() };
     }
 
-    public static ValidationResult Warning(string warning, string sanitizedQuery = "")
+    public static SqlValidationResult Warning(string warning, string sanitizedQuery = "")
     {
-        return new ValidationResult { IsValid = true, Warnings = new List<string> { warning }, SanitizedQuery = sanitizedQuery };
+        return new SqlValidationResult { IsValid = true, Warnings = new List<string> { warning }, SanitizedQuery = sanitizedQuery };
     }
 }
 
@@ -220,7 +220,7 @@ public class SqlInjectionGuard : ISqlInjectionGuard
         return safeQuery;
     }
 
-    public ValidationResult ValidateQueryParameters(Dictionary<string, object> parameters)
+    public SqlValidationResult ValidateQueryParameters(Dictionary<string, object> parameters)
     {
         var errors = new List<string>();
         var warnings = new List<string>();
@@ -262,10 +262,10 @@ public class SqlInjectionGuard : ISqlInjectionGuard
         }
 
         return errors.Any()
-            ? ValidationResult.Failure(errors.ToArray())
+            ? SqlValidationResult.Failure(errors.ToArray())
             : warnings.Any()
-                ? ValidationResult.Warning(string.Join("; ", warnings))
-                : ValidationResult.Success();
+                ? SqlValidationResult.Warning(string.Join("; ", warnings))
+                : SqlValidationResult.Success();
     }
 
     private string SanitizeParameterValue(object value)
@@ -281,7 +281,7 @@ public class SqlInjectionGuard : ISqlInjectionGuard
             float f => f.ToString("F10"),
             decimal dec => dec.ToString(),
             DateTime dt => $"'{dt:yyyy-MM-dd HH:mm:ss}'",
-            _ => $"'{SanitizeSqlInput(value.ToString())}'"
+            _ => $"'{SanitizeSqlInput(value.ToString() ?? string.Empty)}'"
         };
     }
 
@@ -300,7 +300,7 @@ public class SqlInjectionGuard : ISqlInjectionGuard
     /// </summary>
     public static class SafeQueryBuilder
     {
-        public static string Select(string table, string[] columns, Dictionary<string, object> whereConditions = null, string orderBy = null, int? limit = null)
+        public static string Select(string table, string[] columns, Dictionary<string, object>? whereConditions = null, string? orderBy = null, int? limit = null)
         {
             var query = $"SELECT {string.Join(", ", columns)} FROM {table}";
 

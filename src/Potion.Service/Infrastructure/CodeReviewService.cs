@@ -905,7 +905,7 @@ public class CodeReviewAutomationMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         // リクエストにレビュー情報を追加
-        context.Response.Headers.Add("X-Code-Review", "automated");
+        context.Response.Headers.Append("X-Code-Review", "automated");
 
         await _next(context);
     }

@@ -61,10 +61,10 @@ public class ObservabilityService : IObservabilityService
 
         if (Activity.Current != null)
         {
-            activity.SetParentId(Activity.Current.Id);
+            activity.SetParentId(Activity.Current.Id!);
         }
 
-        _activeActivities[activity.Id] = activity;
+        _activeActivities[activity.Id!] = activity;
 
         _logger.LogDebug("Started activity: {ActivityName} ({ActivityId})", name, activity.Id);
 
@@ -85,8 +85,10 @@ public class ObservabilityService : IObservabilityService
         var currentActivity = Activity.Current;
         if (currentActivity != null)
         {
-            var tags = attributes?.ToDictionary(kvp => kvp.Key, kvp => kvp.Value?.ToString() ?? "null");
-            currentActivity.AddEvent(new ActivityEvent(name, tags: tags));
+            currentActivity.AddEvent(new ActivityEvent(name, tags:
+                new ActivityTagsCollection(attributes?.Select(
+                    kvp => new KeyValuePair<string, object?>(kvp.Key, kvp.Value?.ToString() ?? "null"))
+                    ?? Enumerable.Empty<KeyValuePair<string, object?>>())));
         }
     }
 
@@ -105,12 +107,12 @@ public class ObservabilityService : IObservabilityService
                 .GroupBy(a => a.OperationName)
                 .ToDictionary(
                     g => g.Key,
-                    g => g.Where(a => a.Duration.HasValue).Average(a => a.Duration.Value.TotalMilliseconds)
+                    g => g.Where(a => a.Duration != TimeSpan.Zero).Average(a => a.Duration.TotalMilliseconds)
                 );
 
             var totalDuration = _completedActivities
-                .Where(a => a.Duration.HasValue)
-                .Sum(a => a.Duration.Value.Ticks);
+                .Where(a => a.Duration != TimeSpan.Zero)
+                .Sum(a => a.Duration.Ticks);
 
             var averageDuration = totalActivities > 0 ? TimeSpan.FromTicks(totalDuration / totalActivities) : TimeSpan.Zero;
 
@@ -148,7 +150,7 @@ public class ObservabilityService : IObservabilityService
 
     public void OnActivityCompleted(Activity activity)
     {
-        _activeActivities.TryRemove(activity.Id, out _);
+        _activeActivities.TryRemove(activity.Id!, out _);
 
         lock (_historyLock)
         {
@@ -162,7 +164,7 @@ public class ObservabilityService : IObservabilityService
         }
 
         _logger.LogDebug("Completed activity: {ActivityName} ({ActivityId}) - Duration: {Duration}ms",
-            activity.OperationName, activity.Id, activity.Duration?.TotalMilliseconds ?? 0);
+            activity.OperationName, activity.Id, activity.Duration.TotalMilliseconds);
     }
 }
 
@@ -172,19 +174,19 @@ public class ObservabilityService : IObservabilityService
 public interface IMetricsCollectionService
 {
     Task RecordMetricAsync(string name, double value, IDictionary<string, string>? tags = null);
-    Task<CounterMetric> GetCounterAsync(string name);
-    Task<GaugeMetric> GetGaugeAsync(string name);
-    Task<HistogramMetric> GetHistogramAsync(string name);
+    Task<ObservabilityCounterMetric> GetCounterAsync(string name);
+    Task<ObservabilityGaugeMetric> GetGaugeAsync(string name);
+    Task<ObservabilityHistogramMetric> GetHistogramAsync(string name);
     Task<IEnumerable<MetricSnapshot>> GetAllMetricsAsync();
 }
 
 /// <summary>
 /// カウンターメトリクス
 /// </summary>
-public class CounterMetric
+public class ObservabilityCounterMetric
 {
     public string Name { get; set; } = string.Empty;
-    public long Value { get; set; }
+    public long Value;
     public DateTimeOffset LastUpdated { get; set; }
     public Dictionary<string, string> Tags { get; set; } = new();
 }
@@ -192,7 +194,7 @@ public class CounterMetric
 /// <summary>
 /// ゲージメトリクス
 /// </summary>
-public class GaugeMetric
+public class ObservabilityGaugeMetric
 {
     public string Name { get; set; } = string.Empty;
     public double Value { get; set; }
@@ -203,7 +205,7 @@ public class GaugeMetric
 /// <summary>
 /// ヒストグラムメトリクス
 /// </summary>
-public class HistogramMetric
+public class ObservabilityHistogramMetric
 {
     public string Name { get; set; } = string.Empty;
     public List<double> Values { get; set; } = new();
@@ -226,9 +228,9 @@ public record MetricSnapshot(string Name, object Value, string Type, DateTimeOff
 public class MetricsCollectionService : IMetricsCollectionService
 {
     private readonly ILogger<MetricsCollectionService> _logger;
-    private readonly ConcurrentDictionary<string, CounterMetric> _counters = new();
-    private readonly ConcurrentDictionary<string, GaugeMetric> _gauges = new();
-    private readonly ConcurrentDictionary<string, HistogramMetric> _histograms = new();
+    private readonly ConcurrentDictionary<string, ObservabilityCounterMetric> _counters = new();
+    private readonly ConcurrentDictionary<string, ObservabilityGaugeMetric> _gauges = new();
+    private readonly ConcurrentDictionary<string, ObservabilityHistogramMetric> _histograms = new();
 
     public MetricsCollectionService(ILogger<MetricsCollectionService> logger)
     {
@@ -240,12 +242,12 @@ public class MetricsCollectionService : IMetricsCollectionService
         ArgumentException.ThrowIfNullOrWhiteSpace(name);
 
         // カウンターとして記録（単純化のため）
-        var counter = _counters.GetOrAdd(name, _ => new CounterMetric { Name = name, Tags = new(tags ?? new Dictionary<string, string>()) });
+        var counter = _counters.GetOrAdd(name, _ => new ObservabilityCounterMetric { Name = name, Tags = new(tags ?? new Dictionary<string, string>()) });
         Interlocked.Add(ref counter.Value, (long)value);
         counter.LastUpdated = DateTimeOffset.UtcNow;
 
         // ヒストグラムとしても記録
-        var histogram = _histograms.GetOrAdd(name, _ => new HistogramMetric { Name = name, Tags = new(tags ?? new Dictionary<string, string>()) });
+        var histogram = _histograms.GetOrAdd(name, _ => new ObservabilityHistogramMetric { Name = name, Tags = new(tags ?? new Dictionary<string, string>()) });
         histogram.Values.Add(value);
         histogram.Sum += value;
         histogram.LastUpdated = DateTimeOffset.UtcNow;
@@ -260,19 +262,19 @@ public class MetricsCollectionService : IMetricsCollectionService
         _logger.LogDebug("Recorded metric: {MetricName} = {Value}", name, value);
     }
 
-    public async Task<CounterMetric> GetCounterAsync(string name)
+    public async Task<ObservabilityCounterMetric> GetCounterAsync(string name)
     {
-        return _counters.GetOrAdd(name, _ => new CounterMetric { Name = name });
+        return _counters.GetOrAdd(name, _ => new ObservabilityCounterMetric { Name = name });
     }
 
-    public async Task<GaugeMetric> GetGaugeAsync(string name)
+    public async Task<ObservabilityGaugeMetric> GetGaugeAsync(string name)
     {
-        return _gauges.GetOrAdd(name, _ => new GaugeMetric { Name = name });
+        return _gauges.GetOrAdd(name, _ => new ObservabilityGaugeMetric { Name = name });
     }
 
-    public async Task<HistogramMetric> GetHistogramAsync(string name)
+    public async Task<ObservabilityHistogramMetric> GetHistogramAsync(string name)
     {
-        return _histograms.GetOrAdd(name, _ => new HistogramMetric { Name = name });
+        return _histograms.GetOrAdd(name, _ => new ObservabilityHistogramMetric { Name = name });
     }
 
     public async Task<IEnumerable<MetricSnapshot>> GetAllMetricsAsync()

@@ -16,9 +16,9 @@ namespace Potion.Service.Infrastructure;
 public interface IAccessibilityService
 {
     string GenerateAccessibleId(string elementType, string purpose);
-    HtmlString CreateAccessibleLabel(string text, string forId, Dictionary<string, string> attributes = null);
-    HtmlString CreateAccessibleButton(string text, string id, Dictionary<string, string> attributes = null);
-    HtmlString CreateAccessibleInput(string type, string id, string name, Dictionary<string, string> attributes = null);
+    HtmlString CreateAccessibleLabel(string text, string forId, Dictionary<string, string>? attributes = null);
+    HtmlString CreateAccessibleButton(string text, string id, Dictionary<string, string>? attributes = null);
+    HtmlString CreateAccessibleInput(string type, string id, string name, Dictionary<string, string>? attributes = null);
     HtmlString CreateAccessibleNavigation(IEnumerable<NavigationItem> items);
     HtmlString CreateAccessibleForm(IEnumerable<FormField> fields, string action, string method = "POST");
     AccessibilityReport AnalyzeAccessibility(string htmlContent);
@@ -132,7 +132,7 @@ public class AccessibilityService : IAccessibilityService
         return uniqueId;
     }
 
-    public HtmlString CreateAccessibleLabel(string text, string forId, Dictionary<string, string> attributes = null)
+    public HtmlString CreateAccessibleLabel(string text, string forId, Dictionary<string, string>? attributes = null)
     {
         var attrs = new Dictionary<string, string>(attributes ?? new Dictionary<string, string>());
         attrs["for"] = forId;
@@ -141,7 +141,7 @@ public class AccessibilityService : IAccessibilityService
         return new HtmlString(html);
     }
 
-    public HtmlString CreateAccessibleButton(string text, string id, Dictionary<string, string> attributes = null)
+    public HtmlString CreateAccessibleButton(string text, string id, Dictionary<string, string>? attributes = null)
     {
         var attrs = new Dictionary<string, string>(attributes ?? new Dictionary<string, string>());
         attrs["id"] = id;
@@ -151,7 +151,7 @@ public class AccessibilityService : IAccessibilityService
         return new HtmlString(html);
     }
 
-    public HtmlString CreateAccessibleInput(string type, string id, string name, Dictionary<string, string> attributes = null)
+    public HtmlString CreateAccessibleInput(string type, string id, string name, Dictionary<string, string>? attributes = null)
     {
         var attrs = new Dictionary<string, string>(attributes ?? new Dictionary<string, string>());
         attrs["id"] = id;
@@ -418,7 +418,7 @@ public class AccessibilityService : IAccessibilityService
 
             return improved;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // エラーが発生した場合は元のコンテンツを返す
             return htmlContent;
@@ -441,7 +441,7 @@ public class AccessibilityService : IAccessibilityService
 /// </summary>
     public static class AccessibilityHelpers
     {
-        public static string CreateAriaLabel(string label, Dictionary<string, string> attributes = null)
+        public static string CreateAriaLabel(string label, Dictionary<string, string>? attributes = null)
         {
             var attrs = attributes ?? new Dictionary<string, string>();
             attrs["aria-label"] = label;
@@ -463,7 +463,7 @@ public class AccessibilityService : IAccessibilityService
             return $" role=\"{role}\"";
         }
 
-        public static string CreateAccessibleTable(IEnumerable<IEnumerable<string>> rows, string caption = null)
+        public static string CreateAccessibleTable(IEnumerable<IEnumerable<string>> rows, string? caption = null)
         {
             var html = new StringBuilder();
 

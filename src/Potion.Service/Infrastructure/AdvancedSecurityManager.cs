@@ -20,7 +20,7 @@ public interface IAdvancedSecurityManager
     Task<bool> CheckIpWhitelistAsync(IPAddress ipAddress, CancellationToken cancellationToken);
     Task RecordSecurityEventAsync(SecurityEventType eventType, string details, CancellationToken cancellationToken);
     Task<bool> IsUnderAttackAsync(CancellationToken cancellationToken);
-    Task<SecurityAuditReport> GenerateAuditReportAsync(DateTime startTime, DateTime endTime, CancellationToken cancellationToken);
+    Task<ManagedSecurityAuditReport> GenerateAuditReportAsync(DateTime startTime, DateTime endTime, CancellationToken cancellationToken);
 }
 
 public sealed class AdvancedSecurityManager : IAdvancedSecurityManager, IDisposable
@@ -28,9 +28,9 @@ public sealed class AdvancedSecurityManager : IAdvancedSecurityManager, IDisposa
     private readonly ILogger<AdvancedSecurityManager> _logger;
     private readonly IOptionsMonitor<SecurityOptions> _options;
     private readonly ConcurrentDictionary<string, TokenInfo> _tokenCache = new();
-    private readonly ConcurrentDictionary<string, ApiKeyInfo> _apiKeyCache = new();
+    private readonly ConcurrentDictionary<string, ManagedApiKeyInfo> _apiKeyCache = new();
     private readonly ConcurrentDictionary<string, SecurityEvent> _securityEvents = new();
-    private readonly ConcurrentDictionary<string, RateLimitInfo> _rateLimitCache = new();
+    private readonly ConcurrentDictionary<string, ManagedRateLimitInfo> _rateLimitCache = new();
     private readonly ConcurrentDictionary<IPAddress, IpReputationInfo> _ipReputationCache = new();
     private readonly Timer _cleanupTimer;
     private readonly SemaphoreSlim _semaphore = new(1, 1);
@@ -74,7 +74,7 @@ public sealed class AdvancedSecurityManager : IAdvancedSecurityManager, IDisposa
         var isValid = await ValidateApiKeyInternalAsync(apiKey, cancellationToken);
 
         // キャッシュ更新
-        _apiKeyCache[apiKey] = new ApiKeyInfo
+        _apiKeyCache[apiKey] = new ManagedApiKeyInfo
         {
             IsValid = isValid,
             ExpiryTime = DateTimeOffset.UtcNow.AddMinutes(5),
@@ -290,14 +290,14 @@ public sealed class AdvancedSecurityManager : IAdvancedSecurityManager, IDisposa
         return _isUnderAttack;
     }
 
-    public async Task<SecurityAuditReport> GenerateAuditReportAsync(DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
+    public async Task<ManagedSecurityAuditReport> GenerateAuditReportAsync(DateTime startTime, DateTime endTime, CancellationToken cancellationToken)
     {
         var events = _securityEvents.Values
             .Where(e => e.Timestamp >= startTime && e.Timestamp <= endTime)
             .OrderBy(e => e.Timestamp)
             .ToList();
 
-        var report = new SecurityAuditReport
+        var report = new ManagedSecurityAuditReport
         {
             StartTime = startTime,
             EndTime = endTime,
@@ -598,7 +598,7 @@ public class TokenInfo
     public DateTimeOffset? LastUsed { get; set; }
 }
 
-public class ApiKeyInfo
+public class ManagedApiKeyInfo
 {
     public bool IsValid { get; set; }
     public DateTimeOffset ExpiryTime { get; set; }
@@ -616,7 +616,7 @@ public class SecurityEvent
     public string? IpAddress { get; set; }
 }
 
-public class RateLimitInfo
+public class ManagedRateLimitInfo
 {
     public int RequestCount { get; set; }
     public DateTimeOffset WindowStart { get; set; }
@@ -639,7 +639,7 @@ public class AttackPattern
     public DateTimeOffset LastDetected { get; set; }
 }
 
-public class SecurityAuditReport
+public class ManagedSecurityAuditReport
 {
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }

@@ -2,7 +2,7 @@ using System.ComponentModel.DataAnnotations;
 
 namespace Potion.Service.Options;
 
-public sealed class RemediationPolicyOptions
+public sealed partial class RemediationPolicyOptions
 {
     private const int MaxSchedulerIntervalSeconds = 86400; // 24 hours
 
@@ -11,6 +11,8 @@ public sealed class RemediationPolicyOptions
 
     [Range(15, MaxSchedulerIntervalSeconds)]
     public int SchedulerIntervalSeconds { get; set; } = 300;
+
+    public bool DebugMode { get; set; }
 
     [Range(0, 900)]
     public int ScheduleJitterSeconds { get; set; } = 60;

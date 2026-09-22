@@ -17,14 +17,14 @@ public interface IAdvancedRateLimiter
     bool IsAllowedSlidingWindow(string clientId, string operation, int maxRequests, TimeSpan window);
     bool IsAllowedTokenBucket(string clientId, string operation, int maxTokens, TimeSpan refillRate);
     bool IsAllowedFixedWindow(string clientId, string operation, int maxRequests, TimeSpan window);
-    Task<RateLimitStatus> GetClientStatusAsync(string clientId);
+    Task<AdvancedRateLimitStatus> GetClientStatusAsync(string clientId);
     Task<IEnumerable<RateLimitViolation>> GetRecentViolationsAsync(int limit = 100);
 }
 
 /// <summary>
 /// レート制限ステータス
 /// </summary>
-public class RateLimitStatus
+public class AdvancedRateLimitStatus
 {
     public string ClientId { get; set; } = string.Empty;
     public Dictionary<string, OperationStatus> Operations { get; set; } = new();
@@ -39,7 +39,7 @@ public class RateLimitStatus
 public class OperationStatus
 {
     public string Operation { get; set; } = string.Empty;
-    public int RequestCount { get; set; }
+    public int RequestCount;
     public DateTime WindowStart { get; set; } = DateTime.UtcNow;
     public TimeSpan WindowDuration { get; set; }
     public RateLimitAlgorithm Algorithm { get; set; }
@@ -56,7 +56,7 @@ public class RateLimitViolation
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;
     public string IpAddress { get; set; } = string.Empty;
     public string UserAgent { get; set; } = string.Empty;
-    public int RequestCount { get; set; }
+    public int RequestCount;
     public RateLimitAlgorithm Algorithm { get; set; }
 }
 
@@ -108,7 +108,7 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
             WindowDuration = window
         });
 
-        var requests = clientData.Requests;
+        var requests = clientData.Requests ??= new List<RequestInfo>();
 
         // ウィンドウ外のリクエストを除去
         requests.RemoveAll(r => now - r.Timestamp > window);
@@ -174,7 +174,7 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
     public bool IsAllowedFixedWindow(string clientId, string operation, int maxRequests, TimeSpan window)
     {
         var now = DateTime.UtcNow;
-        var windowStart = now - (now - DateTime.Today) % window;
+        var windowStart = now - TimeSpan.FromTicks((now - DateTime.Today).Ticks % window.Ticks);
         var key = $"{clientId}:{operation}:{windowStart:yyyyMMddHHmmss}";
 
         var clientData = _clientData.GetOrAdd(key, _ => new ClientRateLimitData
@@ -203,9 +203,9 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
         return true;
     }
 
-    public async Task<RateLimitStatus> GetClientStatusAsync(string clientId)
+    public async Task<AdvancedRateLimitStatus> GetClientStatusAsync(string clientId)
     {
-        var status = new RateLimitStatus { ClientId = clientId };
+        var status = new AdvancedRateLimitStatus { ClientId = clientId };
 
         foreach (var kvp in _clientData.Where(k => k.Value.ClientId == clientId))
         {
@@ -262,7 +262,7 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
         }
     }
 
-    private void CleanupExpiredData(object state)
+    private void CleanupExpiredData(object? state)
     {
         try
         {
@@ -317,7 +317,7 @@ public class AdvancedRateLimiter : IAdvancedRateLimiter, IDisposable
         public string Operation { get; set; } = string.Empty;
         public RateLimitAlgorithm Algorithm { get; set; }
         public List<RequestInfo>? Requests { get; set; } = new();
-        public int RequestCount { get; set; }
+        public int RequestCount;
         public DateTime WindowStart { get; set; } = DateTime.UtcNow;
         public TimeSpan WindowDuration { get; set; }
         public int Tokens { get; set; }

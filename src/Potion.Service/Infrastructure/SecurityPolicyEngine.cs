@@ -286,7 +286,7 @@ public class RoleConditionEvaluator : PolicyConditionEvaluator
 
 public class RateLimitConditionEvaluator : PolicyConditionEvaluator
 {
-    private readonly ConcurrentDictionary<string, RateLimitInfo> _rateLimits = new();
+    private readonly ConcurrentDictionary<string, PolicyRateLimitInfo> _rateLimits = new();
 
     public override async Task<PolicyDecision> EvaluateAsync(SecurityPolicy policy, HttpContext context)
     {
@@ -297,7 +297,7 @@ public class RateLimitConditionEvaluator : PolicyConditionEvaluator
         if (policy.Conditions.TryGetValue("MaxRequestsPerMinute", out var maxPerMinuteObj))
         {
             var maxPerMinute = Convert.ToInt32(maxPerMinuteObj);
-            var rateLimit = _rateLimits.GetOrAdd(key, _ => new RateLimitInfo());
+            var rateLimit = _rateLimits.GetOrAdd(key, _ => new PolicyRateLimitInfo());
 
             var now = DateTime.UtcNow;
             rateLimit.Requests.RemoveAll(r => r < now.AddMinutes(-1));
@@ -336,7 +336,7 @@ public class RateLimitConditionEvaluator : PolicyConditionEvaluator
         return context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
     }
 
-    private class RateLimitInfo
+    private class PolicyRateLimitInfo
     {
         public List<DateTime> Requests { get; set; } = new();
     }

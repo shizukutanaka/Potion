@@ -15,7 +15,7 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public interface INuGetSecurityAuditor
 {
-    Task<SecurityAuditReport> AuditDependenciesAsync();
+    Task<NuGetAuditReport> AuditDependenciesAsync();
     Task<IEnumerable<PackageVulnerability>> CheckPackageVulnerabilitiesAsync(string packageId, string version);
     Task<SecurityUpdateRecommendation> GetUpdateRecommendationsAsync();
 }
@@ -23,11 +23,13 @@ public interface INuGetSecurityAuditor
 /// <summary>
 /// セキュリティ監査レポート
 /// </summary>
-public class SecurityAuditReport
+public class NuGetAuditReport
 {
     public DateTime GeneratedAt { get; set; } = DateTime.UtcNow;
     public int TotalPackages { get; set; }
     public int VulnerablePackages { get; set; }
+    public int CriticalVulnerabilities { get; set; }
+
     public int HighSeverityVulnerabilities { get; set; }
     public int MediumSeverityVulnerabilities { get; set; }
     public int LowSeverityVulnerabilities { get; set; }
@@ -103,11 +105,11 @@ public class NuGetSecurityAuditor : INuGetSecurityAuditor
         _httpClient.DefaultRequestHeaders.Add("User-Agent", "Potion-Security-Auditor/1.0");
     }
 
-    public async Task<SecurityAuditReport> AuditDependenciesAsync()
+    public async Task<NuGetAuditReport> AuditDependenciesAsync()
     {
         _logger.LogInformation("Starting NuGet dependency security audit");
 
-        var report = new SecurityAuditReport();
+        var report = new NuGetAuditReport();
 
         try
         {
@@ -322,7 +324,7 @@ public class NuGetSecurityAuditor : INuGetSecurityAuditor
     {
         return versionRanges.Any(range =>
             range.IsAffected &&
-            NuGetVersionRange.Parse(range.VersionRange).Satisfies(currentVersion));
+            VersionRange.Parse(range.VersionRange).Satisfies(currentVersion));
     }
 
     private string GetFixedInVersion(List<VersionRangeInfo> versionRanges)

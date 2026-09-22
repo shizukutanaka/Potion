@@ -17,6 +17,7 @@ namespace Potion.Service.Infrastructure;
 public interface IAuditTrailService
 {
     Task<AuditEntry> LogEventAsync(AuditEvent auditEvent);
+    Task<AuditEntry> LogAsync(string eventType, string message);
     Task<AuditEntry> LogSecurityEventAsync(SecurityAuditEvent securityEvent);
     Task<AuditEntry> LogPerformanceEventAsync(PerformanceAuditEvent performanceEvent);
     Task<AuditEntry> LogConfigurationEventAsync(ConfigurationAuditEvent configEvent);
@@ -144,6 +145,19 @@ public class AuditTrailService : IAuditTrailService
         _cleanupTimer = new Timer(CleanupOldEntries, null, TimeSpan.FromHours(24), TimeSpan.FromHours(24));
     }
 
+    public async Task<AuditEntry> LogAsync(string eventType, string message)
+    {
+        return await LogEventAsync(new AuditEvent(
+            eventType,
+            "Potion.Service",
+            message,
+            "",
+            new Dictionary<string, object>(),
+            DateTimeOffset.UtcNow,
+            "",
+            ""));
+    }
+
     public async Task<AuditEntry> LogEventAsync(AuditEvent auditEvent)
     {
         ArgumentNullException.ThrowIfNull(auditEvent);
@@ -164,7 +178,10 @@ public class AuditTrailService : IAuditTrailService
             ["TargetComponent"] = securityEvent.TargetComponent,
             ["Description"] = securityEvent.Description
         };
-        details.AddRange(securityEvent.SecurityDetails);
+        foreach (var kv in securityEvent.SecurityDetails)
+        {
+            details[kv.Key] = kv.Value;
+        }
 
         return await LogAuditEventAsync("Security", securityEvent.TargetComponent, securityEvent.AttackType,
             "system", details, DateTimeOffset.UtcNow, securityEvent.SourceIp, "SecurityAudit");
@@ -363,7 +380,7 @@ public class AuditTrailService : IAuditTrailService
         }
     }
 
-    private async void VerifyAuditTrailIntegrity(object state)
+    private async void VerifyAuditTrailIntegrity(object? state)
     {
         try
         {
@@ -401,7 +418,7 @@ public class AuditTrailService : IAuditTrailService
         }
     }
 
-    private async void CleanupOldEntries(object state)
+    private async void CleanupOldEntries(object? state)
     {
         try
         {

@@ -26,14 +26,15 @@ public interface IPerformanceOptimizationService
 /// </summary>
 public class PerformanceMetrics
 {
-    public long TotalOperations { get; set; }
-    public TimeSpan AverageResponseTime { get; set; }
-    public long MemoryPoolHits { get; set; }
-    public long MemoryPoolMisses { get; set; }
+    public long TotalOperations;
+    public TimeSpan AverageResponseTime;
+    public long TotalResponseTicks;
+    public long MemoryPoolHits;
+    public long MemoryPoolMisses;
     public double MemoryEfficiency => MemoryPoolHits + MemoryPoolMisses > 0 ? (double)MemoryPoolHits / (MemoryPoolHits + MemoryPoolMisses) : 0;
-    public int ActiveThreads { get; set; }
-    public long BytesAllocated { get; set; }
-    public long BytesPooled { get; set; }
+    public int ActiveThreads;
+    public long BytesAllocated;
+    public long BytesPooled;
 }
 
 /// <summary>
@@ -69,7 +70,7 @@ public class PerformanceOptimizationService : IPerformanceOptimizationService
             var result = await operation(new MemoryPoolWrapper(pool));
             stopwatch.Stop();
 
-            Interlocked.Add(ref _metrics.AverageResponseTime.Ticks, stopwatch.Elapsed.Ticks);
+            Interlocked.Add(ref _metrics.TotalResponseTicks, stopwatch.Elapsed.Ticks);
             _metrics.MemoryPoolHits++;
 
             return result;
@@ -109,8 +110,9 @@ public class PerformanceOptimizationService : IPerformanceOptimizationService
         var totalOperations = Interlocked.Read(ref _metrics.TotalOperations);
         if (totalOperations > 0)
         {
-            var avgTicks = Interlocked.Read(ref _metrics.AverageResponseTime.Ticks) / totalOperations;
-            Interlocked.Exchange(ref _metrics.AverageResponseTime.Ticks, avgTicks);
+            var avgTicks = Interlocked.Read(ref _metrics.TotalResponseTicks) / totalOperations;
+            Interlocked.Exchange(ref _metrics.TotalResponseTicks, avgTicks);
+            _metrics.AverageResponseTime = TimeSpan.FromTicks(avgTicks);
         }
 
         _metrics.ActiveThreads = ThreadPool.ThreadCount;
@@ -122,7 +124,6 @@ public class PerformanceOptimizationService : IPerformanceOptimizationService
             AverageResponseTime = _metrics.AverageResponseTime,
             MemoryPoolHits = _metrics.MemoryPoolHits,
             MemoryPoolMisses = _metrics.MemoryPoolMisses,
-            MemoryEfficiency = _metrics.MemoryEfficiency,
             ActiveThreads = _metrics.ActiveThreads,
             BytesAllocated = _metrics.BytesAllocated,
             BytesPooled = _metrics.BytesPooled
@@ -163,7 +164,7 @@ public class PerformanceOptimizationService : IPerformanceOptimizationService
         }
     }
 
-    private void UpdateMetrics(object state)
+    private void UpdateMetrics(object? state)
     {
         try
         {

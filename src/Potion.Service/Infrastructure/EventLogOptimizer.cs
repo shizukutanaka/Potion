@@ -246,7 +246,7 @@ public sealed class EventLogOptimizer : IDisposable
             {
                 try
                 {
-                    using var log = new EventLog(logName);
+                    using var log = new System.Diagnostics.EventLog(logName);
                     return new EventLogMetadata(
                         logName,
                         log.Entries.Count,

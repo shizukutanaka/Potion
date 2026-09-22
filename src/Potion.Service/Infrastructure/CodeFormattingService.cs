@@ -67,6 +67,8 @@ public class FormattingResult
 /// </summary>
 public class FormattingIssue
 {
+    public string IssueId { get; set; } = string.Empty;
+    public RuleSeverity Severity { get; set; }
     public string FilePath { get; set; } = string.Empty;
     public int LineNumber { get; set; }
     public int ColumnNumber { get; set; }
@@ -888,7 +890,7 @@ public class CodeFormattingAutomationMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         // リクエストにコードフォーマット情報を追加
-        context.Response.Headers.Add("X-Code-Formatting", "automated");
+        context.Response.Headers.Append("X-Code-Formatting", "automated");
 
         await _next(context);
     }

@@ -117,7 +117,7 @@ public sealed class SystemPreflightChecker
     {
         try
         {
-            var driveInfo = new DriveInfo(Path.GetPathRoot(ServicePaths.Base));
+            var driveInfo = new DriveInfo(Path.GetPathRoot(ServicePaths.Base) ?? "C:\\");
             var totalSpace = driveInfo.TotalSize;
             var availableSpace = driveInfo.AvailableFreeSpace;
             var usedPercent = 1.0 - (availableSpace / (double)totalSpace);
@@ -385,7 +385,7 @@ public sealed class SystemPreflightChecker
                 throw new InvalidOperationException($"Maintenance window '{window.Tag}' has zero duration and is therefore invalid.");
             }
 
-            var days = window.DaysOfWeek.Any() ? window.DaysOfWeek : Enum.GetValues<DayOfWeek>();
+            IEnumerable<DayOfWeek> days = window.DaysOfWeek.Any() ? window.DaysOfWeek : Enum.GetValues<DayOfWeek>();
             foreach (var day in days)
             {
                 if (start < end)

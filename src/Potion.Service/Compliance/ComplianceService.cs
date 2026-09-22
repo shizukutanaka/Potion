@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
+using System.Collections.Concurrent;
 namespace Potion.Service.Compliance;
 
 public class ComplianceService : IHostedService
@@ -384,7 +385,7 @@ public class ComplianceOptions
 
 public class ComplianceAuditResult
 {
-    public string FrameworkName { get; set; }
+    public string FrameworkName { get; set; } = null!;
     public double ComplianceScore { get; set; }
     public List<ComplianceIssue> Issues { get; set; } = new();
     public List<string> Recommendations { get; set; } = new();
@@ -393,7 +394,7 @@ public class ComplianceAuditResult
 
 public class ComplianceReport
 {
-    public string FrameworkName { get; set; }
+    public string FrameworkName { get; set; } = null!;
     public DateTimeOffset AuditDate { get; set; }
     public double ComplianceScore { get; set; }
     public List<ComplianceIssue> Issues { get; set; } = new();
@@ -403,11 +404,11 @@ public class ComplianceReport
 
 public class ComplianceIssue
 {
-    public string Id { get; set; }
-    public string Title { get; set; }
-    public string Description { get; set; }
+    public string Id { get; set; } = null!;
+    public string Title { get; set; } = null!;
+    public string Description { get; set; } = null!;
     public ComplianceSeverity Severity { get; set; }
-    public string RemediationSteps { get; set; }
+    public string RemediationSteps { get; set; } = null!;
 }
 
 public enum ComplianceSeverity

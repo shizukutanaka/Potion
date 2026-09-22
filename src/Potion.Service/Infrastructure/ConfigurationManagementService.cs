@@ -91,15 +91,19 @@ public class ConfigurationHotReloadService : IConfigurationHotReloadService
         }
 
         // 設定から取得を試行
-        var configValue = _configuration.GetValue<T>(key);
-        if (configValue != null)
+        var rawValue = _configuration[key];
+        if (rawValue is not null)
         {
-            _featureFlags[key] = configValue;
-            return configValue;
+            var configValue = (T)Convert.ChangeType(rawValue, typeof(T));
+            if (configValue != null)
+            {
+                _featureFlags[key] = configValue;
+                return configValue;
+            }
         }
 
         // デフォルト値を設定
-        _featureFlags[key] = defaultValue;
+        _featureFlags[key] = defaultValue!;
         return defaultValue;
     }
 
@@ -107,8 +111,8 @@ public class ConfigurationHotReloadService : IConfigurationHotReloadService
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(key);
 
-        var oldValue = _featureFlags.GetOrAdd(key, value);
-        _featureFlags[key] = value;
+        var oldValue = _featureFlags.GetOrAdd(key, value!);
+        _featureFlags[key] = value!;
 
         OnConfigurationChanged?.Invoke(new ConfigurationChangeEventArgs(key, oldValue, value));
 
@@ -162,7 +166,7 @@ public class ConfigurationHotReloadService : IConfigurationHotReloadService
             {
                 if (!string.IsNullOrEmpty(key) && value != null)
                 {
-                    _featureFlags[key] = value;
+                    _featureFlags[key] = value!;
                 }
             }
         }
@@ -176,11 +180,11 @@ public class ConfigurationHotReloadService : IConfigurationHotReloadService
         changeToken.RegisterChangeCallback(ConfigurationChanged, changeToken);
     }
 
-    private void ConfigurationChanged(object state)
+    private void ConfigurationChanged(object? state)
     {
         try
         {
-            var token = (IChangeToken)state;
+            var token = (IChangeToken)state!;
             _logger.LogInformation("Configuration changed, reloading...");
 
             // フィーチャーフラグをリロード
@@ -198,7 +202,7 @@ public class ConfigurationHotReloadService : IConfigurationHotReloadService
         }
     }
 
-    private void MonitorConfigurationChanges(object state)
+    private void MonitorConfigurationChanges(object? state)
     {
         try
         {

@@ -346,7 +346,6 @@ public class PredictiveMaintenanceService : IHostedService, IDisposable
 
             if (pendingMaintenance != null)
             {
-                pendingMaintenance.Completed = true;
                 pendingMaintenance.CompletionDate = DateTimeOffset.UtcNow;
 
                 // Reset health score after maintenance

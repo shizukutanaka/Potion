@@ -255,10 +255,10 @@ public class CsrfProtectionService : ICsrfProtectionService
         }
 
         // 追加のセキュリティヘッダー
-        response.Headers.Add("X-Content-Type-Options", "nosniff");
-        response.Headers.Add("Cache-Control", "no-cache, no-store, must-revalidate");
-        response.Headers.Add("Pragma", "no-cache");
-        response.Headers.Add("Expires", "0");
+        response.Headers.Append("X-Content-Type-Options", "nosniff");
+        response.Headers.Append("Cache-Control", "no-cache, no-store, must-revalidate");
+        response.Headers.Append("Pragma", "no-cache");
+        response.Headers.Append("Expires", "0");
 
         _logger.LogDebug("Anti-forgery headers added to response");
     }
@@ -300,7 +300,7 @@ public class CsrfProtectionService : ICsrfProtectionService
         return Convert.ToBase64String(hashBytes);
     }
 
-    private void CleanupExpiredTokens(object state)
+    private void CleanupExpiredTokens(object? state)
     {
         try
         {
