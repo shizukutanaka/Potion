@@ -165,20 +165,19 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
 
     private void HandleCpuAnomaly(double score, string anomalyType)
     {
+        // Detection and reporting only — automated remediation lives in the
+        // FeatureFlags:RepairExecutionEnabled tier, which is off by default.
         if (score > 0.8)
         {
-            _logger.LogCritical("Critical CPU anomaly detected - triggering emergency remediation");
-            // Emergency CPU remediation (e.g., kill high CPU processes)
+            _logger.LogCritical("Critical CPU anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else if (score > 0.6)
         {
-            _logger.LogWarning("High CPU anomaly - optimizing CPU usage");
-            // CPU optimization tasks
+            _logger.LogWarning("High CPU anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else
         {
-            _logger.LogInformation("Moderate CPU anomaly - monitoring closely");
-            // Log for monitoring
+            _logger.LogInformation("Moderate CPU anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
     }
 
@@ -186,18 +185,15 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
     {
         if (score > 0.8)
         {
-            _logger.LogCritical("Critical memory anomaly - triggering garbage collection");
-            // Emergency memory cleanup
+            _logger.LogCritical("Critical memory anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else if (score > 0.6)
         {
-            _logger.LogWarning("High memory anomaly - clearing caches");
-            // Memory optimization
+            _logger.LogWarning("High memory anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else
         {
-            _logger.LogInformation("Moderate memory anomaly - monitoring");
-            // Log for monitoring
+            _logger.LogInformation("Moderate memory anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
     }
 
@@ -205,18 +201,15 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
     {
         if (score > 0.8)
         {
-            _logger.LogCritical("Critical disk anomaly - triggering cleanup");
-            // Emergency disk cleanup
+            _logger.LogCritical("Critical disk anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else if (score > 0.6)
         {
-            _logger.LogWarning("High disk anomaly - archiving old files");
-            // Disk optimization
+            _logger.LogWarning("High disk anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else
         {
-            _logger.LogInformation("Moderate disk anomaly - monitoring");
-            // Log for monitoring
+            _logger.LogInformation("Moderate disk anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
     }
 
@@ -224,18 +217,15 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
     {
         if (score > 0.8)
         {
-            _logger.LogCritical("Critical network anomaly - checking connectivity");
-            // Emergency network remediation
+            _logger.LogCritical("Critical network anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else if (score > 0.6)
         {
-            _logger.LogWarning("High network anomaly - optimizing network settings");
-            // Network optimization
+            _logger.LogWarning("High network anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else
         {
-            _logger.LogInformation("Moderate network anomaly - monitoring");
-            // Log for monitoring
+            _logger.LogInformation("Moderate network anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
     }
 

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (AnomalyDetector の虚偽ログ文言)
+
+- **異常検出ハンドラが「remediation を実行した」かのようなログを出していた** — `HandleCpuAnomaly` 等が「triggering emergency remediation」「triggering garbage collection」「clearing caches」「archiving old files」と記録するが実際はコメントのみで何も実行していない（旧 AutoRecoveryManager の偽装と同型）。検出専用の正直な文言へ修正し、修復実行層は FeatureFlags 配下である旨を注記。検出→消費経路（monitor→RecordMetric→時系列→多層判定）は実在を確認
+
 ### Fixed (アラート閾値フラッピング)
 
 - **閾値またぎの一過性低下でアラートが消滅→新IDで再発火していた実バグ** — `_alertState` が1回の `<High` 測定でクリアされるため、ポーリング頻度の高い環境（ダッシュボード ~5秒間隔）で継続中の同一条件が次々と別アラート化（承認不可・通知スパム）。ヒステリシスを導入：85%発火・80%解除の5ppバンドで一時的な閾値跨ぎを吸収。実機検証: CPU 100%持続で同一alertId（cpu-critical-…230543）が全ポーリング一致、31.8%低下で正しく解除
