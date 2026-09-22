@@ -34,8 +34,8 @@ $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 
 # Configuration
-$ServiceName = "Otedama Self-Healing Service"
-$ServiceDisplayName = "Otedama Self-Healing Service"
+$ServiceName = "Potion Self-Healing Service"
+$ServiceDisplayName = "Potion Self-Healing Service"
 $ServiceDescription = "Autonomous system health monitoring and remediation service"
 $MinimumPowerShellVersion = 5.1
 $RequiredDotNetVersion = "8.0"
@@ -149,12 +149,12 @@ function New-InstallationStructure {
         "$InstallPath\config",
         "$InstallPath\data",
         "$InstallPath\backups",
-        "$env:ProgramData\Otedama",
-        "$env:ProgramData\Otedama\logs",
-        "$env:ProgramData\Otedama\telemetry",
-        "$env:ProgramData\Otedama\state",
-        "$env:ProgramData\Otedama\backups",
-        "$env:ProgramData\Otedama\reports"
+        "$env:ProgramData\Potion",
+        "$env:ProgramData\Potion\logs",
+        "$env:ProgramData\Potion\telemetry",
+        "$env:ProgramData\Potion\state",
+        "$env:ProgramData\Potion\backups",
+        "$env:ProgramData\Potion\reports"
     )
 
     foreach ($dir in $directories) {
@@ -246,7 +246,7 @@ function Configure-Firewall {
 function Set-InitialConfiguration {
     Write-Info "Configuring initial settings..."
 
-    $configPath = "$env:ProgramData\Otedama\appsettings.json"
+    $configPath = "$env:ProgramData\Potion\appsettings.json"
     $defaultConfig = @{
         "Serilog" = @{
             "MinimumLevel" = "Information"
@@ -353,7 +353,7 @@ Remove-Item -Path "$InstallPath" -Recurse -Force -ErrorAction SilentlyContinue
 # Remove data directory (optional)
 `$removeData = Read-Host "Remove all data and logs? (yes/no)"
 if (`$removeData -eq "yes") {
-    Remove-Item -Path "`$env:ProgramData\Otedama" -Recurse -Force -ErrorAction SilentlyContinue
+    Remove-Item -Path "`$env:ProgramData\Potion" -Recurse -Force -ErrorAction SilentlyContinue
     Write-Host "Data removed" -ForegroundColor Green
 }
 
@@ -380,8 +380,8 @@ function Show-PostInstallInstructions {
 🔐 Edition: $Edition
 
 Next Steps:
-1. Review configuration: $env:ProgramData\Otedama\appsettings.json
-2. View logs: $env:ProgramData\Otedama\logs
+1. Review configuration: $env:ProgramData\Potion\appsettings.json
+2. View logs: $env:ProgramData\Potion\logs
 3. Check service status: Get-Service "$ServiceName"
 4. Access API: https://localhost:5001/api/health
 
@@ -389,7 +389,7 @@ Commands:
   Start:   Start-Service "$ServiceName"
   Stop:    Stop-Service "$ServiceName"
   Status:  Get-Service "$ServiceName"
-  Logs:    Get-Content "`$env:ProgramData\Otedama\logs\*.log" -Tail 50
+  Logs:    Get-Content "`$env:ProgramData\Potion\logs\*.log" -Tail 50
 
 Documentation: https://github.com/your-org/potion-service
 

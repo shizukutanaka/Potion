@@ -27,7 +27,7 @@ public static class ServicePaths
 
             try
             {
-                var path = Path.Combine(root, "Otedama");
+                var path = Path.Combine(root, "Potion");
                 Directory.CreateDirectory(path);
                 return path;
             }

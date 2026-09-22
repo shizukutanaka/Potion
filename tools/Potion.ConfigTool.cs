@@ -1,250 +1,250 @@
-using System;
-using System.IO;
 using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using Potion.Service.Options;
 
-namespace Potion.ConfigTool
+namespace Potion.ConfigTool;
+
+class Program
 {
-    class Program
+    static int Main(string[] args)
     {
-        static async Task Main(string[] args)
-        {
-            Console.WriteLine("Potion Configuration Tool");
-            Console.WriteLine("========================");
+        Console.WriteLine("Potion Configuration Tool");
+        Console.WriteLine("========================");
 
-            if (args.Length == 0)
-            {
+        var parsed = ParseArgs(args);
+        if (parsed.Command is null)
+        {
+            ShowHelp();
+            return args.Length == 0 ? 0 : 1;
+        }
+
+        switch (parsed.Command)
+        {
+            case "validate":
+                return ValidateConfiguration(parsed.ConfigPath);
+            case "generate":
+                return GenerateDefaultConfig(parsed.ConfigPath);
+            case "show":
+                return ShowCurrentConfig(parsed.ConfigPath);
+            case "backup":
+                return BackupConfiguration(parsed.ConfigPath);
+            case "restore":
+                if (parsed.Positional is null)
+                {
+                    Console.WriteLine("Error: Backup file path required");
+                    return 1;
+                }
+                return RestoreConfiguration(parsed.Positional, parsed.ConfigPath);
+            default:
                 ShowHelp();
-                return;
-            }
+                return parsed.Command is "help" or "--help" or "-h" ? 0 : 1;
+        }
+    }
 
-            var command = args[0].ToLower();
+    record ParsedArgs(string? Command, string? Positional, string ConfigPath);
 
-            switch (command)
+    static ParsedArgs ParseArgs(string[] args)
+    {
+        var configPath = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "Potion",
+            "appsettings.json");
+        string? positional = null;
+
+        for (var i = 1; i < args.Length; i++)
+        {
+            if (args[i] is "--config" or "-c" && i + 1 < args.Length)
             {
-                case "validate":
-                    await ValidateConfigurationAsync();
-                    break;
-                case "generate":
-                    await GenerateDefaultConfigAsync();
-                    break;
-                case "show":
-                    await ShowCurrentConfigAsync();
-                    break;
-                case "backup":
-                    await BackupConfigurationAsync();
-                    break;
-                case "restore":
-                    if (args.Length < 2)
-                    {
-                        Console.WriteLine("Error: Backup file path required");
-                        return;
-                    }
-                    await RestoreConfigurationAsync(args[1]);
-                    break;
-                case "help":
-                case "--help":
-                case "-h":
-                default:
-                    ShowHelp();
-                    break;
+                configPath = args[++i];
+            }
+            else if (!args[i].StartsWith('-') && positional is null)
+            {
+                positional = args[i];
             }
         }
 
-        static void ShowHelp()
-        {
-            Console.WriteLine("Usage: Potion.ConfigTool <command>");
-            Console.WriteLine();
-            Console.WriteLine("Commands:");
-            Console.WriteLine("  validate    - Validate current configuration");
-            Console.WriteLine("  generate    - Generate default configuration");
-            Console.WriteLine("  show        - Show current configuration");
-            Console.WriteLine("  backup      - Backup current configuration");
-            Console.WriteLine("  restore     - Restore configuration from backup");
-            Console.WriteLine("  help        - Show this help message");
-            Console.WriteLine();
-        }
+        return new ParsedArgs(args.Length > 0 ? args[0].ToLowerInvariant() : null, positional, configPath);
+    }
 
-        static async Task ValidateConfigurationAsync()
-        {
-            Console.WriteLine("Validating configuration...");
+    static void ShowHelp()
+    {
+        Console.WriteLine("Usage: Potion.ConfigTool <command> [options]");
+        Console.WriteLine();
+        Console.WriteLine("Commands:");
+        Console.WriteLine("  validate               - Validate current configuration");
+        Console.WriteLine("  generate               - Generate default configuration");
+        Console.WriteLine("  show                   - Show current configuration");
+        Console.WriteLine("  backup                 - Backup current configuration");
+        Console.WriteLine("  restore <backup-file>  - Restore configuration from backup");
+        Console.WriteLine("  help                   - Show this help message");
+        Console.WriteLine();
+        Console.WriteLine("Options:");
+        Console.WriteLine("  --config, -c <path>    - Path to appsettings.json (default: %ProgramData%\\Potion\\appsettings.json)");
+        Console.WriteLine();
+    }
 
-            try
+    static int ValidateConfiguration(string configPath)
+    {
+        Console.WriteLine($"Validating configuration: {configPath}");
+
+        try
+        {
+            if (!File.Exists(configPath))
             {
-                var config = BuildConfiguration();
-                var services = new ServiceCollection();
-                services.Configure<RemediationPolicyOptions>(config.GetSection("RemediationPolicy"));
-                services.Configure<TelemetryRetentionOptions>(config.GetSection("TelemetryRetention"));
+                Console.WriteLine("✗ Configuration file not found");
+                return 1;
+            }
 
-                var serviceProvider = services.BuildServiceProvider();
+            var config = new ConfigurationBuilder()
+                .AddJsonFile(configPath, optional: false)
+                .Build();
 
-                var remediationOptions = serviceProvider.GetRequiredService<IOptions<RemediationPolicyOptions>>();
-                var telemetryOptions = serviceProvider.GetRequiredService<IOptions<TelemetryRetentionOptions>>();
+            var services = new ServiceCollection();
+            services.AddOptions<RemediationPolicyOptions>()
+                .Bind(config.GetSection("RemediationPolicy"));
+            services.AddOptions<MemoryMonitorOptions>()
+                .Bind(config.GetSection(MemoryMonitorOptions.SectionName));
+            services.AddOptions<PerformanceOptimizerOptions>()
+                .Bind(config.GetSection(PerformanceOptimizerOptions.SectionName));
 
-                // バリデーション実行
-                var remediationResults = new List<string>();
-                var telemetryResults = new List<string>();
+            var serviceProvider = services.BuildServiceProvider();
+            var failures = new List<string>();
 
-                try
+            var policy = serviceProvider.GetRequiredService<IOptions<RemediationPolicyOptions>>().Value;
+            if (policy.MaxConcurrency < 1)
+            {
+                failures.Add("RemediationPolicy:MaxConcurrency must be >= 1");
+            }
+            if (policy.CommandAllowlist.Count == 0)
+            {
+                failures.Add("RemediationPolicy:CommandAllowlist must not be empty");
+            }
+            var taskNames = policy.Tasks.Select(t => t.Name).ToList();
+            if (taskNames.Count != taskNames.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+            {
+                failures.Add("RemediationPolicy:Tasks contains duplicate task names");
+            }
+            foreach (var task in policy.Tasks)
+            {
+                if (!policy.CommandAllowlist.Contains(task.Command, StringComparer.OrdinalIgnoreCase))
                 {
-                    var remediationValidatedOptions = remediationOptions.Value;
-                    Console.WriteLine("✓ Remediation policy validation passed");
-                }
-                catch (OptionsValidationException ex)
-                {
-                    remediationResults.AddRange(ex.Failures);
-                    Console.WriteLine("✗ Remediation policy validation failed:");
-                    foreach (var failure in ex.Failures)
-                    {
-                        Console.WriteLine($"  - {failure}");
-                    }
-                }
-
-                try
-                {
-                    var telemetryValidatedOptions = telemetryOptions.Value;
-                    Console.WriteLine("✓ Telemetry retention validation passed");
-                }
-                catch (OptionsValidationException ex)
-                {
-                    telemetryResults.AddRange(ex.Failures);
-                    Console.WriteLine("✗ Telemetry retention validation failed:");
-                    foreach (var failure in ex.Failures)
-                    {
-                        Console.WriteLine($"  - {failure}");
-                    }
-                }
-
-                if (remediationResults.Count == 0 && telemetryResults.Count == 0)
-                {
-                    Console.WriteLine();
-                    Console.WriteLine("✓ All configuration validations passed!");
-                }
-                else
-                {
-                    Console.WriteLine();
-                    Console.WriteLine("✗ Configuration validation failed. Please fix the issues above.");
-                    Environment.Exit(1);
+                    failures.Add($"Task '{task.Name}' command '{task.Command}' is not in CommandAllowlist");
                 }
             }
-            catch (Exception ex)
+
+            if (failures.Count == 0)
             {
-                Console.WriteLine($"✗ Configuration validation error: {ex.Message}");
-                Environment.Exit(1);
+                Console.WriteLine("✓ All configuration validations passed!");
+                return 0;
             }
-        }
 
-        static async Task GenerateDefaultConfigAsync()
-        {
-            Console.WriteLine("Generating default configuration...");
-
-            var defaultConfig = new
+            Console.WriteLine("✗ Configuration validation failed:");
+            foreach (var failure in failures)
             {
-                Serilog = new
+                Console.WriteLine($"  - {failure}");
+            }
+            return 1;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Configuration validation error: {ex.Message}");
+            return 1;
+        }
+    }
+
+    static int GenerateDefaultConfig(string configPath)
+    {
+        Console.WriteLine("Generating default configuration...");
+
+        var defaultConfig = new
+        {
+            RemediationPolicy = new
+            {
+                MaxConcurrency = 2,
+                SchedulerIntervalSeconds = 300,
+                ScheduleJitterSeconds = 60,
+                CommandAllowlist = new[]
                 {
-                    MinimumLevel = new
-                    {
-                        Default = "Debug",
-                        Override = new
-                        {
-                            Microsoft = "Warning",
-                            System = "Warning"
-                        }
-                    }
+                    "sfc.exe", "dism.exe", "cleanmgr.exe", "chkdsk.exe", "wevtutil.exe",
+                    "powercfg.exe", "net.exe", "netsh.exe", "ipconfig.exe", "systeminfo.exe", "ngen.exe"
                 },
-                RemediationPolicy = new
+                MaintenanceWindows = new[]
                 {
-                    MaxConcurrency = 2,
-                    SchedulerIntervalSeconds = 300,
-                    ScheduleJitterSeconds = 60,
-                    CommandAllowlist = new[] { "sfc.exe", "dism.exe", "cleanmgr.exe", "powershell.exe" },
-                    MaintenanceWindows = new[]
+                    new
                     {
-                        new
-                        {
-                            Tag = "overnight",
-                            StartTime = "22:00",
-                            EndTime = "06:00",
-                            DaysOfWeek = new[] { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday" }
-                        },
-                        new
-                        {
-                            Tag = "business_hours",
-                            StartTime = "08:00",
-                            EndTime = "18:00",
-                            DaysOfWeek = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" }
-                        }
+                        Tag = "overnight",
+                        StartTime = "22:00",
+                        EndTime = "06:00",
+                        DaysOfWeek = new[] { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday" }
                     },
-                    Tasks = new[]
+                    new
                     {
-                        new
-                        {
-                            Name = "sfc_integrity_scan",
-                            DisplayName = "System File Checker Integrity Scan",
-                            Command = "sfc.exe",
-                            Arguments = "/scannow",
-                            RunEveryMinutes = 10080,
-                            TimeoutSeconds = 7200,
-                            RequiresElevation = true,
-                            Enabled = true,
-                            MaxRetries = 1,
-                            RetryBackoffSeconds = 1800,
-                            StopOnFailure = false,
-                            MaintenanceWindowTag = "overnight",
-                            AllowedExitCodes = new[] { 0 }
-                        },
-                        new
-                        {
-                            Name = "dism_health_restore",
-                            DisplayName = "DISM Health Restore",
-                            Command = "dism.exe",
-                            Arguments = "/Online /Cleanup-Image /RestoreHealth",
-                            RunEveryMinutes = 10080,
-                            TimeoutSeconds = 10800,
-                            RequiresElevation = true,
-                            Enabled = true,
-                            MaxRetries = 1,
-                            RetryBackoffSeconds = 3600,
-                            StopOnFailure = false,
-                            MaintenanceWindowTag = "overnight",
-                            AllowedExitCodes = new[] { 0 }
-                        },
-                        new
-                        {
-                            Name = "disk_cleanup",
-                            DisplayName = "Disk Cleanup",
-                            Command = "cleanmgr.exe",
-                            Arguments = "/sagerun:1",
-                            RunEveryMinutes = 1440,
-                            TimeoutSeconds = 3600,
-                            RequiresElevation = true,
-                            Enabled = true,
-                            MaxRetries = 2,
-                            RetryBackoffSeconds = 900,
-                            StopOnFailure = true,
-                            MaintenanceWindowTag = "business_hours",
-                            AllowedExitCodes = new[] { 0 }
-                        }
+                        Tag = "business_hours",
+                        StartTime = "08:00",
+                        EndTime = "18:00",
+                        DaysOfWeek = new[] { "Monday", "Tuesday", "Wednesday", "Thursday", "Friday" }
                     }
                 },
-                TelemetryRetention = new
+                Tasks = new[]
                 {
-                    Enabled = true,
-                    RetentionDays = 30,
-                    CleanupIntervalHours = 12
+                    new
+                    {
+                        Name = "sfc_integrity_scan",
+                        DisplayName = "System File Checker Integrity Scan",
+                        Command = "sfc.exe",
+                        Arguments = "/scannow",
+                        RunEveryMinutes = 10080,
+                        TimeoutSeconds = 7200,
+                        RequiresElevation = true,
+                        Enabled = true,
+                        MaxRetries = 1,
+                        RetryBackoffSeconds = 1800,
+                        StopOnFailure = false,
+                        MaintenanceWindowTag = "overnight",
+                        AllowedExitCodes = new[] { 0 }
+                    },
+                    new
+                    {
+                        Name = "dism_health_restore",
+                        DisplayName = "DISM Health Restore",
+                        Command = "dism.exe",
+                        Arguments = "/Online /Cleanup-Image /RestoreHealth",
+                        RunEveryMinutes = 10080,
+                        TimeoutSeconds = 10800,
+                        RequiresElevation = true,
+                        Enabled = true,
+                        MaxRetries = 1,
+                        RetryBackoffSeconds = 3600,
+                        StopOnFailure = false,
+                        MaintenanceWindowTag = "overnight",
+                        AllowedExitCodes = new[] { 0 }
+                    },
+                    new
+                    {
+                        Name = "disk_cleanup",
+                        DisplayName = "Disk Cleanup",
+                        Command = "cleanmgr.exe",
+                        Arguments = "/sagerun:1",
+                        RunEveryMinutes = 1440,
+                        TimeoutSeconds = 3600,
+                        RequiresElevation = true,
+                        Enabled = true,
+                        MaxRetries = 2,
+                        RetryBackoffSeconds = 900,
+                        StopOnFailure = true,
+                        MaintenanceWindowTag = "business_hours",
+                        AllowedExitCodes = new[] { 0 }
+                    }
                 }
-            };
+            }
+        };
 
-            var configPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "Potion",
-                "appsettings.json");
-
+        try
+        {
             var directory = Path.GetDirectoryName(configPath);
-            if (!Directory.Exists(directory))
+            if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
             {
                 Directory.CreateDirectory(directory);
             }
@@ -254,123 +254,104 @@ namespace Potion.ConfigTool
                 WriteIndented = true
             });
 
-            await File.WriteAllTextAsync(configPath, json);
-
+            File.WriteAllText(configPath, json);
             Console.WriteLine($"✓ Default configuration generated at: {configPath}");
+            return 0;
         }
-
-        static async Task ShowCurrentConfigAsync()
+        catch (Exception ex)
         {
-            Console.WriteLine("Current configuration:");
-
-            try
-            {
-                var configPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                    "Potion",
-                    "appsettings.json");
-
-                if (!File.Exists(configPath))
-                {
-                    Console.WriteLine("✗ Configuration file not found. Run 'generate' command first.");
-                    return;
-                }
-
-                var json = await File.ReadAllTextAsync(configPath);
-                var config = JsonDocument.Parse(json);
-
-                Console.WriteLine(JsonSerializer.Serialize(config.RootElement, new JsonSerializerOptions
-                {
-                    WriteIndented = true
-                }));
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"✗ Error reading configuration: {ex.Message}");
-            }
+            Console.WriteLine($"✗ Generation failed: {ex.Message}");
+            return 1;
         }
+    }
 
-        static async Task BackupConfigurationAsync()
+    static int ShowCurrentConfig(string configPath)
+    {
+        Console.WriteLine($"Current configuration: {configPath}");
+
+        try
         {
-            Console.WriteLine("Backing up configuration...");
-
-            try
+            if (!File.Exists(configPath))
             {
-                var sourcePath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                    "Potion",
-                    "appsettings.json");
-
-                if (!File.Exists(sourcePath))
-                {
-                    Console.WriteLine("✗ Configuration file not found");
-                    return;
-                }
-
-                var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-                var backupPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                    $"Potion_config_backup_{timestamp}.json");
-
-                File.Copy(sourcePath, backupPath);
-
-                Console.WriteLine($"✓ Configuration backed up to: {backupPath}");
+                Console.WriteLine("✗ Configuration file not found. Run 'generate' command first.");
+                return 1;
             }
-            catch (Exception ex)
+
+            var json = File.ReadAllText(configPath);
+            var config = JsonDocument.Parse(json);
+
+            Console.WriteLine(JsonSerializer.Serialize(config.RootElement, new JsonSerializerOptions
             {
-                Console.WriteLine($"✗ Backup failed: {ex.Message}");
-            }
+                WriteIndented = true
+            }));
+            return 0;
         }
-
-        static async Task RestoreConfigurationAsync(string backupPath)
+        catch (Exception ex)
         {
-            Console.WriteLine($"Restoring configuration from: {backupPath}");
-
-            try
-            {
-                if (!File.Exists(backupPath))
-                {
-                    Console.WriteLine("✗ Backup file not found");
-                    return;
-                }
-
-                var destinationPath = Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                    "Potion",
-                    "appsettings.json");
-
-                var destinationDir = Path.GetDirectoryName(destinationPath);
-                if (!Directory.Exists(destinationDir))
-                {
-                    Directory.CreateDirectory(destinationDir);
-                }
-
-                File.Copy(backupPath, destinationPath, true);
-
-                Console.WriteLine($"✓ Configuration restored to: {destinationPath}");
-
-                // サービス再起動を促す
-                Console.WriteLine("Note: Please restart the Potion service to apply the restored configuration:");
-                Console.WriteLine("  net stop \"Potion Self-Healing Service\"");
-                Console.WriteLine("  net start \"Potion Self-Healing Service\"");
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"✗ Restore failed: {ex.Message}");
-            }
+            Console.WriteLine($"✗ Error reading configuration: {ex.Message}");
+            return 1;
         }
+    }
 
-        static IConfiguration BuildConfiguration()
+    static int BackupConfiguration(string configPath)
+    {
+        Console.WriteLine("Backing up configuration...");
+
+        try
         {
-            var configPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-                "Potion",
-                "appsettings.json");
+            if (!File.Exists(configPath))
+            {
+                Console.WriteLine("✗ Configuration file not found");
+                return 1;
+            }
 
-            return new ConfigurationBuilder()
-                .SetBasePath(Directory.GetCurrentDirectory())
-                .AddJsonFile(configPath, optional: true)
-                .Build();
+            var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            var backupPath = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
+                $"Potion_config_backup_{timestamp}.json");
+
+            File.Copy(configPath, backupPath);
+
+            Console.WriteLine($"✓ Configuration backed up to: {backupPath}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Backup failed: {ex.Message}");
+            return 1;
+        }
+    }
+
+    static int RestoreConfiguration(string backupPath, string configPath)
+    {
+        Console.WriteLine($"Restoring configuration from: {backupPath}");
+
+        try
+        {
+            if (!File.Exists(backupPath))
+            {
+                Console.WriteLine("✗ Backup file not found");
+                return 1;
+            }
+
+            var destinationDir = Path.GetDirectoryName(configPath);
+            if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
+            {
+                Directory.CreateDirectory(destinationDir);
+            }
+
+            File.Copy(backupPath, configPath, true);
+
+            Console.WriteLine($"✓ Configuration restored to: {configPath}");
+            Console.WriteLine("Note: Please restart the Potion service to apply the restored configuration:");
+            Console.WriteLine("  net stop \"Potion Self-Healing Service\"");
+            Console.WriteLine("  net start \"Potion Self-Healing Service\"");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"✗ Restore failed: {ex.Message}");
+            return 1;
         }
     }
 }

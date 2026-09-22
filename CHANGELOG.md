@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (ツール/セットアップ系の破損一掃 — 旧製品名残滓・未ビルド可能・不存在参照)
+
+- **旧製品名 `Otedama` が実行パスに残存していた実バグ** — `ServicePaths.Base` が `Otedama` ディレクトリを作成（本番では `%ProgramData%\Otedama` に状態・ログ・証明書を書き込む）、`deploy-windows.ps1`/`package-installer.ps1`/`build-release.ps1` が `Otedama Self-Healing Service` 名でサービス登録 — 製品名 `Potion` に全統一
+- **`tools/Potion.ConfigTool.cs` がビルド不能** — csproj 未存在・削除済み `TelemetryRetentionOptions` 参照・using 不足。`Potion.ConfigTool.csproj` 新設で実ビルド化、削除済み型を実在オプション型（RemediationPolicy/MemoryMonitor/PerformanceOptimizer）へ、設定パスを `--config` 引数化、`generate` の CommandAllowlist を実アプリと同じ11コマンドへ整合。validate/generate/backup 実動確認
+- **`setup/Potion.wxs` がビルド不能** — 不存在 `Potion.Service.Installer.dll` カスタムアクション・`Dialog.bmp`/`Banner.bmp`/`License.rtf` 参照・`ServiceDir` サブディレクトリに1ファイルのみ（残り~150DLLが未インストールでランタイム起動不能確定）。カスタムアクション除去（ServiceInstall/ServiceControl が既に同等機能）、`<Files>` ハーベストで publish 出力全ファイル取り込みへ、License.rtf 新規作成
+- **win-x64 publish が `PublishTrimmed` で失敗** — `-p:PublishTrimmed=false` で成功を確認（trim 失敗は `System.Diagnostics.FileVersionInfo` の IL2008 起因 — 設定の見直し余地として記録）
+
 ### Fixed (ダッシュボードが `/` で開けない実バグ + validate-system.sh の偽装検証)
 
 - **`GET /` が 404 でダッシュボードが root で開けなかった** — `UseDefaultFiles()` 欠落により `/index.html` でしかアクセス不可。ルートで dashboard を配信するよう修正（ダッシュボードの主入口として実稼働影響あり）

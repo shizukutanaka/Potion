@@ -6,10 +6,10 @@ param(
     [string]$Environment = "Development",
 
     [Parameter(Mandatory=$false)]
-    [string]$ServiceName = "Otedama Self-Healing Service",
+    [string]$ServiceName = "Potion Self-Healing Service",
 
     [Parameter(Mandatory=$false)]
-    [string]$InstallPath = "$env:ProgramFiles\Otedama",
+    [string]$InstallPath = "$env:ProgramFiles\Potion",
 
     [Parameter(Mandatory=$false)]
     [switch]$Force
@@ -18,8 +18,8 @@ param(
 # Configuration
 $ServiceAccount = "NT AUTHORITY\SYSTEM"
 $ServiceDescription = "Comprehensive health monitoring and system observability with advanced self-healing capabilities"
-$LogPath = "$env:ProgramData\Otedama\logs"
-$StatePath = "$env:ProgramData\Otedama\state"
+$LogPath = "$env:ProgramData\Potion\logs"
+$StatePath = "$env:ProgramData\Potion\state"
 
 Write-Host "🚀 Starting Potion Service deployment..." -ForegroundColor Green
 Write-Host "Environment: $Environment" -ForegroundColor Cyan
@@ -80,7 +80,7 @@ Set-Acl $InstallPath $acl
 # Configure Windows Event Log
 Write-Host "📝 Configuring Windows Event Log..." -ForegroundColor Yellow
 
-New-EventLog -LogName Application -Source "Otedama" -ErrorAction SilentlyContinue
+New-EventLog -LogName Application -Source 'Potion' -ErrorAction SilentlyContinue
 
 # Install as Windows service
 Write-Host "⚙️ Installing Windows service..." -ForegroundColor Yellow
@@ -215,7 +215,7 @@ $logCleanupTask = @"
 </Task>
 "@
 
-Register-ScheduledTask -TaskName "Otedama Log Cleanup" -Xml $logCleanupTask -Force | Out-Null
+Register-ScheduledTask -TaskName "Potion Log Cleanup" -Xml $logCleanupTask -Force | Out-Null
 
 Write-Host "✅ Deployment completed successfully!" -ForegroundColor Green
 Write-Host ""
@@ -230,7 +230,7 @@ Write-Host "Start: Start-Service '$ServiceName'"
 Write-Host "Stop: Stop-Service '$ServiceName'"
 Write-Host "Restart: Restart-Service '$ServiceName'"
 Write-Host "Status: Get-Service '$ServiceName'"
-Write-Host "Logs: Get-EventLog -LogName Application -Source 'Otedama'"
+Write-Host "Logs: Get-EventLog -LogName Application -Source 'Potion'"
 Write-Host ""
 Write-Host "🌐 API Endpoints:" -ForegroundColor Cyan
 Write-Host "Health: http://localhost:5000/api/health"
@@ -270,7 +270,7 @@ API Endpoints:
 - Chaos engineering: /api/health/chaos/*
 
 Next Steps:
-1. Review logs: Get-EventLog -LogName Application -Source 'Otedama'
+1. Review logs: Get-EventLog -LogName Application -Source 'Potion'
 2. Check configuration: Get-Content '$InstallPath\appsettings.json'
 3. Verify security: Get-Content '$StatePath\security\latest-audit.json'
 4. Test integration: Invoke-WebRequest http://localhost:5000/api/health/testing/integration
