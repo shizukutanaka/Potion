@@ -149,3 +149,11 @@
 - `ConfigurationManagementService.cs` 末尾の死ブロック削除 — `IFeatureFlagService`/`FeatureFlagInfo`/`FeatureFlagService`（消費者ゼロ、登録削除済み）
 - `ServiceSupportTypes.cs` の `IFunctionalErrorHandlingService`/`FunctionalErrorHandlingService` を削除（同上）
 - 削除後検証: 0警告0エラー・126/126テスト
+
+### Added (DI 回帰テスト)
+
+- `DependencyInjectionTests` 新規追加（3テスト）— 本セッションで繰り返し発生した DI 破損クラス（未登録依存の注入）の回帰防止:
+  - `AllRegistrations_ResolveAtBuildTime`: `Startup.ConfigureServices` の全登録を `ValidateOnBuild` 付きで構築し解決不能を検出（ホスト提供の `IHostApplicationLifetime` はモック注入）
+  - `MonitoringLoop_IsWiredAsHostedServices`: 監視ループ4サービスが `IHostedService` として登録済みであることを検証
+  - `CollaborationHubDependency_IsRegistered`: Hub 依存の登録存在を検証
+- テスト総数 126→129
