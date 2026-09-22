@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (残留プレースホルダ・死シードキー)
+
+- `CONTRIBUTING.md` のクローン URL `yourusername` プレースホルダ → `shizukutanaka` 実URL（README で前回同型修正済みの漏れ）
+- `DependencyInjectionTests` の in-memory 設定から `RemediationPolicy:Enabled` を除去 — `RemediationPolicyOptions` に `Enabled` プロパティは存在せず、バインドされない死シードキーだった
+
 ### Security (修復コマンドのアローリスト強制 — CommandValidator 接続)
 
 - `CommandValidator`/`ICommandValidator` は実装済みだったが**どこからも呼ばれていなかった** — 修復パイプラインは `descriptor.Option.Command` を検証なしでそのまま `ProcessRunner` へ渡していた（フラグ有効化時、設定した任意コマンドが無検査で実行される状態）
