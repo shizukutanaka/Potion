@@ -323,7 +323,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var elevated = _sampler.IsElevated();
         var (evtTotal, evtErrors, evtSecurity, evtCritical, evtLast) = _sampler.WindowsEventCounts();
         var restorePoint = _sampler.RestorePointAvailable();
-        var pendingRepairs = _sampler.HasPendingRepairs();
+        var pendingRepairs = _sampler.PendingRepairCount();
         var ioOpsRate = _sampler.IoOpsRate();
         var cpuFreq = _sampler.CpuFrequencyMhz();
         var cpuTemp = _sampler.CpuTemperatureCelsius();
@@ -336,10 +336,10 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new MemoryMetrics(usedPercent, availableBytes, totalMemory, osUsedBytes, managedMemory, cachedBytes),
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
-            new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast == DateTimeOffset.MinValue ? now : evtLast),
+            new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast),
             new ServiceMetrics(services.Total, services.Running, services.Stopped, services.Failed, services.FailedNames),
             new SecurityMetrics(security.Defender, security.Firewall, security.ActiveThreats, security.SecureBoot, security.LastScan),
-            new SystemIntegrityMetrics(!pendingRepairs, pendingRepairs ? 1 : 0, (int)_remediationStats.SucceededCount, restorePoint, now),
+            new SystemIntegrityMetrics(pendingRepairs == 0, pendingRepairs, (int)_remediationStats.SucceededCount, restorePoint, now),
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
             new SecurityContextMetrics(Environment.UserName, elevated, elevated, !Environment.UserInteractive),
             new RuntimePerformanceMetrics(perf.Rps, perf.AverageLatencyMs, perf.ErrorRate, currentProcess.Threads.Count,
@@ -458,6 +458,17 @@ internal sealed class SystemMetricsSampler
                     }
                 }
             }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                // hw.cpufrequency reports Hz on Intel Macs; Apple Silicon omits
+                // it — a 0/failure result is the honest "unmeasurable" case.
+                var hz = SysctlUInt64("hw.cpufrequency");
+                if (hz > 0)
+                {
+                    return hz / 1_000_000.0;
+                }
+            }
         }
         catch
         {
@@ -465,6 +476,18 @@ internal sealed class SystemMetricsSampler
         }
         return 0.0;
     }
+
+    private static ulong SysctlUInt64(string name)
+    {
+        var size = (IntPtr)sizeof(ulong);
+        var value = 0UL;
+        return sysctlbyname(name, ref value, ref size, IntPtr.Zero, (UIntPtr)0) == 0
+            ? value
+            : 0UL;
+    }
+
+    [DllImport("libc")]
+    private static extern int sysctlbyname(string name, ref ulong oldValue, ref IntPtr oldSize, IntPtr newValue, UIntPtr newSize);
 
     // Package temperature where the OS exposes it for free. Linux thermal_zone
     // reports millidegrees; the Windows WMI thermal zone reports tenths of
@@ -1271,37 +1294,45 @@ internal sealed class SystemMetricsSampler
         }
     }
 
-    /// Pending OS repair/reboot state means the last integrity work has not
-    /// finished committing — the integrity check cannot be reported as passed.
-    public bool HasPendingRepairs()
+    // Number of distinct pending-repair signals the OS reports (CBS reboot
+    // pending, Windows Update reboot required, pending file-renames). The
+    // real count feeds ViolationCount; zero means integrity checks passed.
+    public int PendingRepairCount()
     {
         if (!OperatingSystem.IsWindows())
         {
-            return false;
+            return 0;
         }
 
         try
         {
+            var count = 0;
+
             if (Microsoft.Win32.Registry.LocalMachine
                 .OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") is not null)
             {
-                return true;
+                count++;
             }
 
             if (Microsoft.Win32.Registry.LocalMachine
                 .OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired") is not null)
             {
-                return true;
+                count++;
             }
 
             var pendingRename = Microsoft.Win32.Registry.LocalMachine
                 .OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager")
                 ?.GetValue("PendingFileRenameOperations");
-            return pendingRename is string[] { Length: > 0 };
+            if (pendingRename is string[] { Length: > 0 })
+            {
+                count++;
+            }
+
+            return count;
         }
         catch
         {
-            return false;
+            return 0;
         }
     }
 

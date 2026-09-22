@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (残存固定値の最終整理: ViolationCount・evtLast・CPU周波数・メモリトリム)
+
+- **`ViolationCount` が pending 検出時に常に1の誤値だった** — `PendingRepairCount()` が実際のペンディング条件数（CBS再起動保留・WindowsUpdate再起動要・ファイルリネーム保留）を返す実値へ
+- **`WindowsEventMetrics.LastAt` がイベント0件時に現在時刻の虚構値だった** — 実測値をそのまま通過（無イベントは MinValue）
+- **`CpuFrequencyMhz` が macOS で固定0だった** — `sysctlbyname("hw.cpufrequency")` の実測へ（Intel Mac は Hz 値・Apple Silicon はキー欠落 → 正直な0）
+- **`TrimWorkingSet` が Linux で何もせず「利用不可」だった** — `malloc_trim(0)`（glibc の実トリム・空きヒープをOSへ返却）を配線し解放量を実測
+
 ### Fixed (昇格判定・Firewall/SecureBoot・MachineInventory の非Windows実測化)
 
 - **`IsElevated` が非Windowsで固定falseの架空値だった** — `geteuid() == 0` の実測へ（root 実行サービスを正しく検出）

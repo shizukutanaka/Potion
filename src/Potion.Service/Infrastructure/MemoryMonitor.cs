@@ -436,6 +436,17 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
                     actions.Add($"ワーキングセットのトリミングに失敗しました (Win32 error {Marshal.GetLastWin32Error()})");
                 }
             }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                // malloc_trim は glibc の実トリム — 空きヒープをOSへ返却する
+                var trimmed = malloc_trim(UIntPtr.Zero);
+                currentProcess.Refresh();
+                var afterTrim = currentProcess.WorkingSet64;
+                memoryFreed = beforeWorkingSet - afterTrim;
+                actions.Add(trimmed != 0
+                    ? $"ヒープをトリミングしました (malloc_trim): {Math.Max(memoryFreed, 0) / 1024 / 1024}MB解放"
+                    : "ヒープのトリミング対象メモリがありませんでした");
+            }
             else
             {
                 // 他OSに等価のワーキングセット制御は無い — 何もしないことを正直に報告
@@ -555,4 +566,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
     [DllImport("kernel32.dll", SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SetProcessWorkingSetSize(IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize);
+
+    [DllImport("libc")]
+    private static extern int malloc_trim(UIntPtr pad);
 }
