@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (プロジェクトの死残滓2件)
+
+- `src/Potion.Service/Potion.Service.simple.csproj` 削除 — 本物の csproj と同居する Worker SDK の雛形プロジェクト（Hosting/Logging のみ参照）で、ソリューション未所属・全く参照されない。このファイルの存在が `dotnet run`/`dotnet build` で `--project` 指定を必須にしていた（同ディレクトリの複数プロジェクト曖昧性）。削除で単純な `dotnet build` が通る
+- `src/Potion.Service/ocelot.json` 削除 — Ocelot API ゲートウェイのルーティング設定だが、Ocelot パッケージも `AddOcelot`/`UseOcelot` 登録も存在せず**一度もロードされていない**死設定。内部ルートは不存在の `/api/health` を指す二重の死残滓
+- 検証: ソリューションビルド 0警告0エラー・`src/Potion.Service` での `dotnet build` 単独実行成功を確認
+
 ### Added (RemediationScheduler のユニットテスト — 131→134)
 
 - `Scheduling/RemediationSchedulerTests` 新規3件 — 予防修復スケジューラ（PR #13 で追加）の振る舞いを直接検証:
