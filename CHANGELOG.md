@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボード構造破損・未初期化バグ)
+
+- **`logs-pagination` が未閉鎖でモーダル層全体がその子要素化していた実バグ** — `renderPagination` の `innerHTML` 書換が毎ポーリングで 4モーダル・検索オーバーレイ・アップロードゾーン・script タグを全消去していた。`</div>`/`</section>`/`</main>` の閉鎖を追加しモーダル層を body 直下へ移動
+- **`this.pageSize`/`currentPage`/`currentTimeFilter`/`currentLogType`/`sortColumn`/`sortDirection` が未初期化の実バグ** — 全て `undefined` でページ分割が NaN 化（"Showing NaN-NaN of 0 logs"）、ログ表が常に空。コンストラクタで初期化＋永続化済み `itemsPerPage` を起動時復元
+- 全 HTML ハンドラ↔実装の照合監査: グローバル関数28件・dashboardメソッド8件・getElementById対象・タブコンテンツ全て整合を確認
+
 ### Fixed (ダッシュボード全体が完全に死んでいた根本原因)
 
 - **`index.html` に `<script>` タグが無く `dashboard.js` が一切読み込まれていなかった実バグ** — ダッシュボードは静的な骨組みだけで全機能が未実行だった。script タグと欠落していた `</body>`/`</html>` を追加

@@ -18,6 +18,12 @@ class PotionDashboard {
         this.chartData = [];
         this.searchResults = [];
         this.currentSearchCategory = 'all';
+        this.currentPage = 1;
+        this.pageSize = 10;
+        this.currentTimeFilter = '24h';
+        this.currentLogType = 'system';
+        this.sortColumn = 'timestamp';
+        this.sortDirection = 'desc';
         this.contextualHelpTimeout = null;
         this.dragCounter = 0;
         this.uploadedFiles = [];
@@ -39,6 +45,9 @@ class PotionDashboard {
         }
         if (Number.isFinite(storedSettings.refreshIntervalMs) && storedSettings.refreshIntervalMs > 0) {
             this.refreshInterval = storedSettings.refreshIntervalMs;
+        }
+        if (Number.isFinite(storedSettings.itemsPerPage) && storedSettings.itemsPerPage > 0) {
+            this.pageSize = storedSettings.itemsPerPage;
         }
         if (storedSettings.autoRefresh !== false) {
             this.startAutoRefresh();
