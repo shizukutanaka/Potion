@@ -53,3 +53,7 @@
   - レート制限超過時の契約を「例外送出」から「false 返却」へ（`CheckRateLimitAsync` の bool 返却 API に合わせ更新）
   - サーキットブレーカー開放テストを実装の失敗カウント方式に合わせ修正
   - `cmd.exe` 依存テスト（ProcessRunner/統合/性能）へ Windows ガード `TestEnvironment.IsWindows` を追加（非 Windows CI で自動スキップ相当の動作）
+
+- CI/CD でのテスト継続検証を確立
+  - `tests/Potion.Service.Tests` を `Potion.sln` に登録（これまで `dotnet test Potion.sln` がテストを実行できていなかった → Windows CI で全126テストが実行可能に）
+  - 空の死蔵ディレクトリ `src/Potion.Service.Advanced/` を削除（ソースファイルゼロの nuspec 誤認ファイルのみ、どこからも参照されない）
