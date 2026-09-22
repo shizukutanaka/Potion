@@ -28,7 +28,6 @@
     <EnablePreviewFeatures>false</EnablePreviewFeatures>
     <WarningsAsErrors>CS8600;CS8602;CS8603</WarningsAsErrors>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <!-- async-without-await wrappers are pervasive (816 sites); suppressing preserves exception semantics -->
     <NoWarn>CS1998</NoWarn>
@@ -110,11 +109,6 @@
     <!-- Analysis Libraries -->
     <PackageReference Include="MathNet.Numerics" Version="5.0.0" />
 
-    <!-- Static Analysis -->
-    <PackageReference Include="Microsoft.CodeAnalysis.NetAnalyzers" Version="8.0.0" PrivateAssets="All" />
-
-    <!-- Developer Tools -->
-    <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
   </ItemGroup>
 
   <ItemGroup>
