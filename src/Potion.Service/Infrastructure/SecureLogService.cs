@@ -534,8 +534,8 @@ public class SecureLogService : ISecureLogService
     }
 
     /// <summary>
-/// ログアクセス制御ヘルパー
-/// </summary>
+    /// ログアクセス制御ヘルパー
+    /// </summary>
     public static class LogAccessControl
     {
         public static void GrantLogAccess(string directoryPath, string accountName)

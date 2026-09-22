@@ -185,8 +185,8 @@ public class PerformanceOptimizationService : IPerformanceOptimizationService
     }
 
     /// <summary>
-/// メモリプールラッパー
-/// </summary>
+    /// メモリプールラッパー
+    /// </summary>
     private class MemoryPoolWrapper : MemoryPool<byte>
     {
         private readonly ArrayPool<byte> _pool;
@@ -211,8 +211,8 @@ public class PerformanceOptimizationService : IPerformanceOptimizationService
     }
 
     /// <summary>
-/// メモリ所有者
-/// </summary>
+    /// メモリ所有者
+    /// </summary>
     private class MemoryOwner : IMemoryOwner<byte>
     {
         private readonly byte[] _buffer;

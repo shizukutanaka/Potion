@@ -638,91 +638,91 @@ public sealed class SecurityAuditor : BackgroundService, ISecurityAuditor
 }
 
 public sealed record SecurityAuditScore(SecurityAuditGrade Grade, double RiskScore, IReadOnlyList<SecurityCategoryScore> CategoryBreakdown)
+{
+    public static SecurityAuditScore Calculate(IReadOnlyList<SecurityIssue> issues, IReadOnlyList<SecurityEvaluation> evaluations)
     {
-        public static SecurityAuditScore Calculate(IReadOnlyList<SecurityIssue> issues, IReadOnlyList<SecurityEvaluation> evaluations)
+        if (issues.Count == 0)
         {
-            if (issues.Count == 0)
-            {
-                var baseline = new SecurityCategoryScore("Baseline", SecurityAuditGrade.A, 0, 0);
-                return new SecurityAuditScore(SecurityAuditGrade.A, 0, new[] { baseline });
-            }
-
-            var scoreByCategory = issues
-                .GroupBy(i => i.Category)
-                .Select(group => SecurityCategoryScore.FromIssues(group.Key, group.ToList()))
-                .ToList();
-
-            foreach (var evaluation in evaluations)
-            {
-                var existing = scoreByCategory.FirstOrDefault(s => s.Category.Equals(evaluation.Category, StringComparison.OrdinalIgnoreCase));
-                if (existing is null)
-                {
-                    scoreByCategory.Add(SecurityCategoryScore.FromEvaluation(evaluation));
-                }
-            }
-
-            var overallRisk = scoreByCategory.Sum(s => s.RiskScore);
-            var grade = overallRisk switch
-            {
-                <= 10 => SecurityAuditGrade.A,
-                <= 25 => SecurityAuditGrade.B,
-                <= 50 => SecurityAuditGrade.C,
-                <= 75 => SecurityAuditGrade.D,
-                _ => SecurityAuditGrade.F
-            };
-
-            return new SecurityAuditScore(grade, overallRisk, scoreByCategory);
+            var baseline = new SecurityCategoryScore("Baseline", SecurityAuditGrade.A, 0, 0);
+            return new SecurityAuditScore(SecurityAuditGrade.A, 0, new[] { baseline });
         }
+
+        var scoreByCategory = issues
+            .GroupBy(i => i.Category)
+            .Select(group => SecurityCategoryScore.FromIssues(group.Key, group.ToList()))
+            .ToList();
+
+        foreach (var evaluation in evaluations)
+        {
+            var existing = scoreByCategory.FirstOrDefault(s => s.Category.Equals(evaluation.Category, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                scoreByCategory.Add(SecurityCategoryScore.FromEvaluation(evaluation));
+            }
+        }
+
+        var overallRisk = scoreByCategory.Sum(s => s.RiskScore);
+        var grade = overallRisk switch
+        {
+            <= 10 => SecurityAuditGrade.A,
+            <= 25 => SecurityAuditGrade.B,
+            <= 50 => SecurityAuditGrade.C,
+            <= 75 => SecurityAuditGrade.D,
+            _ => SecurityAuditGrade.F
+        };
+
+        return new SecurityAuditScore(grade, overallRisk, scoreByCategory);
     }
+}
 
 public sealed record SecurityCategoryScore(string Category, SecurityAuditGrade Grade, double RiskScore, int IssueCount)
+{
+    public static SecurityCategoryScore FromIssues(string category, IReadOnlyList<SecurityIssue> issues)
     {
-        public static SecurityCategoryScore FromIssues(string category, IReadOnlyList<SecurityIssue> issues)
+        var risk = issues.Sum(i => i.Severity switch
         {
-            var risk = issues.Sum(i => i.Severity switch
-            {
-                SecurityIssueSeverity.Low => 1,
-                SecurityIssueSeverity.Medium => 5,
-                SecurityIssueSeverity.High => 15,
-                SecurityIssueSeverity.Critical => 30,
-                _ => 0
-            });
+            SecurityIssueSeverity.Low => 1,
+            SecurityIssueSeverity.Medium => 5,
+            SecurityIssueSeverity.High => 15,
+            SecurityIssueSeverity.Critical => 30,
+            _ => 0
+        });
 
-            var grade = risk switch
-            {
-                <= 5 => SecurityAuditGrade.A,
-                <= 15 => SecurityAuditGrade.B,
-                <= 25 => SecurityAuditGrade.C,
-                <= 40 => SecurityAuditGrade.D,
-                _ => SecurityAuditGrade.F
-            };
-
-            return new SecurityCategoryScore(category, grade, risk, issues.Count);
-        }
-
-        public static SecurityCategoryScore FromEvaluation(SecurityEvaluation evaluation)
+        var grade = risk switch
         {
-            var risk = evaluation.Grade switch
-            {
-                SecurityAuditGrade.A => 0,
-                SecurityAuditGrade.B => 5,
-                SecurityAuditGrade.C => 10,
-                SecurityAuditGrade.D => 20,
-                SecurityAuditGrade.F => 30,
-                _ => 0
-            };
+            <= 5 => SecurityAuditGrade.A,
+            <= 15 => SecurityAuditGrade.B,
+            <= 25 => SecurityAuditGrade.C,
+            <= 40 => SecurityAuditGrade.D,
+            _ => SecurityAuditGrade.F
+        };
 
-            return new SecurityCategoryScore(evaluation.Category, evaluation.Grade, risk, 0);
-        }
+        return new SecurityCategoryScore(category, grade, risk, issues.Count);
     }
+
+    public static SecurityCategoryScore FromEvaluation(SecurityEvaluation evaluation)
+    {
+        var risk = evaluation.Grade switch
+        {
+            SecurityAuditGrade.A => 0,
+            SecurityAuditGrade.B => 5,
+            SecurityAuditGrade.C => 10,
+            SecurityAuditGrade.D => 20,
+            SecurityAuditGrade.F => 30,
+            _ => 0
+        };
+
+        return new SecurityCategoryScore(evaluation.Category, evaluation.Grade, risk, 0);
+    }
+}
 
 public sealed record SecurityEvaluation(string Category, string ControlId, SecurityAuditGrade Grade, string Notes);
 
 public enum SecurityAuditGrade
-    {
-        A,
-        B,
-        C,
-        D,
-        F
-    }
+{
+    A,
+    B,
+    C,
+    D,
+    F
+}
