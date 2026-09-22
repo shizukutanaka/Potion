@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed (PerformanceOptimizer の破壊的動作・検証欠落・クロスプラットフォーム破損)
+
+- **ユーザープロセスを Kill していた**: `OptimizeProcessCountAsync` が複数起動の notepad/calc/mspaint を `Process.Kill` — 未保存データ損失の危険な破壊動作。重複起動の検出・報告のみに変更
+- **任意プロセスの優先度を変更していた**: `OptimizeCpuUsageAsync` が累積 `TotalProcessorTime` 上位3プロセスを `BelowNormal` に降格 — 累積値は現在負荷と無関係で対象誤認、外部プロセスへの干渉自体が設計上のリスク。検出・報告のみに変更（サービス名でプロセスを探す死ブロックも除去）
+- **`EmptyStandbyList.exe` 呼出しを削除** — Sysinternals 外部ツールで標準環境に存在せず確定失敗（代替の標準コマンド無し、GC 実行と検出報告を維持）
+- **`ICommandValidator` 未経由でプロセス起動していた** — `netsh`/`powercfg` を直接 `_processRunner` 実行（#32 の allowlist 強化を迂回）。ctor に validator 注入し `EnsureCommandIsAllowed` を適用、実行体名を `netsh.exe`/`powercfg.exe` に修正（bare 名は allowlist 不一致）
+- **WMI/netsh が非Windowsでも実行** — `GetMemoryInfo`（Win32_OperatingSystem）と `RunAdditionalOptimizationsAsync`（Win32_Battery/netsh/powercfg）に OS ガードなし → 非Windowsで毎サイクル例外。Windows ガード追加、メモリは GC 情報で代替
+- `appsettings.json`/`appsettings.Production.json` の `RemediationPolicy.CommandAllowlist` に `netsh.exe` 追加（TCP autotuning 最適化アクションに必要 — 許可リスト変更のため注記）
+
 ### Fixed (修復実行経路の潜在バグ群 — FeatureFlags ON 時に確定失敗していた)
 
 - `EventDrivenRemediationService` の既定トリガールールが**永久不発**: `Condition` が `"High CPU usage"` 等の本文を要求する一方、発行側メッセージは `"CPU usage at 87.3%"` 形式で不一致。Severity+Component のみで判定するよう Condition 撤廃（発行値 `cpu`/`memory`/`disk` に整合）
