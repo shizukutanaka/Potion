@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
@@ -265,54 +266,19 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         }
     }
 
-    private async Task<bool> RestartServiceAsync(CancellationToken cancellationToken)
+    private Task<bool> RestartServiceAsync(CancellationToken cancellationToken)
     {
-        try
-        {
-            // 実際の実装では適切なサービス再起動方法を使用
-            _logger.LogInformation("Attempting to restart Potion service");
-
-            // ここでは簡易的な実装を示す
-            await Task.Delay(1000, cancellationToken); // シミュレーション
-
-            _logger.LogInformation("Service restart completed");
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to restart service");
-            return false;
-        }
+        // サービス自身を再起動する機構（ウォッチドッグ等）は登録されていない。
+        // 偽の成功を返すと失敗カウントがクリアされ見かけ上回復扱いになるため、正直に失敗を返す。
+        _logger.LogWarning("Service restart is not available: no restart mechanism registered");
+        return Task.FromResult(false);
     }
 
-    private async Task<bool> RestartComponentAsync(string component, CancellationToken cancellationToken)
+    private Task<bool> RestartComponentAsync(string component, CancellationToken cancellationToken)
     {
-        try
-        {
-            _logger.LogInformation("Attempting to restart component: {Component}", component);
-
-            // コンポーネント固有の再起動処理
-            switch (component)
-            {
-                case "Scheduler":
-                    // スケジューラの再起動
-                    break;
-                case "TelemetryRetentionService":
-                    // テレメトリサービスの再起動
-                    break;
-                default:
-                    _logger.LogWarning("No restart procedure defined for component: {Component}", component);
-                    break;
-            }
-
-            await Task.Delay(500, cancellationToken); // シミュレーション
-            return true;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to restart component: {Component}", component);
-            return false;
-        }
+        // ホステッドサービスの個別再起動は DI コンテナのライフサイクル上行不能。
+        _logger.LogWarning("Component restart is not available: hosted services cannot be restarted individually ({Component})", component);
+        return Task.FromResult(false);
     }
 
     private async Task<bool> ClearCacheAsync(string component, CancellationToken cancellationToken)
@@ -355,10 +321,9 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         {
             _logger.LogInformation("Attempting failover for component: {Component}", component);
 
-            // フェイルオーバー処理（実際の実装では適切な方法で）
-            await Task.Delay(1000, cancellationToken); // シミュレーション
-
-            return true;
+                // フェイルオーバー先は構成されていないため実行できない
+            _logger.LogWarning("Failover is not available: no standby target configured for {Component}", component);
+            return false;
         }
         catch (Exception ex)
         {
@@ -418,32 +383,22 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         }
     }
 
-    private async Task<bool> CheckNetworkHealth(CancellationToken cancellationToken)
+    private Task<bool> CheckNetworkHealth(CancellationToken cancellationToken)
     {
         try
         {
-            // ネットワークの状態チェック（実際の実装では適切な方法で）
-            await Task.Delay(100, cancellationToken); // シミュレーション
-            return true;
+            return Task.FromResult(System.Net.NetworkInformation.NetworkInterface.GetIsNetworkAvailable());
         }
         catch
         {
-            return false;
+            return Task.FromResult(false);
         }
     }
 
-    private async Task<bool> CheckSchedulerHealth(CancellationToken cancellationToken)
+    private Task<bool> CheckSchedulerHealth(CancellationToken cancellationToken)
     {
-        try
-        {
-            // スケジューラの状態チェック（実際の実装では適切な方法で）
-            await Task.Delay(100, cancellationToken); // シミュレーション
-            return true;
-        }
-        catch
-        {
-            return false;
-        }
+        // スケジューラの協調コンポーネントは注入されていないため健全として扱う
+        return Task.FromResult(true);
     }
 
     private async Task<bool> CheckFileSystemHealth(CancellationToken cancellationToken)
@@ -466,8 +421,8 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
     {
         try
         {
-            // 設定ファイルの存在と有効性チェック
-            var configPath = Path.Combine(ServicePaths.Base, "appsettings.json");
+            // 実行中の設定ファイルの実在・構文チェック（appsettings.json は実行体の隣に置かれる）
+            var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
             if (!File.Exists(configPath))
             {
                 return false;
@@ -484,10 +439,19 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         }
     }
 
-    private async Task<bool> CheckMemoryHealth(CancellationToken cancellationToken)
+    private Task<bool> CheckMemoryHealth(CancellationToken cancellationToken)
     {
         try
         {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // WMI は Windows 専用。他OSでは GC の管理メモリ占有率で近似判定
+                var total = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+                var used = GC.GetTotalMemory(forceFullCollection: false);
+                var managedAvailablePercent = total > 0 ? (double)(total - used) / total * 100 : 100;
+                return Task.FromResult(managedAvailablePercent > 20);
+            }
+
             using var searcher = new System.Management.ManagementObjectSearcher("SELECT AvailableBytes, TotalPhysicalMemory FROM CIM_OperatingSystem");
             foreach (var obj in searcher.Get())
             {
@@ -496,30 +460,30 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
                 var availablePercent = (double)availableBytes / totalBytes * 100;
 
                 // 利用可能メモリが20%未満の場合は警告
-                return availablePercent > 20;
+                return Task.FromResult(availablePercent > 20);
             }
         }
         catch
         {
-            return false;
+            return Task.FromResult(false);
         }
 
-        return true;
+        return Task.FromResult(true);
     }
 
-    private async Task<bool> CheckDiskHealth(CancellationToken cancellationToken)
+    private Task<bool> CheckDiskHealth(CancellationToken cancellationToken)
     {
         try
         {
-            var driveInfo = new DriveInfo(Path.GetPathRoot(ServicePaths.Base) ?? "C:\\");
+            var driveInfo = new DriveInfo(Path.GetPathRoot(ServicePaths.Base) ?? Path.GetPathRoot(AppContext.BaseDirectory) ?? "C:\\");
             var availablePercent = (double)driveInfo.AvailableFreeSpace / driveInfo.TotalSize * 100;
 
             // 利用可能ディスク容量が10%未満の場合は警告
-            return availablePercent > 10;
+            return Task.FromResult(availablePercent > 10);
         }
         catch
         {
-            return false;
+            return Task.FromResult(false);
         }
     }
 

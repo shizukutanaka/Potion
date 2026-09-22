@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (AutoRecoveryManager の回復偽装・非Windows毎サイクル失敗)
+
+- **回復アクションが何もせず成功を返していた**: `RestartServiceAsync`/`RestartComponentAsync`/`PerformFailoverAsync` が `Task.Delay` のみで `true` を返却 — 失敗カウントがクリアされ「回復済み」扱いになる偽装成功。実機構が無いため `ResetConfigurationAsync` と同じく正直に `false` を返すよう修正（`ClearCacheAsync` の実動作は維持）
+- `CheckMemoryHealth` — WMI `CIM_OperatingSystem` が非Windowsで毎回例外 → Memory コンポーネント常時「不健康」→ 毎分回復試行の擬似ループ。OS ガード追加・他OSは GC 占有率で近似判定
+- `CheckConfigurationHealth` — `ServicePaths.Base/appsettings.json`（存在しないパス）を検査 → 常時「不健康」誤検知。実在する `AppContext.BaseDirectory` を参照に修正
+- `CheckNetworkHealth` — Task.Delay シミュレーションを `NetworkInterface.GetIsNetworkAvailable()` 実測に置換、`CheckSchedulerHealth` は協調対象非注入のため明示的 healthy に
+
 ### Fixed (PerformanceOptimizer の破壊的動作・検証欠落・クロスプラットフォーム破損)
 
 - **ユーザープロセスを Kill していた**: `OptimizeProcessCountAsync` が複数起動の notepad/calc/mspaint を `Process.Kill` — 未保存データ損失の危険な破壊動作。重複起動の検出・報告のみに変更
