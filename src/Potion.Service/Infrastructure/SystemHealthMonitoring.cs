@@ -338,7 +338,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new SecurityMetrics(security.Defender, security.Firewall, security.ActiveThreats, security.SecureBoot, security.LastScan),
             new SystemIntegrityMetrics(!pendingRepairs, pendingRepairs ? 1 : 0, (int)_remediationStats.SucceededCount, restorePoint, now),
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
-            new SecurityContextMetrics(Environment.UserName, elevated, elevated, true),
+            new SecurityContextMetrics(Environment.UserName, elevated, elevated, !Environment.UserInteractive),
             new RuntimePerformanceMetrics(perf.Rps, perf.AverageLatencyMs, perf.ErrorRate, currentProcess.Threads.Count,
                 OperatingSystem.IsWindows() ? currentProcess.HandleCount : 0),
             new ResourceMonitoringMetrics(currentProcess.TotalProcessorTime.TotalSeconds, ioOpsRate,

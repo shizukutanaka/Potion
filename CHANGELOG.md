@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (IsServiceContext の架空値を実測化)
+
+- **`SecurityContextMetrics.IsServiceContext` が固定 `true` の架空値だった** — コンソール実行でも「サービスコンテキスト」と主張。`!Environment.UserInteractive` の実測へ（SCM/サービス実行→true・対話コンソール→false）
+
 ### Fixed (SystemIntegrityMetrics の恒常0スタブを実値化)
 
 - **`ViolationCount`/`RepairedCount` が恒常的に0の架空値だった** — 修復実行数を数える機構が存在せず永久に変化しないフィールド。共有カウンタ `RemediationExecutionStats` を新設（executor が実行毎にインクリメント・monitor が `SucceededCount` を `RepairedCount` へ読み込み・`ViolationCount` は pendingRepairs の実検出値へ）— フラグ配下で修復が走ればメトリクスが実値で増える経路を確立
