@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (オプションが設定バインドされていなかった問題 — 監視サービスの閾値を調整可能に)
+
+- `AddOptions<T>()` 単独呼出し（5件）を `Configure<T>(GetSection(...))` へ変更 — Options クラスは `SectionName`/Enabled・閾値等を持つ設計だったが**設定が一切バインドされておらず**、コード既定値のみで動作し運用者の調整手段がなかった（RemediationPolicyOptions と同じ「バインド忘れ」クラス）
+- 対象: `MemoryMonitorOptions`・`PerformanceOptimizerOptions`（`T.SectionName` 使用）＋ `Collaboration`/`EventCorrelation`/`Compliance`（サービス名セクション）
+- 動作変化: セクション未定義時は従来どおり既定値。**`MemoryMonitor__MonitoringIntervalSeconds=60` 等の環境変数で再起動不要の調整が可能に**。`EventCorrelation__Enabled=true` で同サービスの起動を実機確認済み
+- 検証: 0警告0エラー・起動実確認
+
 ### Removed (プロジェクトの死残滓2件)
 
 - `src/Potion.Service/Potion.Service.simple.csproj` 削除 — 本物の csproj と同居する Worker SDK の雛形プロジェクト（Hosting/Logging のみ参照）で、ソリューション未所属・全く参照されない。このファイルの存在が `dotnet run`/`dotnet build` で `--project` 指定を必須にしていた（同ディレクトリの複数プロジェクト曖昧性）。削除で単純な `dotnet build` が通る

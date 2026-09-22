@@ -73,7 +73,7 @@ public class Startup
         services.AddSignalR();
         services.AddHttpClient();
         services.AddSingleton<CollaborationService>();
-        services.AddOptions<CollaborationOptions>();
+        services.Configure<CollaborationOptions>(Configuration.GetSection("Collaboration"));
 
         // Self-healing monitoring loop: observation and reporting only.
         services.AddSingleton<ISystemHealthMonitor, SystemHealthMonitor>();
@@ -82,10 +82,10 @@ public class Startup
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();
         services.AddHealthChecks();
-        services.AddOptions<MemoryMonitorOptions>();
-        services.AddOptions<PerformanceOptimizerOptions>();
-        services.AddOptions<EventCorrelationOptions>();
-        services.AddOptions<ComplianceOptions>();
+        services.Configure<MemoryMonitorOptions>(Configuration.GetSection(MemoryMonitorOptions.SectionName));
+        services.Configure<PerformanceOptimizerOptions>(Configuration.GetSection(PerformanceOptimizerOptions.SectionName));
+        services.Configure<EventCorrelationOptions>(Configuration.GetSection("EventCorrelation"));
+        services.Configure<ComplianceOptions>(Configuration.GetSection("Compliance"));
 
         // Repair-execution tier: these services run OS-level repairs
         // autonomously (service restarts, SFC/DISM, performance tuning), so
