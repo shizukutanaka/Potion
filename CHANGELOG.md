@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (コンテナ環境でアプリが起動不能になる実バグ — Production 設定は Windows 専用)
+
+- **Linux コンテナでアプリが起動しない実バグ** — `ASPNETCORE_ENVIRONMENT=Production` 配下で読み込まれる `appsettings.Production.json` は Windows 専用設定（EventLog シンクは Windows API、ファイルシンクは `C:\ProgramData\...` パス）のため Linux で EventLog 作成失敗 + `C:` ジャンクディレクトリ生成。実際に macOS 上でも `src/Potion.Service/C:/ProgramData/...` のジャンクディレクトリが生成されていた（証跡確認済み）。新規 `appsettings.Container.json`（Console+File シンク・Kestrel `http://+:80`）を追加し、docker-compose / k8s を `ASPNETCORE_ENVIRONMENT=Container` へ切替 — 実検証で 4 エンドポイント全 200・EventLog/C: エラーなし
+- **compose の不要マウントを除去** — `./src/Potion.Service/Resources` マウントは resx が衛星アセンブリ化されるため実用上無意味
+
 ### Fixed (k8s/deployment.yaml の多重破損 — CrashLoop 継続 + 架空設定)
 
 - **k8s でも Kestrel バインド破損が残っていた実バグ** — ConfigMap が `ASPNETCORE_URLS` を注入していたが `Kestrel:Endpoints` 設定が優先されるため Pod は `localhost:5000` バインドのまま、probe `:80` 不通で **引き続き CrashLoop 確定**。`Kestrel__Endpoints__Http__Url=http://+:80` へ修正

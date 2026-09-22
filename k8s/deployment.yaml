@@ -6,11 +6,10 @@ metadata:
   labels:
     app: potion-service
 data:
-  # Application settings — only keys the app actually binds.
-  # Kestrel:Endpoints in appsettings.json beats ASPNETCORE_URLS, so the
-  # endpoint itself must be overridden for the pod to listen on :80.
-  ASPNETCORE_ENVIRONMENT: "Production"
-  Kestrel__Endpoints__Http__Url: "http://+:80"
+  # Container environment uses appsettings.Container.json: console+file
+  # sinks and Kestrel http://+:80 — the Production config is Windows-only
+  # (EventLog sink, C:\ProgramData paths) and cannot run on Linux.
+  ASPNETCORE_ENVIRONMENT: "Container"
 
   # Feature flags (default off — enable deliberately per environment)
   FeatureFlags__RepairExecutionEnabled: "false"
