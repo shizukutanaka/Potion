@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (dependabot.yml の構文破損)
+
+- `.github/dependabot.yml` — `automerge`/`with`/`key`/`restore-keys` 等の Dependabot に存在しないキー（CI キャッシュ設定の混入）を除去し、本来の `nuget` エコシステム定義を追加。従来はバリデーション不備で NuGet 更新 PR が一切発行されない構成だった
+
 ### Removed (ビルド不能なインストーラ・ツール群と恒常失敗の検証スクリプト)
 
 - `setup/` 削除 — WiX 定義 `Potion.wxs` が存在しない `Potion.Service.Installer.dll`（カスタムアクション DLL のプロジェクト自体が無い）と `License.rtf`/`Dialog.bmp`/`Banner.bmp`（ファイル未同梱）を必須参照するためビルド不可。`install.cmd` はその MSI を実行、`PotionSetupUI.cs` は存在しない `Potion.ConfigTool.exe` を生成する手順を持つ
