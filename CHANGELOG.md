@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (EventCorrelation 相関ルールの永久不発バグ)
+
+- **2ルールが発行経路の無いイベント型を参照し永久不発だった実バグ** — 実発行イベント型は `cpu_usage`・`memory_usage`・`disk_usage`・`network_bytes_per_sec`・`health.alert` のみだが、「Network + Disk I/O Storm」は `disk_write_bytes_per_sec`、「Service Failures Cascade」は `service_failed`/`error_logged` を参照（発行経路ゼロ → 条件評価まで到達せず）。実発行型へ修正（network+disk_usage 相関、health.alert バースト検知）— `EventCorrelation.Enabled=true` で稼働中のため実効果あり
+
 ### Fixed (ダッシュボードのモックデータ実バグ2件)
 
 - **Performance ドロワーがハードコードのモック値を表示していた実バグ** — `updatePerformanceDrawer()` が CPU 45%・メモリ16GB・負荷0.8等の固定値を表示。`/api/health/metrics` の実測値へ修正（コア数/プロセス数・実メモリ・実ディスク/ネットワーク速度）

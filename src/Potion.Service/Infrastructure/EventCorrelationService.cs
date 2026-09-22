@@ -67,11 +67,11 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         _rules.Add(new CorrelationRule
         {
-            Name = "Network + Disk I/O Storm",
+            Name = "Network + Disk Pressure",
             Conditions = new List<EventCondition>
             {
                 new EventCondition { EventType = "network_bytes_per_sec", Operator = ">", Threshold = 100000000 }, // 100MB/s
-                new EventCondition { EventType = "disk_write_bytes_per_sec", Operator = ">", Threshold = 50000000 } // 50MB/s
+                new EventCondition { EventType = "disk_usage", Operator = ">", Threshold = 90.0 }
             },
             Severity = "High",
             Description = "High I/O activity detected"
@@ -79,14 +79,15 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         _rules.Add(new CorrelationRule
         {
-            Name = "Service Failures Cascade",
+            Name = "Alert Storm",
             Conditions = new List<EventCondition>
             {
-                new EventCondition { EventType = "service_failed", Operator = "count", Threshold = 3 },
-                new EventCondition { EventType = "error_logged", Operator = "count", Threshold = 10 }
+                // health.alert events are recorded by OnHealthAlert; a burst
+                // of them in the window means several components are failing.
+                new EventCondition { EventType = "health.alert", Operator = "count", Threshold = 3 }
             },
             Severity = "High",
-            Description = "Multiple service failures detected"
+            Description = "Multiple health alerts in the correlation window"
         });
 
         // Add custom rules from configuration
