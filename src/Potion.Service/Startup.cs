@@ -181,7 +181,6 @@ public class Startup
         app.UseRequestLocalization();
         app.UseStaticFiles();
         app.UseRouting();
-        app.UseAuthorization();
 
         // Map Prometheus metrics endpoint (OpenTelemetry export)
         app.UseEndpoints(endpoints =>
