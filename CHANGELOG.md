@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (Windows 固有スタブの実測化)
+
+- `SecurityMetrics` — `MSFT_MpComputerStatus`（Defender サービス/AV 有効・最終スキャン時刻）と `MSFT_MpThreat`（検出脅威数）を `root\Microsoft\Windows\Defender` から、ファイアウォールは `root\StandardCimv2` の `MSFT_NetFirewallProfile`（全プロファイル有効時のみ true）から、Secure Boot はレジストリ `SYSTEM\CurrentControlSet\Control\SecureBoot\State` から取得（`System.Management` 既参照・新規パッケージなし。他OSは false/0）
+- `InventoryMetrics` — `Win32_ComputerSystem` の Manufacturer/Model と `Win32_BIOS` の SerialNumber を実測（他OSは空文字）
+- `SecurityContextMetrics` — `IsElevated`/`CurrentUserIsAdmin` を `WindowsPrincipal.IsInRole(Administrator)` で実測（固定 false 解消、他OSは false）
+
 ### Fixed (HealthAlert が一切発火しなかったバグ)
 
 - `SystemHealthMonitor` — `HealthAlert` イベントは宣言のみで発火箇所ゼロ、スナップショットも常に空アラートだった。`GetCurrentHealthAsync` で cpu/memory/disk の圧レベルを評価し ≥High で `SystemHealthAlert` を発行・イベント発火（Critical→Critical/High→Warning）。発火はコンポーネント×レベルで重複抑制し15分クールダウン、圧が下がれば解除（`EventCorrelationService`・`EventDrivenRemediationService` の購読が実際に機能するようになる）

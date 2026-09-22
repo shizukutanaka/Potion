@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Management;
 using System.Net.NetworkInformation;
+using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -280,6 +281,9 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var (diskReadRate, diskWriteRate) = _sampler.DiskRates();
         var (netRxRate, netTxRate, activeConnections) = _sampler.NetworkRates();
         var services = _sampler.ServiceCounts();
+        var security = _sampler.SecurityState();
+        var inventory = _sampler.MachineInventory();
+        var elevated = _sampler.IsElevated();
         var currentProcess = Process.GetCurrentProcess();
 
         return new SystemMetrics(
@@ -289,10 +293,10 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
             new WindowsEventMetrics(0, 0, 0, 0, now),
             new ServiceMetrics(services.Total, services.Running, services.Stopped, services.Failed, services.FailedNames),
-            new SecurityMetrics(false, false, 0, false, now),
+            new SecurityMetrics(security.Defender, security.Firewall, security.ActiveThreats, security.SecureBoot, security.LastScan),
             new SystemIntegrityMetrics(true, 0, 0, false, now),
-            new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, string.Empty, string.Empty, string.Empty),
-            new SecurityContextMetrics(Environment.UserName, false, false, true),
+            new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
+            new SecurityContextMetrics(Environment.UserName, elevated, elevated, true),
             new RuntimePerformanceMetrics(0, 0, 0, currentProcess.Threads.Count,
                 OperatingSystem.IsWindows() ? currentProcess.HandleCount : 0),
             new ResourceMonitoringMetrics(Environment.TickCount64 / 1000.0, 0, GC.CollectionCount(0)),
@@ -481,6 +485,126 @@ internal sealed class SystemMetricsSampler
         catch
         {
             return (0, 0, 0, 0, Array.Empty<string>());
+        }
+    }
+
+    public (bool Defender, bool Firewall, int ActiveThreats, bool SecureBoot, DateTimeOffset LastScan) SecurityState()
+    {
+        var lastScan = DateTimeOffset.UtcNow;
+        if (!OperatingSystem.IsWindows())
+        {
+            return (false, false, 0, false, lastScan);
+        }
+
+        var defender = false;
+        var threats = 0;
+        var firewall = false;
+        var secureBoot = false;
+
+        try
+        {
+            using var statusSearcher = new ManagementObjectSearcher(
+                @"root\Microsoft\Windows\Defender",
+                "SELECT AMServiceEnabled, AntivirusEnabled, QuickScanEndTime FROM MSFT_MpComputerStatus");
+            foreach (var status in statusSearcher.Get())
+            {
+                defender = (status["AMServiceEnabled"] as bool? ?? false) &&
+                           (status["AntivirusEnabled"] as bool? ?? false);
+                if (status["QuickScanEndTime"] is string scanTime && !string.IsNullOrEmpty(scanTime))
+                {
+                    lastScan = ManagementDateTimeConverter.ToDateTime(scanTime);
+                }
+            }
+
+            using var threatSearcher = new ManagementObjectSearcher(
+                @"root\Microsoft\Windows\Defender", "SELECT * FROM MSFT_MpThreat");
+            threats = threatSearcher.Get().Count;
+        }
+        catch
+        {
+            // Defender WMI provider unavailable — report zeros/false
+        }
+
+        try
+        {
+            var allEnabled = true;
+            var anyProfile = false;
+            using var fwSearcher = new ManagementObjectSearcher(
+                @"root\StandardCimv2", "SELECT Enabled FROM MSFT_NetFirewallProfile");
+            foreach (var profile in fwSearcher.Get())
+            {
+                anyProfile = true;
+                allEnabled &= profile["Enabled"] as bool? ?? false;
+            }
+
+            firewall = anyProfile && allEnabled;
+        }
+        catch
+        {
+            firewall = false;
+        }
+
+        try
+        {
+            secureBoot = Microsoft.Win32.Registry.LocalMachine
+                .OpenSubKey(@"SYSTEM\CurrentControlSet\Control\SecureBoot\State")
+                ?.GetValue("UEFISecureBootEnabled") as int? == 1;
+        }
+        catch
+        {
+            secureBoot = false;
+        }
+
+        return (defender, firewall, threats, secureBoot, lastScan);
+    }
+
+    public (string Manufacturer, string Model, string SerialNumber) MachineInventory()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return (string.Empty, string.Empty, string.Empty);
+        }
+
+        try
+        {
+            var manufacturer = string.Empty;
+            var model = string.Empty;
+            var serial = string.Empty;
+
+            using var systemSearcher = new ManagementObjectSearcher(
+                "SELECT Manufacturer, Model FROM Win32_ComputerSystem");
+            foreach (var system in systemSearcher.Get())
+            {
+                manufacturer = system["Manufacturer"] as string ?? string.Empty;
+                model = system["Model"] as string ?? string.Empty;
+            }
+
+            using var biosSearcher = new ManagementObjectSearcher(
+                "SELECT SerialNumber FROM Win32_BIOS");
+            foreach (var bios in biosSearcher.Get())
+            {
+                serial = bios["SerialNumber"] as string ?? string.Empty;
+            }
+
+            return (manufacturer, model, serial);
+        }
+        catch
+        {
+            return (string.Empty, string.Empty, string.Empty);
+        }
+    }
+
+    public bool IsElevated()
+    {
+        try
+        {
+            return OperatingSystem.IsWindows() &&
+                new WindowsPrincipal(WindowsIdentity.GetCurrent())
+                    .IsInRole(WindowsBuiltInRole.Administrator);
+        }
+        catch
+        {
+            return false;
         }
     }
 
