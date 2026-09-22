@@ -61,6 +61,7 @@ public sealed class RemediationScheduler : BackgroundService, IRemediationSchedu
                         Name = task.Name,
                         DisplayName = $"予防修復タスク: {task.Name}",
                         Command = task.Command,
+                        Arguments = task.Arguments,
                         Enabled = true,
                         TimeoutSeconds = 300,
                     });

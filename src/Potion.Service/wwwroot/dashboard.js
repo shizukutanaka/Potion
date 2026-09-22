@@ -9,17 +9,18 @@ class PotionDashboard {
 
         // Advanced features properties
         this.selectedAlerts = new Set();
+        this.acknowledgedAlertIds = new Set();
         this.currentAlertFilter = 'all';
         this.currentAlertSearch = '';
         this.currentSecurityTab = 'components';
         this.currentChartRange = '24h';
-        this.chartData = this.generateMockChartData();
+        // Rolling window of real metric samples collected by the poller.
+        this.chartData = [];
         this.searchResults = [];
         this.currentSearchCategory = 'all';
         this.contextualHelpTimeout = null;
         this.dragCounter = 0;
         this.uploadedFiles = [];
-        this.inlineEditors = new Map();
 
         this.init();
     }
@@ -29,9 +30,19 @@ class PotionDashboard {
         this.setupKeyboardNavigation();
         this.setupTooltips();
         this.setupDragAndDrop();
-        this.setupInlineEditing();
         this.setupAdvancedSearch();
-        this.startAutoRefresh();
+
+        // Restore persisted settings before starting the poller.
+        const storedSettings = this.getStoredSettings();
+        if (storedSettings.theme) {
+            this.applyTheme(storedSettings.theme);
+        }
+        if (Number.isFinite(storedSettings.refreshIntervalMs) && storedSettings.refreshIntervalMs > 0) {
+            this.refreshInterval = storedSettings.refreshIntervalMs;
+        }
+        if (storedSettings.autoRefresh !== false) {
+            this.startAutoRefresh();
+        }
         this.showLoadingState();
         await this.refreshAllData();
         this.hideLoadingState();
@@ -70,23 +81,6 @@ class PotionDashboard {
             const files = e.dataTransfer.files;
             this.handleFileUpload(files);
         }, false);
-    }
-
-    setupInlineEditing() {
-        // Set up click handlers for inline editable elements
-        document.addEventListener('click', (e) => {
-            const inlineDisplay = e.target.closest('.inline-display');
-            if (inlineDisplay && !inlineDisplay.closest('.inline-editor').classList.contains('editing')) {
-                this.startInlineEditing(inlineDisplay);
-            }
-        });
-
-        // Handle escape key for inline editing
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                this.cancelAllInlineEditing();
-            }
-        });
     }
 
     setupAdvancedSearch() {
@@ -190,21 +184,18 @@ class PotionDashboard {
         });
     }
 
+    // Dim cards while the first poll runs; the card DOM must survive
+    // because renderers write into elements by id.
     showLoadingState() {
         document.querySelectorAll('.metric-card').forEach(card => {
-            const content = card.querySelector('.card-content');
-            if (content) {
-                content.innerHTML = `
-                    <div class="loading-skeleton skeleton-card"></div>
-                    <div class="loading-skeleton skeleton-text"></div>
-                    <div class="loading-skeleton skeleton-text large"></div>
-                `;
-            }
+            card.classList.add('loading');
         });
     }
 
     hideLoadingState() {
-        // Loading state is automatically replaced by real content
+        document.querySelectorAll('.metric-card.loading').forEach(card => {
+            card.classList.remove('loading');
+        });
     }
 
     showModal(content, options = {}) {
@@ -340,7 +331,6 @@ class PotionDashboard {
                 this.loadOverviewData(),
                 this.loadSecurityData(),
                 this.loadPerformanceData(),
-                this.loadAlertsData(),
                 this.loadLogsData()
             ]);
             this.updateLastUpdated();
@@ -400,6 +390,10 @@ class PotionDashboard {
             clearInterval(this.autoRefreshTimer);
             this.autoRefreshTimer = null;
         }
+
+        // Persist so the choices survive a reload.
+        const stored = this.getStoredSettings();
+        this.saveSettings({ ...stored, theme, autoRefresh, refreshIntervalMs: refreshInterval });
 
         this.closeTopModal();
         this.showNotification('Settings saved successfully', 'success');
@@ -578,23 +572,10 @@ class PotionDashboard {
         this.uploadedFiles = Array.from(files);
 
         if (this.uploadedFiles.length > 0) {
-            this.showProgressModal('Uploading Files', `Processing ${this.uploadedFiles.length} file(s)...`);
-
-            // Simulate file upload progress
-            let progress = 0;
-            const interval = setInterval(() => {
-                progress += Math.random() * 15;
-                if (progress >= 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    setTimeout(() => {
-                        this.closeProgressModal();
-                        this.showNotification(`${this.uploadedFiles.length} file(s) uploaded successfully`, 'success');
-                        this.hideFileUpload();
-                    }, 500);
-                }
-                this.updateProgress(progress, `Uploading file ${Math.floor(progress / 20) + 1} of ${this.uploadedFiles.length}...`);
-            }, 200);
+            // The service exposes no file-upload endpoint — say so honestly
+            // instead of simulating fake progress.
+            this.showNotification('File upload is not supported by this service', 'warning');
+            this.hideFileUpload();
         }
     }
 
@@ -636,66 +617,6 @@ class PotionDashboard {
                 dot.classList.add('active');
                 dot.classList.remove('completed');
             }
-        });
-    }
-
-    // Inline Editing Functionality
-    startInlineEditing(displayElement) {
-        const editor = displayElement.closest('.inline-editor');
-        const input = editor.querySelector('.inline-input');
-        const currentValue = displayElement.textContent.trim();
-
-        editor.classList.add('editing');
-        input.value = currentValue;
-        input.focus();
-        input.select();
-
-        // Handle save/cancel actions
-        const saveHandler = () => {
-            const newValue = input.value.trim();
-            if (newValue && newValue !== currentValue) {
-                displayElement.textContent = newValue;
-                this.showNotification('Value updated successfully', 'success');
-            }
-            this.endInlineEditing(editor);
-        };
-
-        const cancelHandler = () => {
-            this.endInlineEditing(editor);
-        };
-
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                saveHandler();
-            } else if (e.key === 'Escape') {
-                e.preventDefault();
-                cancelHandler();
-            }
-        });
-
-        // Set up action buttons
-        const saveBtn = editor.querySelector('.inline-actions button:first-child');
-        const cancelBtn = editor.querySelector('.inline-actions button:last-child');
-
-        if (saveBtn) saveBtn.onclick = saveHandler;
-        if (cancelBtn) cancelBtn.onclick = cancelHandler;
-
-        this.inlineEditors.set(editor, { saveHandler, cancelHandler });
-    }
-
-    endInlineEditing(editor) {
-        editor.classList.remove('editing');
-        const actions = this.inlineEditors.get(editor);
-        if (actions) {
-            // Clean up event listeners if needed
-            this.inlineEditors.delete(editor);
-        }
-    }
-
-    cancelAllInlineEditing() {
-        document.querySelectorAll('.inline-editor.editing').forEach(editor => {
-            this.endInlineEditing(editor);
         });
     }
 
@@ -816,28 +737,63 @@ class PotionDashboard {
 
     performSearch(query) {
         // Mock search results
+        // Search across the real alerts, logs, and metrics the dashboard holds
         const results = this.generateSearchResults(query);
         this.displaySearchResults(results);
     }
 
     generateSearchResults(query) {
         const results = [];
-        const categories = ['alerts', 'logs', 'metrics'];
+        const q = query.toLowerCase();
+        const include = cat => this.currentSearchCategory === 'all' || this.currentSearchCategory === cat;
 
-        categories.forEach(category => {
-            if (this.currentSearchCategory === 'all' || this.currentSearchCategory === category) {
-                for (let i = 0; i < Math.min(3, Math.floor(Math.random() * 5) + 1); i++) {
-                    results.push({
-                        id: `${category}-${i}`,
-                        category: category,
-                        title: `${query} result ${i + 1}`,
-                        subtitle: `In ${category} section`,
-                        type: category,
-                        url: `#${category}`
-                    });
-                }
-            }
-        });
+        // Search the real data the dashboard already holds.
+        if (include('alerts') && Array.isArray(this.alertsData)) {
+            this.alertsData
+                .filter(a => JSON.stringify(a).toLowerCase().includes(q))
+                .forEach((a, i) => results.push({
+                    id: `alert-${i}`,
+                    category: 'alerts',
+                    title: a.title || 'Alert',
+                    subtitle: `${a.severity} · ${a.component || ''}`,
+                    type: 'alerts',
+                    url: '#alerts'
+                }));
+        }
+
+        if (include('logs') && Array.isArray(this.logsData)) {
+            this.logsData
+                .filter(l => `${l.message} ${l.source}`.toLowerCase().includes(q))
+                .slice(0, 10)
+                .forEach((l, i) => results.push({
+                    id: `log-${i}`,
+                    category: 'logs',
+                    title: l.message,
+                    subtitle: `${l.level} · ${l.source}`,
+                    type: 'logs',
+                    url: '#logs'
+                }));
+        }
+
+        if (include('metrics') && this.lastMetrics) {
+            const m = this.lastMetrics;
+            const entries = {
+                'CPU usage': `${m.cpu.usagePercent.toFixed(1)}%`,
+                'Memory usage': `${m.memory.usedPercent.toFixed(1)}%`,
+                'Disk usage': `${m.disk.usedPercent.toFixed(1)}%`,
+                'Network connections': `${m.network.activeConnections}`
+            };
+            Object.entries(entries)
+                .filter(([name]) => name.toLowerCase().includes(q))
+                .forEach(([name, value], i) => results.push({
+                    id: `metric-${i}`,
+                    category: 'metrics',
+                    title: `${name}: ${value}`,
+                    subtitle: 'Current value',
+                    type: 'metrics',
+                    url: '#performance'
+                }));
+        }
 
         return results;
     }
@@ -941,6 +897,27 @@ class PotionDashboard {
         }
     }
 
+    // Reflect the backend reachability in the header status pill.
+    setConnectionStatus(connected) {
+        const indicator = document.querySelector('.status-indicator-advanced');
+        if (!indicator) return;
+
+        const dot = indicator.querySelector('.status-dot');
+        const text = indicator.querySelector('.status-text');
+
+        if (connected) {
+            indicator.classList.remove('critical');
+            indicator.classList.add('healthy');
+            dot.className = 'status-dot healthy';
+            text.textContent = 'System Healthy';
+        } else {
+            indicator.classList.remove('healthy');
+            indicator.classList.add('critical');
+            dot.className = 'status-dot critical';
+            text.textContent = 'Connection Lost';
+        }
+    }
+
     updateLastUpdated() {
         const now = new Date();
         document.getElementById('last-updated').textContent =
@@ -956,13 +933,32 @@ class PotionDashboard {
             const response = await fetch(`${this.apiBaseUrl}/api/health`);
             const data = await response.json();
 
+            this.lastMetrics = data.metrics;
+            this.alertsData = data.alerts || [];
+            this.recordChartSample(data.metrics);
+
             this.updateHealthOverview(data);
+            this.updateAlertsDisplay(this.alertsData);
             this.updateServicesOverview(data.metrics.services);
             this.updateSecurityOverview(data.metrics.security);
             this.updateEventsOverview(data.metrics.windowsEvents);
 
         } catch (error) {
             console.error('Failed to load overview data:', error);
+        }
+    }
+
+    // Append the latest real sample to the rolling chart window (max 24 pts).
+    recordChartSample(metrics) {
+        this.chartData.push({
+            timestamp: new Date(),
+            cpu: metrics.cpu.usagePercent,
+            memory: metrics.memory.usedPercent,
+            disk: metrics.disk.usedPercent,
+            network: Math.min(metrics.network.bytesReceivedPerSec / 1048576, 100)
+        });
+        if (this.chartData.length > 24) {
+            this.chartData.shift();
         }
     }
 
@@ -1168,52 +1164,20 @@ class PotionDashboard {
 
     async loadLogsData() {
         try {
-            // In a real implementation, this would call an API endpoint
-            // For demo purposes, we'll simulate log data
-            const mockLogs = this.generateMockLogs();
-            this.logsData = mockLogs;
+            // Real event stream: health alerts raised by the monitor.
+            const response = await fetch(`${this.apiBaseUrl}/api/health`);
+            const data = await response.json();
+            this.logsData = (data.alerts || []).map(a => ({
+                timestamp: new Date(a.timestamp),
+                level: (a.severity || 'info').toLowerCase(),
+                source: 'HealthMonitor',
+                eventId: a.component || '-',
+                message: `${a.title}: ${a.message}`
+            }));
             this.renderLogsTable();
         } catch (error) {
             console.error('Failed to load logs data:', error);
         }
-    }
-
-    generateMockLogs() {
-        const logs = [];
-        const now = new Date();
-
-        const sources = ['System', 'Application', 'Security'];
-        const levels = ['Information', 'Warning', 'Error', 'Critical'];
-        const messages = [
-            'The system has recovered from a bugcheck.',
-            'The Windows Defender service entered the running state.',
-            'A user account was created.',
-            'Windows successfully loaded the device driver.',
-            'The system has started up.',
-            'A process has exited.',
-            'Windows Firewall service started successfully.',
-            'User logon successful.',
-            'System time changed.',
-            'Disk cleanup completed successfully.'
-        ];
-
-        for (let i = 0; i < 150; i++) {
-            const timestamp = new Date(now.getTime() - Math.random() * 24 * 60 * 60 * 1000);
-            const source = sources[Math.floor(Math.random() * sources.length)];
-            const level = levels[Math.floor(Math.random() * levels.length)];
-            const eventId = Math.floor(Math.random() * 10000) + 1000;
-            const message = messages[Math.floor(Math.random() * messages.length)];
-
-            logs.push({
-                timestamp: timestamp,
-                level: level.toLowerCase(),
-                source: source,
-                eventId: eventId,
-                message: message
-            });
-        }
-
-        return logs.sort((a, b) => b.timestamp - a.timestamp);
     }
 
     renderLogsTable() {
@@ -1361,9 +1325,17 @@ class PotionDashboard {
         this.renderLogsTable();
     }
 
+    alertKey(alert) {
+        return alert.alertId || `${alert.component}-${alert.timestamp}`;
+    }
+
     updateAlertsDisplay(alerts) {
         const container = document.getElementById('alerts-container');
+        if (!container) return;
         container.innerHTML = '';
+
+        // Acknowledged alerts stay hidden until the condition clears.
+        alerts = (alerts || []).filter(a => !this.acknowledgedAlertIds.has(this.alertKey(a)));
 
         if (!alerts || alerts.length === 0) {
             container.innerHTML = '<div class="no-alerts">No active alerts</div>';
@@ -1384,7 +1356,7 @@ class PotionDashboard {
         filteredAlerts.forEach(alert => {
             const alertItem = document.createElement('div');
             alertItem.className = `alert-item ${alert.severity.toLowerCase()}`;
-            alertItem.dataset.alertId = alert.id || Math.random().toString(36);
+            alertItem.dataset.alertId = this.alertKey(alert);
 
             const isSelected = this.selectedAlerts.has(alertItem.dataset.alertId);
 
@@ -1501,8 +1473,10 @@ class PotionDashboard {
 
     bulkAcknowledge() {
         const count = this.selectedAlerts.size;
-        this.showNotification(`${count} alert${count > 1 ? 's' : ''} acknowledged`, 'success');
+        this.selectedAlerts.forEach(id => this.acknowledgedAlertIds.add(id));
         this.clearAlertSelection();
+        this.updateAlertsDisplay(this.alertsData);
+        this.showNotification(`${count} alert${count > 1 ? 's' : ''} acknowledged`, 'success');
     }
 
     exportAlerts() {
@@ -1546,45 +1520,42 @@ class PotionDashboard {
     }
 
     loadSecurityPolicies() {
-        // Mock security policies data
-        const policies = [
+        // Render the real security state reported by /api/health/metrics
+        // (from the last overview fetch); fall back to a refresh if empty.
+        const sec = this.lastMetrics?.security;
+        const ctx = this.lastMetrics?.securityContext;
+        const policies = sec ? [
             {
-                title: 'Password Policy',
-                description: 'Enforce strong password requirements and regular rotation',
-                status: 'enabled',
-                lastUpdated: '2024-01-15'
+                title: 'Windows Defender',
+                description: 'Real-time antivirus protection',
+                status: sec.windowsDefenderEnabled ? 'enabled' : 'disabled',
+                lastUpdated: sec.lastSecurityScan ? new Date(sec.lastSecurityScan).toLocaleDateString('ja-JP') : '-'
             },
             {
-                title: 'Account Lockout',
-                description: 'Lock accounts after failed login attempts',
-                status: 'enabled',
-                lastUpdated: '2024-01-10'
+                title: 'Windows Firewall',
+                description: 'Network traffic filtering',
+                status: sec.firewallEnabled ? 'enabled' : 'disabled',
+                lastUpdated: '-'
             },
             {
-                title: 'Two-Factor Authentication',
-                description: 'Require 2FA for all administrative accounts',
-                status: 'warning',
-                lastUpdated: '2024-01-08'
+                title: 'Secure Boot',
+                description: 'Boot-time integrity verification',
+                status: sec.isSecureBootEnabled ? 'enabled' : 'disabled',
+                lastUpdated: '-'
             },
             {
-                title: 'Session Timeout',
-                description: 'Automatically log out inactive sessions',
-                status: 'enabled',
-                lastUpdated: '2024-01-12'
+                title: 'Active Threats',
+                description: 'Threats currently flagged by Defender',
+                status: sec.activeThreatCount > 0 ? 'warning' : 'enabled',
+                lastUpdated: `${sec.activeThreatCount} detected`
             },
             {
-                title: 'Audit Logging',
-                description: 'Log all security-relevant events',
-                status: 'enabled',
-                lastUpdated: '2024-01-14'
-            },
-            {
-                title: 'Network Encryption',
-                description: 'Enforce encrypted connections for all network traffic',
-                status: 'disabled',
-                lastUpdated: '2024-01-05'
+                title: 'Service Context',
+                description: ctx ? `${ctx.currentUser} (${ctx.isElevated ? 'elevated' : 'standard'})` : 'Unknown',
+                status: ctx?.isElevated ? 'warning' : 'enabled',
+                lastUpdated: '-'
             }
-        ];
+        ] : [];
 
         const container = document.getElementById('security-policies');
         container.innerHTML = '';
@@ -1616,25 +1587,6 @@ class PotionDashboard {
     // Advanced Chart Functionality
     initializeCharts() {
         this.renderResourceTrendsChart();
-    }
-
-    generateMockChartData() {
-        const data = [];
-        const now = new Date();
-
-        // Generate data for the last 24 hours (24 data points)
-        for (let i = 23; i >= 0; i--) {
-            const timestamp = new Date(now.getTime() - i * 60 * 60 * 1000);
-            data.push({
-                timestamp: timestamp,
-                cpu: Math.random() * 100,
-                memory: 60 + Math.random() * 30,
-                disk: 40 + Math.random() * 40,
-                network: Math.random() * 20
-            });
-        }
-
-        return data;
     }
 
     renderResourceTrendsChart() {
@@ -1753,28 +1705,43 @@ class PotionDashboard {
         drawer.classList.remove('open');
     }
 
-    updatePerformanceDrawer() {
-        // In a real implementation, this would fetch detailed metrics
-        // For demo purposes, we'll use mock data
-        document.getElementById('cpu-usage-detail').textContent = '45%';
-        document.getElementById('cpu-load-1m').textContent = '0.8';
-        document.getElementById('cpu-load-5m').textContent = '0.6';
-        document.getElementById('cpu-load-15m').textContent = '0.7';
+    async updatePerformanceDrawer() {
+        try {
+            const response = await fetch(`${this.apiBaseUrl}/api/health/metrics`);
+            const metrics = await response.json();
+            this.renderPerformanceDrawer(metrics);
+        } catch (error) {
+            console.error('Failed to load performance drawer data:', error);
+        }
+    }
 
-        document.getElementById('memory-total').textContent = '16.0 GB';
-        document.getElementById('memory-available').textContent = '8.5 GB';
-        document.getElementById('memory-used').textContent = '7.5 GB';
-        document.getElementById('memory-usage-percent').textContent = '47%';
+    renderPerformanceDrawer(metrics) {
+        const set = (id, value) => {
+            const el = document.getElementById(id);
+            if (el) el.textContent = value;
+        };
+        const gb = bytes => (bytes / (1024 ** 3)).toFixed(1) + ' GB';
 
-        document.getElementById('disk-read-rate').textContent = '2.3 MB/s';
-        document.getElementById('disk-write-rate').textContent = '1.8 MB/s';
-        document.getElementById('disk-queue-length').textContent = '0.02';
-        document.getElementById('disk-total-size').textContent = '500 GB';
+        set('cpu-usage-detail', `${metrics.cpu.usagePercent.toFixed(1)}%`);
+        // Windows does not expose Unix-style load averages; show core/process counts.
+        set('cpu-load-1m', `${metrics.cpu.coreCount} cores`);
+        set('cpu-load-5m', `${metrics.cpu.processCount} processes`);
+        set('cpu-load-15m', '-');
 
-        document.getElementById('network-sent').textContent = '1.2 MB/s';
-        document.getElementById('network-received').textContent = '0.8 MB/s';
-        document.getElementById('network-connections').textContent = '24';
-        document.getElementById('network-utilization').textContent = '8%';
+        set('memory-total', gb(metrics.memory.totalBytes));
+        set('memory-available', gb(metrics.memory.availableBytes));
+        set('memory-used', gb(metrics.memory.usedBytes));
+        set('memory-usage-percent', `${metrics.memory.usedPercent.toFixed(1)}%`);
+
+        set('disk-read-rate', `${this.formatBytes(metrics.disk.readBytesPerSec)}/s`);
+        set('disk-write-rate', `${this.formatBytes(metrics.disk.writeBytesPerSec)}/s`);
+        set('disk-queue-length', '-');
+        set('disk-total-size', gb(metrics.disk.totalBytes));
+
+        set('network-sent', `${this.formatBytes(metrics.network.bytesSentPerSec)}/s`);
+        set('network-received', `${this.formatBytes(metrics.network.bytesReceivedPerSec)}/s`);
+        set('network-connections', `${metrics.network.activeConnections}`);
+        set('network-utilization', '-');
     }
 
     // Advanced Search Functionality

@@ -14,11 +14,13 @@ services:
     ports:
       - "5000:80"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:80
+      # Container environment: appsettings.Container.json binds Kestrel
+      # http://+:80 and uses console+file sinks. The Development config
+      # binds localhost:5000, and the Production config is Windows-only
+      # (EventLog sink, C:\ProgramData paths) — neither works in Linux.
+      - ASPNETCORE_ENVIRONMENT=Container
     volumes:
-      - ./src/Potion.Service/appsettings.Development.json:/app/appsettings.Development.json
-      - ./src/Potion.Service/Resources:/app/Resources
+      - ./src/Potion.Service/appsettings.Container.json:/app/appsettings.Container.json
       - ./logs:/app/logs
     networks:
       - potion-network
@@ -30,11 +32,13 @@ services:
       - "9090:9090"
     volumes:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./monitoring/rules.yml:/etc/prometheus/rules.yml
     networks:
       - potion-network
     restart: unless-stopped
     depends_on:
       - potion-service
+      - alertmanager
 
   alertmanager:
     image: prom/alertmanager:latest

@@ -6,46 +6,14 @@ metadata:
   labels:
     app: potion-service
 data:
-  # Application settings
-  ASPNETCORE_ENVIRONMENT: "Production"
-  ASPNETCORE_URLS: "http://+:80"
-  ASPNETCORE_HTTPS_PORT: "443"
+  # Container environment uses appsettings.Container.json: console+file
+  # sinks and Kestrel http://+:80 — the Production config is Windows-only
+  # (EventLog sink, C:\ProgramData paths) and cannot run on Linux.
+  ASPNETCORE_ENVIRONMENT: "Container"
 
-  # Logging configuration
-  Logging__LogLevel__Default: "Information"
-  Logging__LogLevel__Microsoft: "Warning"
-  Logging__LogLevel__Potion: "Information"
+  # Feature flags (default off — enable deliberately per environment)
+  FeatureFlags__RepairExecutionEnabled: "false"
 
-  # Service configuration
-  Potion__ServiceName: "Potion Self-Healing Service"
-  Potion__Version: "2.0.0"
-
-  # Health check intervals
-  HealthCheck__IntervalSeconds: "30"
-  HealthCheck__TimeoutSeconds: "10"
-
-  # Security settings
-  Security__AuditIntervalHours: "12"
-  Security__MaxLogRetentionDays: "90"
-
-  # Performance settings
-  Performance__MaxConcurrency: "8"
-  Performance__MemoryLimitMB: "512"
-
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: potion-service-secrets
-  namespace: potion-system
-  labels:
-    app: potion-service
-type: Opaque
-data:
-  # JWT secret key (base64 encoded)
-  JwtSecret: "cG90aW9uLXNlY3JldC1rZXktMjAyNC1wcm9kdWN0aW9u"
-  # Database connection string (base64 encoded)
-  DatabaseConnection: "U2VydmVyPWxvY2FsaG9zdDtEYXRhYmFzZT1Qb3Rpb247VHJ1c3RlZENvbm5lY3Rpb249dHJ1ZTtJbnRlZ3JhdGVkU2VjdXJpdHk9dHJ1ZTtQb29saW5nPXRydWU="
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -68,22 +36,23 @@ spec:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "80"
-        prometheus.io/path: "/api/health/metrics/custom"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: potion-service
         image: potion-service:2.0.0
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
           name: http
-        - containerPort: 443
-          name: https
         envFrom:
         - configMapRef:
             name: potion-service-config
-        - secretRef:
-            name: potion-service-secrets
+        env:
+        # ServicePaths falls back to $HOME/.local/share; with a read-only
+        # rootfs this must point at a writable mount.
+        - name: HOME
+          value: /app/data
         resources:
           requests:
             memory: "256Mi"
@@ -93,7 +62,7 @@ spec:
             cpu: "500m"
         livenessProbe:
           httpGet:
-            path: /api/health/liveness
+            path: /health
             port: 80
           initialDelaySeconds: 60
           periodSeconds: 30
@@ -101,7 +70,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /api/health/readiness
+            path: /health
             port: 80
           initialDelaySeconds: 30
           periodSeconds: 10
@@ -109,7 +78,7 @@ spec:
           failureThreshold: 3
         startupProbe:
           httpGet:
-            path: /api/health/liveness
+            path: /health
             port: 80
           initialDelaySeconds: 10
           periodSeconds: 10
@@ -118,8 +87,8 @@ spec:
         volumeMounts:
         - name: logs
           mountPath: /app/logs
-        - name: config
-          mountPath: /app/config
+        - name: data
+          mountPath: /app/data
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
@@ -131,9 +100,8 @@ spec:
       volumes:
       - name: logs
         emptyDir: {}
-      - name: config
-        configMap:
-          name: potion-service-config
+      - name: data
+        emptyDir: {}
       securityContext:
         fsGroup: 101
       affinity:
@@ -156,8 +124,6 @@ metadata:
   namespace: potion-system
   labels:
     app: potion-service
-  annotations:
-    service.beta.kubernetes.io/azure-load-balancer-resource-group: "potion-rg"
 spec:
   type: ClusterIP
   ports:
@@ -165,10 +131,6 @@ spec:
     targetPort: 80
     protocol: TCP
     name: http
-  - port: 443
-    targetPort: 443
-    protocol: TCP
-    name: https
   selector:
     app: potion-service
 ---
@@ -182,11 +144,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
 spec:
   tls:
   - hosts:
@@ -196,21 +154,29 @@ spec:
   - host: potion-service.example.com
     http:
       paths:
-      - path: /api(/|$)(.*)
+      # Backend serves these paths natively — no rewrite needed.
+      - path: /api
         pathType: Prefix
         backend:
           service:
             name: potion-service
             port:
               number: 80
-      - path: /health(/|$)(.*)
+      - path: /health
         pathType: Prefix
         backend:
           service:
             name: potion-service
             port:
               number: 80
-      - path: /metrics(/|$)(.*)
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: potion-service
+            port:
+              number: 80
+      - path: /
         pathType: Prefix
         backend:
           service:
@@ -231,7 +197,7 @@ spec:
       app: potion-service
   endpoints:
   - port: http
-    path: /api/health/metrics/custom
+    path: /metrics
     interval: 30s
     scrapeTimeout: 10s
 ---

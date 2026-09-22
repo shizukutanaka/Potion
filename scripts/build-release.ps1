@@ -164,7 +164,7 @@ cd C:\Potion
 
 ### Verify Installation
 ``````powershell
-Get-Service "Otedama Self-Healing Service"
+Get-Service "Potion Self-Healing Service"
 ``````
 
 ## Upgrade Instructions

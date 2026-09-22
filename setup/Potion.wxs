@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <Package Name="Potion Self-Healing Service" Manufacturer="Potion Corp" Version="1.0.0" UpgradeCode="12345678-1234-1234-1234-123456789012">
+  <!-- Build: dotnet publish src/Potion.Service -c Release -r win-x64 --self-contained -p:PublishTrimmed=false -o src/Potion.Service/bin/Release/net8.0/win-x64/publish
+       then: wix build setup/Potion.wxs -ext WixToolset.UI.wixext -o Potion.msi -->
+  <Package Name="Potion Self-Healing Service" Manufacturer="Potion" Version="1.0.0" UpgradeCode="12345678-1234-1234-1234-123456789012">
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of Potion is already installed." />
 
@@ -11,38 +13,15 @@
 
     </Feature>
 
-    <InstallExecuteSequence>
-      <Custom Action="InstallService" After="InstallFiles" />
-      <Custom Action="StartService" After="InstallService" />
-    </InstallExecuteSequence>
-
-    <InstallUISequence>
-      <Show Dialog="WelcomeDlg" Before="ProgressDlg" />
-      <Show Dialog="LicenseAgreementDlg" After="WelcomeDlg" />
-      <Show Dialog="InstallDirDlg" After="LicenseAgreementDlg" />
-      <Show Dialog="ProgressDlg" After="InstallDirDlg" />
-      <Show Dialog="ExitDlg" After="ProgressDlg" />
-    </InstallUISequence>
-
     <Property Id="WIXUI_INSTALLDIR" Value="INSTALLDIR" />
-    <Property Id="WIXUI_EXITDIALOGOPTIONALCHECKBOXTEXT" Value="Launch Potion Management Console" />
 
     <UIRef Id="WixUI_InstallDir" />
 
     <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
-    <WixVariable Id="WixUIDialogBmp" Value="Dialog.bmp" />
-    <WixVariable Id="WixUIBannerBmp" Value="Banner.bmp" />
-
-    <CustomAction Id="InstallService" BinaryKey="ServiceInstaller" DllEntry="InstallService" Execute="deferred" Impersonate="no" />
-    <CustomAction Id="StartService" BinaryKey="ServiceInstaller" DllEntry="StartService" Execute="deferred" Impersonate="no" />
-
-    <Binary Id="ServiceInstaller" SourceFile="Potion.Service.Installer.dll" />
 
     <Directory Id="TARGETDIR" Name="SourceDir">
       <Directory Id="ProgramFiles64Folder">
-        <Directory Id="INSTALLDIR" Name="Potion">
-          <Directory Id="ServiceDir" Name="Service" />
-        </Directory>
+        <Directory Id="INSTALLDIR" Name="Potion" />
       </Directory>
       <Directory Id="CommonAppDataFolder">
         <Directory Id="PotionAppData" Name="Potion">
@@ -53,9 +32,11 @@
       </Directory>
     </Directory>
 
-    <ComponentGroup Id="ServiceComponents" Directory="ServiceDir">
+    <!-- Harvests the entire publish output: every file the service needs at runtime.
+         Requires: dotnet publish -o src/Potion.Service/bin/Release/net8.0/win-x64/publish -->
+    <ComponentGroup Id="ServiceComponents" Directory="INSTALLDIR">
       <Component>
-        <File Source="src\Potion.Service\bin\Release\net8.0\win-x64\publish\Potion.Service.exe" />
+        <File Source="..\src\Potion.Service\bin\Release\net8.0\win-x64\publish\Potion.Service.exe" />
         <ServiceInstall
           Id="PotionService"
           Name="Potion Self-Healing Service"
@@ -71,11 +52,13 @@
           Stop="both"
           Remove="uninstall" />
       </Component>
+      <Files Include="..\src\Potion.Service\bin\Release\net8.0\win-x64\publish\**"
+             Exclude="..\src\Potion.Service\bin\Release\net8.0\win-x64\publish\Potion.Service.exe" />
     </ComponentGroup>
 
-    <ComponentGroup Id="ConfigComponents" Directory="ServiceDir">
+    <ComponentGroup Id="ConfigComponents" Directory="INSTALLDIR">
       <Component>
-        <File Source="src\Potion.Service\appsettings.json" />
+        <File Source="..\src\Potion.Service\appsettings.json" />
       </Component>
     </ComponentGroup>
 

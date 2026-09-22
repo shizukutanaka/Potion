@@ -1,0 +1,43 @@
+groups:
+  - name: potion-service
+    rules:
+      - alert: PotionServiceDown
+        expr: up{job="potion-service"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: potion-service
+        annotations:
+          summary: "Potion service is not reachable"
+          description: "Prometheus has been unable to scrape potion-service for more than 1 minute."
+
+      # Alerts on the potion_* series the service actually exports.
+      - alert: PotionHighCpuUsage
+        expr: potion_system_cpu_usage > 95
+        for: 5m
+        labels:
+          severity: warning
+          service: potion-service
+        annotations:
+          summary: "Sustained high CPU usage on monitored host"
+          description: "potion_system_cpu_usage has been above 95% for 5 minutes."
+
+      - alert: PotionHighMemoryUsage
+        expr: potion_system_memory_usage > 95
+        for: 5m
+        labels:
+          severity: warning
+          service: potion-service
+        annotations:
+          summary: "Sustained high memory usage on monitored host"
+          description: "potion_system_memory_usage has been above 95% for 5 minutes."
+
+      - alert: PotionLowDiskSpace
+        expr: potion_system_disk_available_gigabytes < 5
+        for: 5m
+        labels:
+          severity: warning
+          service: potion-service
+        annotations:
+          summary: "Low disk space on monitored host"
+          description: "potion_system_disk_available_gigabytes is below 5 GB."

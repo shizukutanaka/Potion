@@ -2,6 +2,239 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボード全体が完全に死んでいた根本原因)
+
+- **`index.html` に `<script>` タグが無く `dashboard.js` が一切読み込まれていなかった実バグ** — ダッシュボードは静的な骨組みだけで全機能が未実行だった。script タグと欠落していた `</body>`/`</html>` を追加
+- **`refreshAllData()` が1行目で必ず例外になる実バグ** — `setConnectionStatus()` が未実装で TypeError → 全フェッチ不発。接続状態をヘッダーピルへ反映する実装を追加、同様に未実装の `loadAlertsData()` 呼び出しを除去（アラートは overview ポーリング経由）
+- **`showLoadingState()` が描画先DOMを破壊していた実バグ** — `.card-content` をスケルトンで innerHTML 置換し `getElementById` 参照を全滅させていた（hideLoadingState は空実装）。非破壊的な `.loading` クラス方式へ変更（styles.css に対応ルール追加）
+- 検証: jsdom で全カード/アラート/ログ/チャートが実値描画・エラー0、実ブラウザで API ポーリング・実値表示を確認
+
+### Fixed (ダッシュボードの死ワイヤ・偽アクション実バグ3件)
+
+- **アラート一覧が永久に空だった実バグ** — `updateAlertsDisplay()` がどこからも呼ばれず `#alerts-container` が未描画。`/api/health` のポーリング結果から実描画するよう配線
+- **Acknowledge ボタンが何もしなかった実バグ** — `bulkAcknowledge()` がトーストを出すだけでアラートは残ったまま。クライアント側承認（`acknowledgedAlertIds`、状態が解消するまで非表示）を実装
+- **設定モーダルの「保存」が永続化しなかった実バグ** — テーマ/自動更新/間隔がリロードで消失。localStorage へ永続化し起動時に復元
+- 死コード削除: DOM に存在しない `.inline-editor` 用のインライン編集ブロック一式（約70行）
+
+### Fixed (ダッシュボードのモックデータ実バグ・残り4件)
+
+- **リソース推移チャートがランダム生成データを描画していた実バグ** — `generateMockChartData()` が24時間分の仮想値を生成 → 実ポーリング履歴（`recordChartSample`、24点ローリング窓）へ修正
+- **セキュリティポリシー一覧が固定値を表示していた実バグ** — `loadSecurityPolicies()` が2024年日付入りの固定リストを表示 → `/api/health/metrics` の実セキュリティ状態（Defender/Firewall/SecureBoot/Threat/実行コンテキスト）へ
+- **検索がモック結果を返していた実バグ** — `generateSearchResults()` が `${query} result N` の空文字列ヒットを生成 → 実アラート/ログ/メトリクスを対象にした実検索へ
+- **ファイルアップロード進行が偽装されていた実バグ** — `handleFileUpload()` が `Math.random` の擬似プログレスを表示（アップロードAPIは存在しない）→ 「非対応」の正直な通知へ
+- `Math.random` によるアラートIDフォールバック → 実 `alertId` へ
+
+### Fixed (EventCorrelation 相関ルールの永久不発バグ)
+
+- **2ルールが発行経路の無いイベント型を参照し永久不発だった実バグ** — 実発行イベント型は `cpu_usage`・`memory_usage`・`disk_usage`・`network_bytes_per_sec`・`health.alert` のみだが、「Network + Disk I/O Storm」は `disk_write_bytes_per_sec`、「Service Failures Cascade」は `service_failed`/`error_logged` を参照（発行経路ゼロ → 条件評価まで到達せず）。実発行型へ修正（network+disk_usage 相関、health.alert バースト検知）— `EventCorrelation.Enabled=true` で稼働中のため実効果あり
+
+### Fixed (ダッシュボードのモックデータ実バグ2件)
+
+- **Performance ドロワーがハードコードのモック値を表示していた実バグ** — `updatePerformanceDrawer()` が CPU 45%・メモリ16GB・負荷0.8等の固定値を表示。`/api/health/metrics` の実測値へ修正（コア数/プロセス数・実メモリ・実ディスク/ネットワーク速度）
+- **Event Logs テーブルが150件の捏造ログを表示していた実バグ** — `generateMockLogs()` がランダムな仮想イベントを生成。実データ源はヘルスアラートのみのため `/api/health` の実アラートをテーブルへ表示（Level/Source/Event ID/Message 列を実データへマッピング）
+
+### Fixed (/metrics が potion_* メトリクスを全く出力しなかった実ギャップ)
+
+- **Prometheus 監視が空転していた実ギャップ** — `PotionMetrics` は無消費の static クラスで、計器は初アクセス時にのみ生成されるため `/metrics` は `process_*` 実行時メトリクスのみ（potion_* ゼロ）。`SystemHealthMonitor` の実測値（CPU/メモリ/ディスク/ヘルススコア）をゲージへ配線、`RecordAnomaly`・`RecordRemediationTask`・`RecordSelfHealingAttempt` を各経路へ接続、起動時に計器を必ず生成する初期化を追加 — 実検証で `potion_system_health_score`/`cpu_usage`/`memory_usage`/`disk_available_gigabytes` 等が実値出力を確認（OTel はドット→アンダースコア変換）
+- **`rules.yml` に実メトリクスへのアラート3件追加** — `PotionHighCpuUsage`（>95%・5m）/`PotionHighMemoryUsage`（>95%・5m）/`PotionLowDiskSpace`（<5GB・5m）。従来の `PotionServiceDown` のみではアプリの状態異常が全く検知できなかった
+
+### Fixed (コンテナ環境でアプリが起動不能になる実バグ — Production 設定は Windows 専用)
+
+- **Linux コンテナでアプリが起動しない実バグ** — `ASPNETCORE_ENVIRONMENT=Production` 配下で読み込まれる `appsettings.Production.json` は Windows 専用設定（EventLog シンクは Windows API、ファイルシンクは `C:\ProgramData\...` パス）のため Linux で EventLog 作成失敗 + `C:` ジャンクディレクトリ生成。実際に macOS 上でも `src/Potion.Service/C:/ProgramData/...` のジャンクディレクトリが生成されていた（証跡確認済み）。新規 `appsettings.Container.json`（Console+File シンク・Kestrel `http://+:80`）を追加し、docker-compose / k8s を `ASPNETCORE_ENVIRONMENT=Container` へ切替 — 実検証で 4 エンドポイント全 200・EventLog/C: エラーなし
+- **compose の不要マウントを除去** — `./src/Potion.Service/Resources` マウントは resx が衛星アセンブリ化されるため実用上無意味
+
+### Fixed (k8s/deployment.yaml の多重破損 — CrashLoop 継続 + 架空設定)
+
+- **k8s でも Kestrel バインド破損が残っていた実バグ** — ConfigMap が `ASPNETCORE_URLS` を注入していたが `Kestrel:Endpoints` 設定が優先されるため Pod は `localhost:5000` バインドのまま、probe `:80` 不通で **引き続き CrashLoop 確定**。`Kestrel__Endpoints__Http__Url=http://+:80` へ修正
+- **アプリ非バインドの架空 env を一掃** — `Potion__*`・`HealthCheck__*`・`Security__*`・`Performance__*`・`Logging__*`・`ASPNETCORE_HTTPS_PORT`（全てコードが読まない設定）。実バインドの `FeatureFlags__RepairExecutionEnabled` のみ残す
+- **未設定 HTTPS ポート443 を除去** — containerPort/Service 共に実エンドポイント無し（Kestrel:Endpoints は Http のみ）
+- **Ingress の rewrite-target 破損** — `/api(/|$)(.*)`→`/$2` で `/api/health` が `/health` に書き換えられ liveness 文字列を返す不一致。パスそのまま転送へ修正、`/` ルートも dashboard 到達可能に
+- **`imagePullPolicy: Always` → `IfNotPresent`** — レジストリ無しローカルイメージで pull 失敗確定だった
+- **`runAsNonRoot` + `readOnlyRootFilesystem` で `ServicePaths` が書き込み先を失う潜在起動バグ** — `HOME=/app/data` + emptyDir マウントで `~/.local/share` フォールバック先を確保
+- **Dockerfile も同型バグ** — `useradd -r` で home 未作成の非ルートユーザは `LocalApplicationData` が書けないため `ENV HOME=/home/potion` + chown 作成、`EXPOSE 80` 追加（compose/k8s の実ポート整合）
+- Azure LB アノテーション除去（ClusterIP で無意味）
+
+### Fixed (docker-compose のサービス到達不能バグ — Kestrel エンドポイント上書き)
+
+- **docker-compose で起動したサービスが外部から到達不能だった実バグ** — `ASPNETCORE_URLS=http://+:80` を指定していたが、`appsettings.json` の `Kestrel:Endpoints:Http` 設定が `ASPNETCORE_URLS` より優先されるため、コンテナは依然 `localhost:5000` にのみバインド（port マッピング `5000:80`・prometheus ターゲット `potion-service:80` が両方不通）。`Kestrel__Endpoints__Http__Url=http://+:80` の環境変数上書きに変更 — 実環境で `:8899` へのバインド変更を検証済み
+
+### Fixed (win-x64 publish が失敗する実バグ + README 実態整合)
+
+- **`PublishTrimmed` により `dotnet publish -r win-x64` が必ず失敗していた実バグ** — IL2008（`System.Diagnostics.FileVersionInfo` 置換エラー）で NETSDK1144 失敗。リフレクション多用のためトリム適合性も限定的なので `PublishTrimmed=false` に変更し publish 成功を確認（MSI ビルドの前提条件だったため setup/ 全体が作れない状態だった）
+- **README 実態整合** — ダッシュボードが `GET /` で開けるようになった点と `/api/health/alerts/webhook` をエンドポイント一覧へ追加、テスト数を実値 111 へ更新
+
+### Fixed (deploy.sh の no-op デプロイ — 空 helm チャート + 不存在エンドポイント検証)
+
+- **`scripts/deploy.sh` が常に失敗する構成だった** — 参照する `./helm` チャートに `templates/` が無く `helm upgrade --install` は何もデプロイしない no-op、その後不存在 Deployment の rollout を待機して確定失敗。検証対象も不存在エンドポイント（`/api/health/liveness`・`/api/health/system/comprehensive`・`/api/health/observability/tracing`・`/api/health/testing/integration`・swagger・grafana 等）ばかり → 修復済み `k8s/deployment.yaml` を `kubectl apply` する実デプロイ＋実在5エンドポイントのスモークテストへ全面書換
+- Pod 内 `kubectl exec curl` は `aspnet:8.0` ランタイムに curl が無いため失敗する問題を修正（svc への port-forward＋ローカル curl 検証に変更）
+
+### Fixed (ツール/セットアップ系の破損一掃 — 旧製品名残滓・未ビルド可能・不存在参照)
+
+- **旧製品名 `Otedama` が実行パスに残存していた実バグ** — `ServicePaths.Base` が `Otedama` ディレクトリを作成（本番では `%ProgramData%\Otedama` に状態・ログ・証明書を書き込む）、`deploy-windows.ps1`/`package-installer.ps1`/`build-release.ps1` が `Otedama Self-Healing Service` 名でサービス登録 — 製品名 `Potion` に全統一
+- **`tools/Potion.ConfigTool.cs` がビルド不能** — csproj 未存在・削除済み `TelemetryRetentionOptions` 参照・using 不足。`Potion.ConfigTool.csproj` 新設で実ビルド化、削除済み型を実在オプション型（RemediationPolicy/MemoryMonitor/PerformanceOptimizer）へ、設定パスを `--config` 引数化、`generate` の CommandAllowlist を実アプリと同じ11コマンドへ整合。validate/generate/backup 実動確認
+- **`setup/Potion.wxs` がビルド不能** — 不存在 `Potion.Service.Installer.dll` カスタムアクション・`Dialog.bmp`/`Banner.bmp`/`License.rtf` 参照・`ServiceDir` サブディレクトリに1ファイルのみ（残り~150DLLが未インストールでランタイム起動不能確定）。カスタムアクション除去（ServiceInstall/ServiceControl が既に同等機能）、`<Files>` ハーベストで publish 出力全ファイル取り込みへ、License.rtf 新規作成
+- **win-x64 publish が `PublishTrimmed` で失敗** — `-p:PublishTrimmed=false` で成功を確認（trim 失敗は `System.Diagnostics.FileVersionInfo` の IL2008 起因 — 設定の見直し余地として記録）
+
+### Fixed (ダッシュボードが `/` で開けない実バグ + validate-system.sh の偽装検証)
+
+- **`GET /` が 404 でダッシュボードが root で開けなかった** — `UseDefaultFiles()` 欠落により `/index.html` でしかアクセス不可。ルートで dashboard を配信するよう修正（ダッシュボードの主入口として実稼働影響あり）
+- **`scripts/validate-system.sh` 全面書換** — ~20超のチェック対象の大半が不存在エンドポイント（`/api/health/detailed`・`liveness`・`events/stream`・`ml/predictions`・`chaos/experiments` 等）を指す常時失敗スクリプトかつ、結果に関係なく固定の全PASSED レポートを書き exit 0 する偽装成功スクリプトだった。実在する全エンドポイント（`/health`・`/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary`・`/metrics`・`/`・webhook 405・SignalR negotiate）のみ検証する9項目の正直なスモークテストへ置換 — 実実行で 9/9 通過を確認
+
+### Fixed (k8s/deployment.yaml の CrashLoop 確定破損 — 不存在エンドポイント probe)
+
+- **liveness/readiness/startup probe が全て不存在パス**（`/api/health/liveness`・`/api/health/readiness`）を指し、デプロイした全 Pod が probe 失敗で CrashLoop 確定 — 実在する `/health` へ修正
+- `prometheus.io/path` ・ ServiceMonitor のパスが不存在の `/api/health/metrics/custom` — 実在する `/metrics` へ修正（scrape が 404 だった）
+- **アプリ未使用の偽装 Secret を除去** — `JwtSecret`/`DatabaseConnection` を base64 でリポジトリにコミット（値はダミーだが secret 形のコミットはアンチパターン）。アプリは JWT/DB を参照しないため Secret 本体と `secretRef` を削除
+
+### Added (Prometheus→Alertmanager→サービスのアラート連鎖を実装 — 宣言済みだが全て休眠だった)
+
+- **`POST /api/health/alerts/webhook` エンドポイント新設** — `monitoring/alertmanager.yml` が指していた契約を実装: Alertmanager v4 webhook ペイロードを受信し firing は警告・resolved は情報として記録（API追加のため注記 — 既存APIの変更なし）
+- `monitoring/alertmanager.yml` — `potion-team` webhook が不存在エンドポイントを指し全配信が 404 失敗する欠陥を修正、example.com SMTP/`YOUR/SLACK/WEBHOOK` プレースホルダ受信先を除去（実認証情報が無いと常に失敗 — 実 creds 追加時の拡張はコメントに記載）
+- `monitoring/prometheus.yml` — alerting 設定が一切無く **alertmanager にアラートが一度も届かない状態**を修正: `alerting.alertmanagers` + `rule_files` 追加
+- `monitoring/rules.yml` 新規 — `PotionServiceDown`（`up{job="potion-service"} == 0` を1分継続）を実働ルールとして定義
+- `docker-compose.yml` — rules.yml を prometheus コンテナへマウント、`depends_on: alertmanager` 追加（実稼働連鎖が成立）
+
+### Fixed (RemediationPolicy のオプションバインドクラッシュ — env: 記法の未対応)
+
+- **`"MaxConcurrency": "env:POTION_MAX_CONCURRENCY:default:4"` が初回オプション読取で `InvalidOperationException` を投げる休眠バグ** — .NET の設定プロバイダは `env:` 補間を解釈せずリテラル文字列のまま int へ変換失敗（実機検証済み）。`FeatureFlags:RepairExecutionEnabled` 有効時、CommandValidator 等が `CurrentValue` を初回アクセスした時点でクラッシュ。値を `4` に修正（環境変数オーバーライドは .NET の標準 `RemediationPolicy__MaxConcurrency` 形式で既に可能）
+- 新規テスト `OptionsBindingTests`（4件・107→111）: 実 appsettings.json/Production/Development に対し Startup が bind する全オプションクラスが例外無しでバインドされることを検証する回帰ガード
+
+### Fixed (SystemIntegrityMetrics の最終スタブ実測化)
+
+- **`IntegrityCheckPassed` が `true` 固定値** — OS の保留中修復状態に関係なく常に「整合性OK」を報告。`SystemMetricsSampler.HasPendingRepairs()` を新設し Windows レジストリで実測: `Component Based Servicing\RebootPending`・`WindowsUpdate\Auto Update\RebootRequired`・`Session Manager\PendingFileRenameOperations` のいずれか存在時は保留中修復あり → `IntegrityCheckPassed=false`（保留中修復=前回整合性作業が未コミットの意味）。非Windows は保留中修復の概念が無いため passed を維持（検出不能を偽装しない — 保留中修復が検出されない場合のみ true）。レジストリ読取のみ・全OS安全
+
+### Fixed (ComplianceReportService の暗号化チェック偽装)
+
+- GDPR「Data Encryption」チェックが `Compliant = true` 固定値で「暗号化あり」と常時報告 — HTTP のみで運用していても準拠と判定する偽装。`IConfiguration` を注入し `Kestrel:Endpoints` に HTTPS エンドポイントが設定されているかを実測して判定（本番設定は HTTPS+cert、開発設定は HTTP のみ → 正直に非準拠を報告）。Details も実測値ベースの説明に置換
+
+### Fixed (MemoryMonitor が全OSで完全に死んでいた実バグ)
+
+- **`MemoryStatusEx.dwLength` が未設定** — `new MemoryStatusEx()` は `dwLength=0` で `GlobalMemoryStatusEx` の必須条件を満たさず Windows でも P/Invoke が常に失敗 → システムメモリ情報が常に 0 → `ShouldOptimizeMemory` が常 false で監視が機能停止（非Windowsでも同様に全 0 を返していた）。`dwLength` を `Marshal.SizeOf` で設定、`Size=72`（誤り・正しくは64）の明示レイアウトサイズを除去
+- `TrimWorkingSetAsync` — 「トリミングを試行しました」と報告しながら何もしないプレースホルダを、実際の `SetProcessWorkingSetSize(handle, -1, -1)` P/Invoke に実装（kernel32、新規 DllImport）。他OSは「このプラットフォームでは利用できません」と正直に報告
+
+### Fixed (AutoRecoveryManager の回復偽装・非Windows毎サイクル失敗)
+
+- **回復アクションが何もせず成功を返していた**: `RestartServiceAsync`/`RestartComponentAsync`/`PerformFailoverAsync` が `Task.Delay` のみで `true` を返却 — 失敗カウントがクリアされ「回復済み」扱いになる偽装成功。実機構が無いため `ResetConfigurationAsync` と同じく正直に `false` を返すよう修正（`ClearCacheAsync` の実動作は維持）
+- `CheckMemoryHealth` — WMI `CIM_OperatingSystem` が非Windowsで毎回例外 → Memory コンポーネント常時「不健康」→ 毎分回復試行の擬似ループ。OS ガード追加・他OSは GC 占有率で近似判定
+- `CheckConfigurationHealth` — `ServicePaths.Base/appsettings.json`（存在しないパス）を検査 → 常時「不健康」誤検知。実在する `AppContext.BaseDirectory` を参照に修正
+- `CheckNetworkHealth` — Task.Delay シミュレーションを `NetworkInterface.GetIsNetworkAvailable()` 実測に置換、`CheckSchedulerHealth` は協調対象非注入のため明示的 healthy に
+
+### Fixed (PerformanceOptimizer の破壊的動作・検証欠落・クロスプラットフォーム破損)
+
+- **ユーザープロセスを Kill していた**: `OptimizeProcessCountAsync` が複数起動の notepad/calc/mspaint を `Process.Kill` — 未保存データ損失の危険な破壊動作。重複起動の検出・報告のみに変更
+- **任意プロセスの優先度を変更していた**: `OptimizeCpuUsageAsync` が累積 `TotalProcessorTime` 上位3プロセスを `BelowNormal` に降格 — 累積値は現在負荷と無関係で対象誤認、外部プロセスへの干渉自体が設計上のリスク。検出・報告のみに変更（サービス名でプロセスを探す死ブロックも除去）
+- **`EmptyStandbyList.exe` 呼出しを削除** — Sysinternals 外部ツールで標準環境に存在せず確定失敗（代替の標準コマンド無し、GC 実行と検出報告を維持）
+- **`ICommandValidator` 未経由でプロセス起動していた** — `netsh`/`powercfg` を直接 `_processRunner` 実行（#32 の allowlist 強化を迂回）。ctor に validator 注入し `EnsureCommandIsAllowed` を適用、実行体名を `netsh.exe`/`powercfg.exe` に修正（bare 名は allowlist 不一致）
+- **WMI/netsh が非Windowsでも実行** — `GetMemoryInfo`（Win32_OperatingSystem）と `RunAdditionalOptimizationsAsync`（Win32_Battery/netsh/powercfg）に OS ガードなし → 非Windowsで毎サイクル例外。Windows ガード追加、メモリは GC 情報で代替
+- `appsettings.json`/`appsettings.Production.json` の `RemediationPolicy.CommandAllowlist` に `netsh.exe` 追加（TCP autotuning 最適化アクションに必要 — 許可リスト変更のため注記）
+
+### Fixed (修復実行経路の潜在バグ群 — FeatureFlags ON 時に確定失敗していた)
+
+- `EventDrivenRemediationService` の既定トリガールールが**永久不発**: `Condition` が `"High CPU usage"` 等の本文を要求する一方、発行側メッセージは `"CPU usage at 87.3%"` 形式で不一致。Severity+Component のみで判定するよう Condition 撤廃（発行値 `cpu`/`memory`/`disk` に整合）
+- 既定ルール `high_network` が `https://example.com` への Webhook POST — 発火した場合に外部 placeholder へ実送信する欠陥。ネットワークアラートの発生源は無く本質的に死ルールのため削除
+- `PredictiveRemediationService` の `GetPreventiveCommand` とイベント駆動 `TaskName` が擬似コマンド名（`Optimize-CpuUsage`/`cpu-optimization` 等）→ CommandValidator allowlist で確定拒否。新設 `PreventiveRemediationCommands` で実ツールへマッピング: CPU→`powercfg.exe /energy /duration 60`（診断）、Memory→`sfc.exe /verifyonly`（整合性検証・読取のみ）、Disk→`cleanmgr.exe /verylowdisk`（実クリーンアップ）。未マップキーは実行せずスキップ
+- `RemediationTask` に `Arguments` フィールド追加し `RemediationScheduler` 経由で Executor へ伝達（従来 `Command` に引数を含めると `FileName` 解決失敗 or allowlist 不一致の二択だった）
+- `PredictiveRemediationService`/`EventDrivenRemediationService` のシャットダウン時 OCE を誤エラーログしないよう分離。イベント駆動サービスの無意味な1秒ポーリングループを停止シグナル待機に置換
+
+### Tests
+
+- `PreventiveRemediationCommands` 単体テスト新規（99→107）: 全既知キーが「空白を含まない .exe 実行体 + 分離された引数」を返すこと・大小文字不問・未既知キーは false を返すことを検証
+- `RequestMetricsTracker` 単体テスト新規（90→99）: ローリング窓の RPS/平均レイテンシ/5xx エラー率算出と `/collaboration`・`/metrics` 計測除外を検証
+
+### Fixed (異常検知ルーティングのケース不一致)
+
+- `AnomalyDetector.HandleAdvancedAnomaly` の switch ケースが `cpu_usage_percent` 等の旧キー名で、実際に供給されるキー（`CpuUsage`/`MemoryUsage`/`DiskUsage`/`Bytes*PerSec`）と全不一致 → 全異常が Generic 経路へ落ちていた実バグ。実キーの小文字形に修正（`ToLower`→`ToLowerInvariant` も併せて）
+
+### Fixed (ResourceMonitoringMetrics の値ミスマッチ修正)
+
+- `CpuTimeSeconds` — `Environment.TickCount64`（システム稼働時間）が入っていた実バグを `Process.TotalProcessorTime`（プロセスCPU時間）に修正
+- `IoOperationsPerSecond` — Linux で `/proc/self/io` の `syscr+syscw` 差分レートを実測（Windows はインスタンス名衝突のため安全側0）
+- `GcCollectionCount` — gen0 のみだったものを gen0+gen1+gen2 の合計に修正
+
+### Fixed (async void タイマーコールバック解消)
+
+- `ComplianceReportService.GenerateComplianceReport` の `async void` を廃止 — 同期コールバックから `_ = GenerateComplianceReportAsync()` を火消し起動する形に変更（`async void` 特有の未観測例外・同期コンテキスト問題を解消。コードベース内の `async void` はこれで全滅）
+
+### Fixed (監視サービスの既定無効化＋ServicePaths クロスプラットフォーム破損)
+
+- `appsettings.json` に `EventCorrelation.Enabled`/`Compliance.Enabled` を `true` で追加 — 両サービスのオプション既定が false・設定セクション不在で常時自己無効化していた（相関ループ・アラート購読・コンプライアンスレポートが全て不発）
+- `ServicePaths` の静的初期化で `SecurityIdentifier`（Windows専用）を構築 → 非Windowsで `TypeInitializationException` となりクラス全体が使用不可だった。ACL 強化を `OperatingSystem.IsWindows()` ガード内に遅延化
+- `ServicePaths.Base` が `CommonApplicationData`（Unixでは `/usr/share`・root所有）直下作成で権限エラー → 候補ルートを順に試行（CommonApplicationData→LocalApplicationData→AppContext.BaseDirectory）
+
+### Fixed (HTTP パフォーマンスの実測化)
+
+- `RequestMetricsMiddleware` + `RequestMetricsTracker`（1分ローリング窓、スレッドセーフ）を新規追加し `RuntimePerformanceMetrics` の RequestsPerSecond/AverageLatencyMs/ErrorRate を実測化（固定0解消）。`/collaboration`（長時間接続）と `/metrics`（スクレイプ）は計測除外。登録は `UseStaticFiles` 後 — API/SignalR/health トラフィックのみ対象
+
+### Fixed (WindowsEventMetrics / 復元ポイントの実測化)
+
+- `WindowsEventMetrics` — `EventLogReader` の XPath クエリ（`TimeCreated[timediff <= 24h]`）で System/Security ログの直近24時間イベント数・エラー・Critical・最新時刻を実測（`System.Diagnostics.EventLog` 10.0.12 を明示追加 — 既に推移導入済みの同バージョン。走査上限5,000件。他OSは0）
+- `SystemIntegrityMetrics.RestorePointAvailable` — `root\DEFAULT` の `SystemRestore` WMI クラスで復元ポイント有無を実測（他OSは false。IntegrityCheckPassed/ViolationCount/RepairedCount は安価な実測源が無いため従来値のまま）
+
+### Fixed (EventCorrelationMetrics の実測化)
+
+- `EventCorrelationStats` 共有カウンタを新設し、`EventCorrelationService` が稼働ルール数・累計検出相関数を記録、`SystemHealthMonitor` がスナップショットに反映（固定 0 解消）。`EventCorrelationService`/`SystemHealthMonitor` の ctor に DI 注入として追加
+
+### Fixed (Windows 固有スタブの実測化)
+
+- `SecurityMetrics` — `MSFT_MpComputerStatus`（Defender サービス/AV 有効・最終スキャン時刻）と `MSFT_MpThreat`（検出脅威数）を `root\Microsoft\Windows\Defender` から、ファイアウォールは `root\StandardCimv2` の `MSFT_NetFirewallProfile`（全プロファイル有効時のみ true）から、Secure Boot はレジストリ `SYSTEM\CurrentControlSet\Control\SecureBoot\State` から取得（`System.Management` 既参照・新規パッケージなし。他OSは false/0）
+- `InventoryMetrics` — `Win32_ComputerSystem` の Manufacturer/Model と `Win32_BIOS` の SerialNumber を実測（他OSは空文字）
+- `SecurityContextMetrics` — `IsElevated`/`CurrentUserIsAdmin` を `WindowsPrincipal.IsInRole(Administrator)` で実測（固定 false 解消、他OSは false）
+
+### Fixed (HealthAlert が一切発火しなかったバグ)
+
+- `SystemHealthMonitor` — `HealthAlert` イベントは宣言のみで発火箇所ゼロ、スナップショットも常に空アラートだった。`GetCurrentHealthAsync` で cpu/memory/disk の圧レベルを評価し ≥High で `SystemHealthAlert` を発行・イベント発火（Critical→Critical/High→Warning）。発火はコンポーネント×レベルで重複抑制し15分クールダウン、圧が下がれば解除（`EventCorrelationService`・`EventDrivenRemediationService` の購読が実際に機能するようになる）
+
+### Fixed (残存スタブメトリクスの実測化)
+
+- `ServiceMetrics` — Windows 上で `Win32_Service`（既参照の `System.Management`、新規パッケージなし）からサービス総数/稼働/停止を実測。`Stopped` かつ `Auto` 開始は失敗サービスとして件名を返す（他OSは 0）
+- `ResourcePressureMetrics` — 常に `None` だった cpu/memory/disk 圧を使用率から導出（≥70 Medium / ≥85 High / ≥95 Critical）
+- `RuntimePerformanceMetrics` — `threadCount`（全OS）と `handleCount`（Windows）を `Process` 実測
+
+### Fixed (ヘルスメトリクスが固定値0を返していたバグ)
+
+- `SystemHealthMonitor` — `CpuUsage`/`DiskUsage`/`BytesReceivedPerSec`/`BytesSentPerSec`/`ActiveConnections` が常に 0.0 だった。`SystemMetricsSampler` を追加し実測化:
+  - CPU: Windows は `PerformanceCounter`(`Processor\% Processor Time\_Total`)、Linux は `/proc/stat` 差分、その他OSは 0 フォールバック
+  - Disk: `DriveInfo` でシステムドライブの使用%・空き・総容量を実測（read/write レートは Windows カウンタ、その他OSは 0）
+  - Network: `NetworkInterface` のインターフェースカウンタ差分で送受信レートを算出＋`IPGlobalProperties` でアクティブ TCP 数を実測
+- 確認済み実値: Disk 74.6%・Network ~77KB/s・activeConnections=7（従来は全て 0）
+
+### Fixed (機能的に死んでいた監視サービス2件を実接続)
+
+- `AnomalyDetector` — 3分毎の分析タイマーは動いていたが `RecordMetric` の呼出元がゼロで、空の履歴を永遠に解析していた。`ISystemHealthMonitor.GetCurrentMetricsAsync()` から各周期メトリクスを投入するよう接続
+- `EventCorrelationService` — 相関ルール（cpu_usage/memory_usage 等）は存在するが `RecordEvent` の呼出元がゼロ。`HealthAlert` イベントを購読して `health.alert` イベントを記録＋相関周期で現在メトリクスをルールのイベント型名（`cpu_usage` 等）へマッピングして投入。`StopAsync` で購読解除
+
+### Fixed (dependabot.yml の構文破損)
+
+- `.github/dependabot.yml` — `automerge`/`with`/`key`/`restore-keys` 等の Dependabot に存在しないキー（CI キャッシュ設定の混入）を除去し、本来の `nuget` エコシステム定義を追加。従来はバリデーション不備で NuGet 更新 PR が一切発行されない構成だった
+
+### Removed (ビルド不能なインストーラ・ツール群と恒常失敗の検証スクリプト)
+
+- `setup/` 削除 — WiX 定義 `Potion.wxs` が存在しない `Potion.Service.Installer.dll`（カスタムアクション DLL のプロジェクト自体が無い）と `License.rtf`/`Dialog.bmp`/`Banner.bmp`（ファイル未同梱）を必須参照するためビルド不可。`install.cmd` はその MSI を実行、`PotionSetupUI.cs` は存在しない `Potion.ConfigTool.exe` を生成する手順を持つ
+- `tools/Potion.ConfigTool.cs` 削除 — プロジェクトファイルなし・`Potion.Service.Options`（内部型）参照でコンパイル不能な孤立ファイル（tools/ は空に）
+- `scripts/validate-system.sh` 削除 — 削除済みコントローラの `/api/health/system/comprehensive` 等15件の不存在エンドポイントを叩くため恒常失敗
+- いずれも CI・他スクリプト・ドキュメントから参照なし。残存スクリプト（`build-release.ps1`/`deploy-windows.ps1`/`package-installer.ps1`/`deploy.sh`）は sc.exe/MSI 非依存の実用経路
+
+### Removed (消費者ゼロの i18n スタック全体 — サービス+resx+パッケージ+ツール)
+
+- `InternationalizationService` — DI 登録済みだが消費者ゼロ（Startup の登録以外、本番・ダッシュボード・API のどこからも参照されない）。登録・`UseRequestLocalization`・`AddLocalization`/`AddMemoryCache`・46言語の `supportedCultures` ブロックを削除（`IMemoryCache` の唯一の利用者も同サービス）
+- `Resources/` 配下の resx 48ファイル削除 — `ControllerStrings.*.resx` は削除済みコントローラ向けの文言で、上記サービス経由でしか読まれない
+- `Microsoft.Extensions.Localization` パッケージ除去 — 唯一の利用者が同サービス（ライブラリ削除: 唯一消費者の消失に伴う。将来 i18n が必要になれば resx ごと git 履歴から復元可能）
+- `InternationalizationServiceTests`・`tools/TranslationManager.cs`/`.csx` 削除 — resx を検査するためだけのツール群
+- テスト総数 41→29
+
+### Fixed (README の実態整合)
+
+- 機能一覧の `argument sanitization, SQL-injection guards, rate limiting` を除去 — 全て削除済みのテスト専用コードだった（実効セキュリティは `CommandValidator` 許可リスト + シェルレス起動）
+- テスト数 `134/134` → `41/41`（削除分は全て死コード専用テスト）
+- `src/Potion.Service/README.md` に `/api/health*` エンドポイント一覧を追記
+
+### Removed (テスト専用サービス第2弾 — 約2,300行)
+
+- `AdvancedCacheService`・`DatabaseOptimizationService`・`ErrorHandler`(+`IErrorHandler`/`LogLevel`/`ErrorType`/`ErrorSeverity`/`ErrorRecoveryAction` 等の付属型) — いずれも DI 未登録・本番参照ゼロで、対応するテストファイルだけが参照していた
+- 上記専用テスト3件を削除: `AdvancedCacheServiceTests`・`DatabaseOptimizationServiceTests`・`ErrorHandlerTests`
+- `Microsoft.Data.SqlClient` 7.0.3 を csproj から除去 — 唯一の利用者が `DatabaseOptimizationService` だった（ライブラリ削除: 唯一消費者の消失に伴う。将来 SQL アクセスが必要になれば再追加で復元可能）
+- テスト総数 90→41。残存テストは全て live コードを対象
+
 ### Removed (テスト専用バリデータクラスタ — 本番未接続、約2,900行)
 
 - `CommandGuard`/`ICommandGuard`（76行）— 本番で一度もインスタンス化・DI登録されていないファサード。実際の許可リスト強制は `ICommandValidator`/`CommandValidator` が担う（PR #32 で executor に配線済み）

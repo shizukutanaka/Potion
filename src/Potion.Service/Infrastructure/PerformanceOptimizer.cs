@@ -59,15 +59,18 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
     private readonly ILogger<PerformanceOptimizer> _logger;
     private readonly IOptionsMonitor<PerformanceOptimizerOptions> _optionsMonitor;
     private readonly IProcessRunner _processRunner;
+    private readonly ICommandValidator _commandValidator;
 
     public PerformanceOptimizer(
         ILogger<PerformanceOptimizer> logger,
         IOptionsMonitor<PerformanceOptimizerOptions> optionsMonitor,
-        IProcessRunner processRunner)
+        IProcessRunner processRunner,
+        ICommandValidator commandValidator)
     {
         _logger = logger;
         _optionsMonitor = optionsMonitor;
         _processRunner = processRunner;
+        _commandValidator = commandValidator;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -246,6 +249,14 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
 
     private (long UsedBytes, long AvailableBytes) GetMemoryInfo()
     {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            // WMI は Windows 専用。他OSでは GC 情報から管理メモリを近似値として返す
+            var total = GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+            var used = GC.GetTotalMemory(forceFullCollection: false);
+            return (used, Math.Max(total - used, 0));
+        }
+
         using var searcher = new System.Management.ManagementObjectSearcher(
             "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
         var os = searcher.Get().Cast<System.Management.ManagementObject>().First();
@@ -292,45 +303,17 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
                 .Take(3)
                 .ToList();
 
+            // 高CPUプロセスを報告（外部プロセスへの干渉は行わない — TotalProcessorTime は累積値であり
+            // 現在の負荷と一致しないため、優先度変更は対象誤認・悪影響のリスクがある）
             foreach (var process in highCpuProcesses)
             {
                 try
                 {
-                    if (process.ProcessName.Contains("Potion", StringComparison.OrdinalIgnoreCase) ||
-                        process.ProcessName.Contains("Otedama", StringComparison.OrdinalIgnoreCase))
-                    {
-                        continue; // 自プロセスはスキップ
-                    }
-
-                    // CPU優先度を下げる
-                    if (process.PriorityClass != ProcessPriorityClass.Idle)
-                    {
-                        process.PriorityClass = ProcessPriorityClass.BelowNormal;
-                        actions.Add($"プロセス {process.ProcessName} の優先度を下げました");
-                    }
+                    actions.Add($"高CPUプロセス検出: {process.ProcessName} (累積 {process.TotalProcessorTime.TotalMinutes:F1} 分)");
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogWarning(ex, "プロセス優先度の調整に失敗しました: {ProcessName}", process.ProcessName);
-                }
-            }
-
-            // 不要なサービスを停止（安全なもののみ）
-            var servicesToStop = new[] { "SysMain", "WSearch", "Spooler" }; // 必要に応じて調整
-            foreach (var serviceName in servicesToStop)
-            {
-                try
-                {
-                    var process = Process.GetProcessesByName(serviceName).FirstOrDefault();
-                    if (process != null && !process.HasExited)
-                    {
-                        // 注意: 実際のサービス停止は慎重に実装する必要がある
-                        actions.Add($"サービス {serviceName} の停止を推奨しました");
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "サービス停止の確認に失敗しました: {ServiceName}", serviceName);
+                    _logger.LogWarning(ex, "プロセス情報の取得に失敗しました: {ProcessName}", process.ProcessName);
                 }
             }
         }
@@ -348,15 +331,7 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
 
         try
         {
-            // メモリ解放の実行
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                var result = await _processRunner.RunAsync(new ProcessStartInfo("EmptyStandbyList.exe", ""), TimeSpan.FromMinutes(2), cancellationToken);
-                if (result.ExitCode == 0)
-                {
-                    actions.Add("スタンバイメモリを解放しました");
-                }
-            }
+
 
             // 高メモリ使用プロセスを特定
             var highMemoryProcesses = Process.GetProcesses()
@@ -432,29 +407,16 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
 
         try
         {
-            // 不要なプロセスを終了（安全なもののみ）
-            var processesToCheck = new[] { "notepad", "calc", "mspaint" }; // 必要に応じて調整
-            foreach (var processName in processesToCheck)
+            // 重複起動プロセスの報告（ユーザープロセスの Kill は未保存データを失うため行わない）
+            var processGroups = Process.GetProcesses()
+                .GroupBy(p => p.ProcessName)
+                .Where(g => g.Count() > 1)
+                .OrderByDescending(g => g.Count())
+                .Take(5);
+
+            foreach (var group in processGroups)
             {
-                var processes = Process.GetProcessesByName(processName);
-                if (processes.Length > 1) // 複数のインスタンスがある場合
-                {
-                    for (int i = 1; i < processes.Length; i++)
-                    {
-                        try
-                        {
-                            if (!processes[i].HasExited)
-                            {
-                                processes[i].Kill();
-                                actions.Add($"不要なプロセスを終了しました: {processName}");
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            _logger.LogDebug(ex, "プロセス終了に失敗しました: {ProcessName}", processName);
-                        }
-                    }
-                }
+                actions.Add($"重複起動プロセス検出: {group.Key} ({group.Count()} インスタンス)");
             }
         }
         catch (Exception ex)
@@ -469,10 +431,16 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
     {
         var actions = new List<string>();
 
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return actions; // netsh/powercfg/WMI は Windows 専用
+        }
+
         try
         {
-            // ネットワーク接続の最適化
-            var result = await _processRunner.RunAsync(new ProcessStartInfo("netsh", "interface tcp set global autotuninglevel=normal"), TimeSpan.FromMinutes(2), cancellationToken);
+            // ネットワーク接続の最適化（allowlist 検証必須）
+            _commandValidator.EnsureCommandIsAllowed("netsh.exe");
+            var result = await _processRunner.RunAsync(new ProcessStartInfo("netsh.exe", "interface tcp set global autotuninglevel=normal"), TimeSpan.FromMinutes(2), cancellationToken);
             if (result.ExitCode == 0)
             {
                 actions.Add("ネットワーク設定を最適化しました");
@@ -482,7 +450,8 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             using var batterySearcher = new System.Management.ManagementObjectSearcher("SELECT BatteryStatus FROM Win32_Battery");
             if (batterySearcher.Get().Count > 0)
             {
-                var powerResult = await _processRunner.RunAsync(new ProcessStartInfo("powercfg", "/setactive 381b4222-f694-41f0-9685-ff5bb260df2e"), TimeSpan.FromMinutes(2), cancellationToken);
+                _commandValidator.EnsureCommandIsAllowed("powercfg.exe");
+                var powerResult = await _processRunner.RunAsync(new ProcessStartInfo("powercfg.exe", "/setactive 381b4222-f694-41f0-9685-ff5bb260df2e"), TimeSpan.FromMinutes(2), cancellationToken);
                 if (powerResult.ExitCode == 0)
                 {
                     actions.Add("電源設定をバランスモードに変更しました");

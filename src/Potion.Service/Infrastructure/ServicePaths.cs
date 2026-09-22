@@ -8,9 +8,36 @@ public static class ServicePaths
 {
     private static readonly Lazy<string> BasePathFactory = new(() =>
     {
-        var path = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "Otedama");
-        Directory.CreateDirectory(path);
-        return path;
+        // Try each standard root in order — the first writable one wins
+        // (CommonApplicationData is root-owned on Unix, so LocalApplicationData
+        // serves as the fallback there).
+        var candidates = new[]
+        {
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            AppContext.BaseDirectory,
+        };
+
+        foreach (var root in candidates)
+        {
+            if (string.IsNullOrEmpty(root))
+            {
+                continue;
+            }
+
+            try
+            {
+                var path = Path.Combine(root, "Potion");
+                Directory.CreateDirectory(path);
+                return path;
+            }
+            catch
+            {
+                // try the next candidate root
+            }
+        }
+
+        throw new InvalidOperationException("No writable directory found for service state.");
     });
 
     public static string Base => BasePathFactory.Value;
@@ -25,14 +52,6 @@ public static class ServicePaths
     public static string ConfigBackups => Ensure(Path.Combine(Base, "backups", "config"));
     public static string BaseDirectory => Base;
     public static string ConfigurationFile => Path.Combine(Base, "config", "appsettings.json");
-
-    private static readonly SecurityIdentifier[] PrivilegedSecurityIdentifiers =
-    {
-        new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
-        new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
-        new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null),
-        new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null)
-    };
 
     public static string GetTelemetryFilePath(string taskName, DateTimeOffset timestampUtc)
     {
@@ -81,8 +100,21 @@ public static class ServicePaths
 
     private static void HardenDirectory(string path)
     {
+        if (!OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
         try
         {
+            var privilegedSecurityIdentifiers = new[]
+            {
+                new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
+                new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
+                new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null),
+                new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null)
+            };
+
             var directoryInfo = new DirectoryInfo(path);
             if (!directoryInfo.Exists)
             {
@@ -105,7 +137,7 @@ public static class ServicePaths
                 }
             }
 
-            foreach (var sid in PrivilegedSecurityIdentifiers)
+            foreach (var sid in privilegedSecurityIdentifiers)
             {
                 var rule = new FileSystemAccessRule(
                     sid,

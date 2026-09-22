@@ -1,5 +1,9 @@
 version: 2
 updates:
+  - package-ecosystem: "nuget"
+    directory: "/"
+    schedule:
+      interval: "weekly"
   - package-ecosystem: "docker"
     directory: "/"
     schedule:
@@ -7,8 +11,6 @@ updates:
   - package-ecosystem: "github-actions"
     directory: "/"
     allow:
-      - dependency-type: "direct"
-    automerge:
       - dependency-type: "direct"
     schedule:
       interval: "weekly"

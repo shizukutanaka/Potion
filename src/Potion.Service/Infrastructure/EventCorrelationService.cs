@@ -19,19 +19,35 @@ public class EventCorrelationOptions
 
 public class EventCorrelationService : IHostedService, IDisposable
 {
+    private static readonly IReadOnlyDictionary<string, string> MetricEventTypes = new Dictionary<string, string>
+    {
+        ["CpuUsage"] = "cpu_usage",
+        ["MemoryUsage"] = "memory_usage",
+        ["DiskUsage"] = "disk_usage",
+        ["BytesReceivedPerSec"] = "network_bytes_per_sec",
+        ["BytesSentPerSec"] = "network_bytes_per_sec",
+    };
+
     private readonly ILogger<EventCorrelationService> _logger;
     private readonly EventCorrelationOptions _options;
+    private readonly ISystemHealthMonitor _healthMonitor;
+    private readonly EventCorrelationStats _stats;
     private readonly ConcurrentQueue<SystemEvent> _eventBuffer = new();
     private readonly List<CorrelationRule> _rules = new();
     private Timer? _correlationTimer;
 
     public EventCorrelationService(
         ILogger<EventCorrelationService> logger,
-        IOptions<EventCorrelationOptions> options)
+        IOptions<EventCorrelationOptions> options,
+        ISystemHealthMonitor healthMonitor,
+        EventCorrelationStats stats)
     {
         _logger = logger;
         _options = options.Value;
+        _healthMonitor = healthMonitor;
+        _stats = stats;
         InitializeRules();
+        _stats.ActiveCorrelationRules = _rules.Count;
     }
 
     private void InitializeRules()
@@ -51,11 +67,11 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         _rules.Add(new CorrelationRule
         {
-            Name = "Network + Disk I/O Storm",
+            Name = "Network + Disk Pressure",
             Conditions = new List<EventCondition>
             {
                 new EventCondition { EventType = "network_bytes_per_sec", Operator = ">", Threshold = 100000000 }, // 100MB/s
-                new EventCondition { EventType = "disk_write_bytes_per_sec", Operator = ">", Threshold = 50000000 } // 50MB/s
+                new EventCondition { EventType = "disk_usage", Operator = ">", Threshold = 90.0 }
             },
             Severity = "High",
             Description = "High I/O activity detected"
@@ -63,14 +79,15 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         _rules.Add(new CorrelationRule
         {
-            Name = "Service Failures Cascade",
+            Name = "Alert Storm",
             Conditions = new List<EventCondition>
             {
-                new EventCondition { EventType = "service_failed", Operator = "count", Threshold = 3 },
-                new EventCondition { EventType = "error_logged", Operator = "count", Threshold = 10 }
+                // health.alert events are recorded by OnHealthAlert; a burst
+                // of them in the window means several components are failing.
+                new EventCondition { EventType = "health.alert", Operator = "count", Threshold = 3 }
             },
             Severity = "High",
-            Description = "Multiple service failures detected"
+            Description = "Multiple health alerts in the correlation window"
         });
 
         // Add custom rules from configuration
@@ -92,6 +109,8 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         _correlationTimer = new Timer(ProcessEventCorrelations, null, TimeSpan.Zero,
             TimeSpan.FromMinutes(_options.CorrelationWindowMinutes));
+
+        _healthMonitor.HealthAlert += OnHealthAlert;
 
         return Task.CompletedTask;
     }
@@ -116,10 +135,25 @@ public class EventCorrelationService : IHostedService, IDisposable
         }
     }
 
+    private void OnHealthAlert(object? sender, SystemHealthAlert alert)
+    {
+        RecordEvent("health.alert", alert, alert.Timestamp, "health-monitor");
+    }
+
     private void ProcessEventCorrelations(object? state)
     {
         try
         {
+            var metrics = _healthMonitor.GetCurrentMetricsAsync().GetAwaiter().GetResult();
+            var now = DateTimeOffset.UtcNow;
+            foreach (var (metric, eventType) in MetricEventTypes)
+            {
+                if (metrics.TryGetValue(metric, out var value))
+                {
+                    RecordEvent(eventType, value, now, "health-monitor");
+                }
+            }
+
             var events = _eventBuffer.ToArray();
             var windowStart = DateTimeOffset.UtcNow - TimeSpan.FromMinutes(_options.CorrelationWindowMinutes);
 
@@ -133,6 +167,7 @@ public class EventCorrelationService : IHostedService, IDisposable
                 return;
 
             var correlations = FindCorrelations(recentEvents);
+            _stats.CorrelatedEventCount += correlations.Count;
 
             foreach (var correlation in correlations)
             {
@@ -252,6 +287,7 @@ public class EventCorrelationService : IHostedService, IDisposable
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        _healthMonitor.HealthAlert -= OnHealthAlert;
         _correlationTimer?.Change(Timeout.Infinite, 0);
         return Task.CompletedTask;
     }
@@ -260,6 +296,16 @@ public class EventCorrelationService : IHostedService, IDisposable
     {
         _correlationTimer?.Dispose();
     }
+}
+
+/// <summary>
+/// Shared counters so the health snapshot can report live correlation state.
+/// </summary>
+public sealed class EventCorrelationStats
+{
+    public int CorrelatedEventCount;
+
+    public int ActiveCorrelationRules;
 }
 
 public class SystemEvent

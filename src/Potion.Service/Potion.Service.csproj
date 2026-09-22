@@ -10,11 +10,10 @@
     <PublishSingleFile>false</PublishSingleFile>
     <!-- セキュリティとパフォーマンスの最適化 -->
     <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>link</TrimMode>
+    <!-- PublishTrimmed は win-x64 publish で IL2008 (System.Diagnostics.FileVersionInfo)
+         により失敗するため無効化。リフレクション多用のためトリム適合性も限定的 -->
+    <PublishTrimmed>false</PublishTrimmed>
     <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
-    <!-- PublishTrimmed は JsonSerializer のリフレクションベース解決を既定で無効化する。
-         AOT ではなくトリムのみのためリフレクションを再有効化し、Minimal API / SecureLogService 等の動的シリアライズを機能させる -->
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <!-- 高度な最適化 -->
     <Optimize>true</Optimize>
@@ -91,6 +90,7 @@
     <!-- ML.NET packages removed: no code references Microsoft.ML (anomaly detection is statistical, not ML.NET-based). Re-add when a real ML.NET pipeline lands. -->
 
     <!-- Core Infrastructure -->
+    <PackageReference Include="System.Diagnostics.EventLog" Version="10.0.12" />
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.Threading.Channels" Version="9.0.4" />
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.12" />

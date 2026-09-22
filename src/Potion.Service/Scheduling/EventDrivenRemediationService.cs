@@ -43,9 +43,13 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
         // ヘルスモニターのイベントを購読
         _healthMonitor.HealthAlert += OnHealthAlert;
 
-        while (!stoppingToken.IsCancellationRequested)
+        // 純粋なイベント駆動: ポーリングせず停止シグナルまで待機
+        try
         {
-            await Task.Delay(1000, stoppingToken); // 1秒間隔でポーリング
+            await Task.Delay(Timeout.Infinite, stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
         }
     }
 
@@ -120,14 +124,20 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
     {
         try
         {
-            // タスクを実行するための仮のタスク記述子を作成
+            if (!PreventiveRemediationCommands.TryResolve(taskName, out var command, out var arguments))
+            {
+                _logger.LogWarning("イベント駆動タスクに対応する実行コマンドがありません: {TaskName}", taskName);
+                return;
+            }
+
             var taskDescriptor = new RemediationTaskDescriptor(
                 $"event-driven-{taskName}",
                 new RemediationTaskOption
                 {
                     Name = $"event-driven-{taskName}",
                     DisplayName = $"イベント駆動タスク: {taskName}",
-                    Command = taskName,
+                    Command = command,
+                    Arguments = arguments,
                     Enabled = true,
                     TimeoutSeconds = 300
                 }
@@ -179,13 +189,13 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
 
     private void InitializeDefaultTriggerRules()
     {
-        // CPU使用率が90%以上の場合のトリガー
+        // コンポーネント名は SystemHealthMonitor 発行値（cpu/memory/disk、大文字小文字不問）。
+        // Severity のみで判定 — メッセージ本文への依存は脆いため Condition は付けない。
         _triggerRules["high_cpu"] = new TriggerRule
         {
             Name = "High CPU Usage",
-            Component = "CPU",
+            Component = "cpu",
             MinSeverity = AlertSeverity.Warning,
-            Condition = alert => alert.Message.Contains("High CPU usage"),
             Action = new TriggerAction
             {
                 Type = ActionType.ExecuteTask,
@@ -193,13 +203,11 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
             }
         };
 
-        // メモリ使用率が90%以上の場合のトリガー
         _triggerRules["high_memory"] = new TriggerRule
         {
             Name = "High Memory Usage",
-            Component = "Memory",
+            Component = "memory",
             MinSeverity = AlertSeverity.Warning,
-            Condition = alert => alert.Message.Contains("High memory usage"),
             Action = new TriggerAction
             {
                 Type = ActionType.ExecuteTask,
@@ -207,31 +215,15 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
             }
         };
 
-        // ディスク使用率が95%以上の場合のトリガー
         _triggerRules["high_disk"] = new TriggerRule
         {
             Name = "High Disk Usage",
-            Component = "Disk",
+            Component = "disk",
             MinSeverity = AlertSeverity.Critical,
-            Condition = alert => alert.Message.Contains("High disk usage"),
             Action = new TriggerAction
             {
                 Type = ActionType.ExecuteTask,
                 TaskName = "disk-cleanup"
-            }
-        };
-
-        // ネットワーク使用率が高い場合のトリガー
-        _triggerRules["high_network"] = new TriggerRule
-        {
-            Name = "High Network Usage",
-            Component = "Network",
-            MinSeverity = AlertSeverity.Warning,
-            Condition = alert => alert.Message.Contains("High network usage"),
-            Action = new TriggerAction
-            {
-                Type = ActionType.SendWebhook,
-                WebhookUrl = "https://example.com/webhook/network-alert"
             }
         };
     }
