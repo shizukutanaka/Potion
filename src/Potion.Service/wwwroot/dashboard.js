@@ -184,21 +184,18 @@ class PotionDashboard {
         });
     }
 
+    // Dim cards while the first poll runs; the card DOM must survive
+    // because renderers write into elements by id.
     showLoadingState() {
         document.querySelectorAll('.metric-card').forEach(card => {
-            const content = card.querySelector('.card-content');
-            if (content) {
-                content.innerHTML = `
-                    <div class="loading-skeleton skeleton-card"></div>
-                    <div class="loading-skeleton skeleton-text"></div>
-                    <div class="loading-skeleton skeleton-text large"></div>
-                `;
-            }
+            card.classList.add('loading');
         });
     }
 
     hideLoadingState() {
-        // Loading state is automatically replaced by real content
+        document.querySelectorAll('.metric-card.loading').forEach(card => {
+            card.classList.remove('loading');
+        });
     }
 
     showModal(content, options = {}) {
@@ -334,7 +331,6 @@ class PotionDashboard {
                 this.loadOverviewData(),
                 this.loadSecurityData(),
                 this.loadPerformanceData(),
-                this.loadAlertsData(),
                 this.loadLogsData()
             ]);
             this.updateLastUpdated();
@@ -898,6 +894,27 @@ class PotionDashboard {
             oscillator.stop(audioContext.currentTime + 0.3);
         } catch (error) {
             console.warn('Could not play notification sound:', error);
+        }
+    }
+
+    // Reflect the backend reachability in the header status pill.
+    setConnectionStatus(connected) {
+        const indicator = document.querySelector('.status-indicator-advanced');
+        if (!indicator) return;
+
+        const dot = indicator.querySelector('.status-dot');
+        const text = indicator.querySelector('.status-text');
+
+        if (connected) {
+            indicator.classList.remove('critical');
+            indicator.classList.add('healthy');
+            dot.className = 'status-dot healthy';
+            text.textContent = 'System Healthy';
+        } else {
+            indicator.classList.remove('healthy');
+            indicator.classList.add('critical');
+            dot.className = 'status-dot critical';
+            text.textContent = 'Connection Lost';
         }
     }
 

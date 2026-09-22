@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボード全体が完全に死んでいた根本原因)
+
+- **`index.html` に `<script>` タグが無く `dashboard.js` が一切読み込まれていなかった実バグ** — ダッシュボードは静的な骨組みだけで全機能が未実行だった。script タグと欠落していた `</body>`/`</html>` を追加
+- **`refreshAllData()` が1行目で必ず例外になる実バグ** — `setConnectionStatus()` が未実装で TypeError → 全フェッチ不発。接続状態をヘッダーピルへ反映する実装を追加、同様に未実装の `loadAlertsData()` 呼び出しを除去（アラートは overview ポーリング経由）
+- **`showLoadingState()` が描画先DOMを破壊していた実バグ** — `.card-content` をスケルトンで innerHTML 置換し `getElementById` 参照を全滅させていた（hideLoadingState は空実装）。非破壊的な `.loading` クラス方式へ変更（styles.css に対応ルール追加）
+- 検証: jsdom で全カード/アラート/ログ/チャートが実値描画・エラー0、実ブラウザで API ポーリング・実値表示を確認
+
 ### Fixed (ダッシュボードの死ワイヤ・偽アクション実バグ3件)
 
 - **アラート一覧が永久に空だった実バグ** — `updateAlertsDisplay()` がどこからも呼ばれず `#alerts-container` が未描画。`/api/health` のポーリング結果から実描画するよう配線

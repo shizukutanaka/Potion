@@ -4076,3 +4076,10 @@ h4 { font-size: 16px; }
         box-shadow: var(--shadow-md);
     }
 }
+
+/* Non-destructive loading state: dims cards instead of replacing their DOM. */
+.metric-card.loading .card-content {
+    opacity: 0.4;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+}
