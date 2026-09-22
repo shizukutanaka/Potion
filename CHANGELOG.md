@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (docker-compose のサービス到達不能バグ — Kestrel エンドポイント上書き)
+
+- **docker-compose で起動したサービスが外部から到達不能だった実バグ** — `ASPNETCORE_URLS=http://+:80` を指定していたが、`appsettings.json` の `Kestrel:Endpoints:Http` 設定が `ASPNETCORE_URLS` より優先されるため、コンテナは依然 `localhost:5000` にのみバインド（port マッピング `5000:80`・prometheus ターゲット `potion-service:80` が両方不通）。`Kestrel__Endpoints__Http__Url=http://+:80` の環境変数上書きに変更 — 実環境で `:8899` へのバインド変更を検証済み
+
 ### Fixed (win-x64 publish が失敗する実バグ + README 実態整合)
 
 - **`PublishTrimmed` により `dotnet publish -r win-x64` が必ず失敗していた実バグ** — IL2008（`System.Diagnostics.FileVersionInfo` 置換エラー）で NETSDK1144 失敗。リフレクション多用のためトリム適合性も限定的なので `PublishTrimmed=false` に変更し publish 成功を確認（MSI ビルドの前提条件だったため setup/ 全体が作れない状態だった）

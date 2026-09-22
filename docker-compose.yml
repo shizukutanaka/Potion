@@ -15,7 +15,9 @@ services:
       - "5000:80"
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:80
+      # Kestrel:Endpoints in appsettings.json wins over ASPNETCORE_URLS,
+      # so override the endpoint itself to listen on all interfaces.
+      - Kestrel__Endpoints__Http__Url=http://+:80
     volumes:
       - ./src/Potion.Service/appsettings.Development.json:/app/appsettings.Development.json
       - ./src/Potion.Service/Resources:/app/Resources
