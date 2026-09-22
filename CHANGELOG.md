@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (残存スタブメトリクスの実測化)
+
+- `ServiceMetrics` — Windows 上で `Win32_Service`（既参照の `System.Management`、新規パッケージなし）からサービス総数/稼働/停止を実測。`Stopped` かつ `Auto` 開始は失敗サービスとして件名を返す（他OSは 0）
+- `ResourcePressureMetrics` — 常に `None` だった cpu/memory/disk 圧を使用率から導出（≥70 Medium / ≥85 High / ≥95 Critical）
+- `RuntimePerformanceMetrics` — `threadCount`（全OS）と `handleCount`（Windows）を `Process` 実測
+
 ### Fixed (ヘルスメトリクスが固定値0を返していたバグ)
 
 - `SystemHealthMonitor` — `CpuUsage`/`DiskUsage`/`BytesReceivedPerSec`/`BytesSentPerSec`/`ActiveConnections` が常に 0.0 だった。`SystemMetricsSampler` を追加し実測化:
