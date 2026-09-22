@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Removed (テスト専用バリデータクラスタ — 本番未接続、約2,900行)
+
+- `CommandGuard`/`ICommandGuard`（76行）— 本番で一度もインスタンス化・DI登録されていないファサード。実際の許可リスト強制は `ICommandValidator`/`CommandValidator` が担う（PR #32 で executor に配線済み）
+- 同ファサード専用依存も消費者ゼロのため削除: `UrlValidator`（144行）・`DomainValidator`（49行）・`ArgumentSanitizer`（121行）・`RateLimiter`（103行）・`NetworkSecurityGuard`（485行）
+- 上記だけを対象とするテスト資産も削除: `CommandGuardTests.cs`（423行）・`IntegrationTests.cs`（264行・全件 CommandGuard+ProcessRunner）・`PerformanceTests.cs` の CommandGuard 系4テスト（ProcessRunner/Memory 系3テストは存続）・`TestHelpers.CreateCommandGuard`/`ForwardingLogger`
+- `tests/Potion.Service.Benchmarks/` プロジェクトごと削除 — 全ベンチマークが本クラスタ専用、かつ sln 未登録の孤児プロジェクトだった（CI の `Test-Path` ガードによりジョブは自動スキップ）
+- テスト総数 139→90。セキュリティ上の実効経路（`CommandValidator` 許可リスト + `UseShellExecute=false` 直接起動）は変更なし・既存テストで保護継続
+
 ### Fixed (ナビゲーション全体が初回クリックで全滅するバグ — UI変更: バグ修正のみ、見た目・レイアウト変更なし)
 
 - `showSection()` のナビハイライトが2重に壊れていた:
