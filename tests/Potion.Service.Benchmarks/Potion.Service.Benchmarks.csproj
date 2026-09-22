@@ -10,9 +10,6 @@
 
   <ItemGroup>
     <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
-    <!-- 製品の明示参照 Pkcs 8.0.1 と SqlClient 推移要件 >=9.0.13 の不整合をローカルで解消 -->
-    <PackageReference Include="System.Security.Cryptography.Pkcs" Version="9.0.13" />
-    <!-- Logging.Abstractions / Options は製品側が既に >=9.0.0 を供給（推移依存で解決） -->
   </ItemGroup>
 
   <ItemGroup>
