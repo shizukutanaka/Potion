@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (k8s/deployment.yaml の CrashLoop 確定破損 — 不存在エンドポイント probe)
+
+- **liveness/readiness/startup probe が全て不存在パス**（`/api/health/liveness`・`/api/health/readiness`）を指し、デプロイした全 Pod が probe 失敗で CrashLoop 確定 — 実在する `/health` へ修正
+- `prometheus.io/path` ・ ServiceMonitor のパスが不存在の `/api/health/metrics/custom` — 実在する `/metrics` へ修正（scrape が 404 だった）
+- **アプリ未使用の偽装 Secret を除去** — `JwtSecret`/`DatabaseConnection` を base64 でリポジトリにコミット（値はダミーだが secret 形のコミットはアンチパターン）。アプリは JWT/DB を参照しないため Secret 本体と `secretRef` を削除
+
 ### Added (Prometheus→Alertmanager→サービスのアラート連鎖を実装 — 宣言済みだが全て休眠だった)
 
 - **`POST /api/health/alerts/webhook` エンドポイント新設** — `monitoring/alertmanager.yml` が指していた契約を実装: Alertmanager v4 webhook ペイロードを受信し firing は警告・resolved は情報として記録（API追加のため注記 — 既存APIの変更なし）

@@ -33,20 +33,6 @@ data:
   Performance__MemoryLimitMB: "512"
 
 ---
-apiVersion: v1
-kind: Secret
-metadata:
-  name: potion-service-secrets
-  namespace: potion-system
-  labels:
-    app: potion-service
-type: Opaque
-data:
-  # JWT secret key (base64 encoded)
-  JwtSecret: "cG90aW9uLXNlY3JldC1rZXktMjAyNC1wcm9kdWN0aW9u"
-  # Database connection string (base64 encoded)
-  DatabaseConnection: "U2VydmVyPWxvY2FsaG9zdDtEYXRhYmFzZT1Qb3Rpb247VHJ1c3RlZENvbm5lY3Rpb249dHJ1ZTtJbnRlZ3JhdGVkU2VjdXJpdHk9dHJ1ZTtQb29saW5nPXRydWU="
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -68,7 +54,7 @@ spec:
       annotations:
         prometheus.io/scrape: "true"
         prometheus.io/port: "80"
-        prometheus.io/path: "/api/health/metrics/custom"
+        prometheus.io/path: "/metrics"
     spec:
       containers:
       - name: potion-service
@@ -82,8 +68,6 @@ spec:
         envFrom:
         - configMapRef:
             name: potion-service-config
-        - secretRef:
-            name: potion-service-secrets
         resources:
           requests:
             memory: "256Mi"
@@ -93,7 +77,7 @@ spec:
             cpu: "500m"
         livenessProbe:
           httpGet:
-            path: /api/health/liveness
+            path: /health
             port: 80
           initialDelaySeconds: 60
           periodSeconds: 30
@@ -101,7 +85,7 @@ spec:
           failureThreshold: 3
         readinessProbe:
           httpGet:
-            path: /api/health/readiness
+            path: /health
             port: 80
           initialDelaySeconds: 30
           periodSeconds: 10
@@ -109,7 +93,7 @@ spec:
           failureThreshold: 3
         startupProbe:
           httpGet:
-            path: /api/health/liveness
+            path: /health
             port: 80
           initialDelaySeconds: 10
           periodSeconds: 10
@@ -231,7 +215,7 @@ spec:
       app: potion-service
   endpoints:
   - port: http
-    path: /api/health/metrics/custom
+    path: /metrics
     interval: 30s
     scrapeTimeout: 10s
 ---
