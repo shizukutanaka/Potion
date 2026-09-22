@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (README の実態整合)
+
+- 機能一覧の `argument sanitization, SQL-injection guards, rate limiting` を除去 — 全て削除済みのテスト専用コードだった（実効セキュリティは `CommandValidator` 許可リスト + シェルレス起動）
+- テスト数 `134/134` → `41/41`（削除分は全て死コード専用テスト）
+- `src/Potion.Service/README.md` に `/api/health*` エンドポイント一覧を追記
+
 ### Removed (テスト専用サービス第2弾 — 約2,300行)
 
 - `AdvancedCacheService`・`DatabaseOptimizationService`・`ErrorHandler`(+`IErrorHandler`/`LogLevel`/`ErrorType`/`ErrorSeverity`/`ErrorRecoveryAction` 等の付属型) — いずれも DI 未登録・本番参照ゼロで、対応するテストファイルだけが参照していた

@@ -16,6 +16,7 @@ Windows 向け自己修復サービス。システムの健全性を監視し、
 ## エンドポイント
 
 - `/health` — 死活監視プローブ（200 `Healthy`）
+- `/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary` — ダッシュボード向け健全性データ
 - `/metrics` — Prometheus スクレイプ用メトリクス
 - `/collaboration` — SignalR ハブ
 

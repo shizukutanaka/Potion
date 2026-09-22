@@ -5,7 +5,7 @@ A production-grade Windows system automation and monitoring service with autonom
 ## Features
 
 - **System Monitoring**: Real-time health monitoring via hosted services (memory statistics, ML-based anomaly detection, event correlation, compliance reporting)
-- **Security**: Command allowlist, argument sanitization, SQL-injection guards, rate limiting
+- **Security**: Repair commands constrained to a configurable allowlist (`CommandValidator`) and launched without a shell
 - **Reliability**: Polly circuit-breaker/retry resilience pipelines, dependency injection validated at startup
 - **Observability**: Serilog logging, OpenTelemetry metrics + traces, Prometheus `/metrics` endpoint
 - **Collaboration**: SignalR hub at `/collaboration` and a static dashboard (`wwwroot/`)
@@ -57,7 +57,7 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 134/134 tests
+dotnet test Potion.sln   # 41/41 tests — every test targets live code
 ```
 
 ## License
