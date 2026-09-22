@@ -1,4 +1,5 @@
 using Microsoft.Extensions.Logging;
+using Potion.Service.Remediation;
 using System.Text.Json;
 
 namespace Potion.Service.Infrastructure;
@@ -37,6 +38,10 @@ public class PredictiveRemediationService : BackgroundService
                 await Task.Delay(TimeSpan.FromMinutes(5), stoppingToken); // Check every 5 minutes
 
                 await AnalyzeAndPredict();
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                return;
             }
             catch (Exception ex)
             {
@@ -78,28 +83,24 @@ public class PredictiveRemediationService : BackgroundService
 
     private async Task SchedulePreventiveRemediation(string metricKey)
     {
+        if (!PreventiveRemediationCommands.TryResolve(metricKey, out var command, out var arguments))
+        {
+            _logger.LogInformation("No preventive command mapped for {MetricKey}; skipping", metricKey);
+            return;
+        }
+
         // Create a preventive remediation task
         var preventiveTask = new RemediationTask
         {
             Name = $"Predictive_{metricKey}_{DateTime.UtcNow:yyyyMMddHHmmss}",
-            Command = GetPreventiveCommand(metricKey),
+            Command = command,
+            Arguments = arguments,
             Schedule = DateTime.UtcNow.AddMinutes(1), // Execute soon
             Priority = RemediationPriority.High,
             IsPreventive = true
         };
 
         await _remediationScheduler.ScheduleTaskAsync(preventiveTask);
-    }
-
-    private string GetPreventiveCommand(string metricKey)
-    {
-        return metricKey switch
-        {
-            "CpuUsage" => "Optimize-CpuUsage",
-            "MemoryUsage" => "Clear-MemoryCache",
-            "DiskUsage" => "Cleanup-TempFiles",
-            _ => "System-HealthCheck"
-        };
     }
 
     private class FailurePattern
@@ -137,6 +138,7 @@ public record RemediationTask
 {
     public string Name { get; init; } = string.Empty;
     public string Command { get; init; } = string.Empty;
+    public string Arguments { get; init; } = string.Empty;
     public DateTime Schedule { get; init; }
     public RemediationPriority Priority { get; init; }
     public bool IsPreventive { get; init; }

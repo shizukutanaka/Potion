@@ -2,8 +2,17 @@
 
 ## Unreleased
 
+### Fixed (修復実行経路の潜在バグ群 — FeatureFlags ON 時に確定失敗していた)
+
+- `EventDrivenRemediationService` の既定トリガールールが**永久不発**: `Condition` が `"High CPU usage"` 等の本文を要求する一方、発行側メッセージは `"CPU usage at 87.3%"` 形式で不一致。Severity+Component のみで判定するよう Condition 撤廃（発行値 `cpu`/`memory`/`disk` に整合）
+- 既定ルール `high_network` が `https://example.com` への Webhook POST — 発火した場合に外部 placeholder へ実送信する欠陥。ネットワークアラートの発生源は無く本質的に死ルールのため削除
+- `PredictiveRemediationService` の `GetPreventiveCommand` とイベント駆動 `TaskName` が擬似コマンド名（`Optimize-CpuUsage`/`cpu-optimization` 等）→ CommandValidator allowlist で確定拒否。新設 `PreventiveRemediationCommands` で実ツールへマッピング: CPU→`powercfg.exe /energy /duration 60`（診断）、Memory→`sfc.exe /verifyonly`（整合性検証・読取のみ）、Disk→`cleanmgr.exe /verylowdisk`（実クリーンアップ）。未マップキーは実行せずスキップ
+- `RemediationTask` に `Arguments` フィールド追加し `RemediationScheduler` 経由で Executor へ伝達（従来 `Command` に引数を含めると `FileName` 解決失敗 or allowlist 不一致の二択だった）
+- `PredictiveRemediationService`/`EventDrivenRemediationService` のシャットダウン時 OCE を誤エラーログしないよう分離。イベント駆動サービスの無意味な1秒ポーリングループを停止シグナル待機に置換
+
 ### Tests
 
+- `PreventiveRemediationCommands` 単体テスト新規（99→107）: 全既知キーが「空白を含まない .exe 実行体 + 分離された引数」を返すこと・大小文字不問・未既知キーは false を返すことを検証
 - `RequestMetricsTracker` 単体テスト新規（90→99）: ローリング窓の RPS/平均レイテンシ/5xx エラー率算出と `/collaboration`・`/metrics` 計測除外を検証
 
 ### Fixed (異常検知ルーティングのケース不一致)
