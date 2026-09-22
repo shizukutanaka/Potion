@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (監視サービスの既定無効化＋ServicePaths クロスプラットフォーム破損)
+
+- `appsettings.json` に `EventCorrelation.Enabled`/`Compliance.Enabled` を `true` で追加 — 両サービスのオプション既定が false・設定セクション不在で常時自己無効化していた（相関ループ・アラート購読・コンプライアンスレポートが全て不発）
+- `ServicePaths` の静的初期化で `SecurityIdentifier`（Windows専用）を構築 → 非Windowsで `TypeInitializationException` となりクラス全体が使用不可だった。ACL 強化を `OperatingSystem.IsWindows()` ガード内に遅延化
+- `ServicePaths.Base` が `CommonApplicationData`（Unixでは `/usr/share`・root所有）直下作成で権限エラー → 候補ルートを順に試行（CommonApplicationData→LocalApplicationData→AppContext.BaseDirectory）
+
 ### Fixed (HTTP パフォーマンスの実測化)
 
 - `RequestMetricsMiddleware` + `RequestMetricsTracker`（1分ローリング窓、スレッドセーフ）を新規追加し `RuntimePerformanceMetrics` の RequestsPerSecond/AverageLatencyMs/ErrorRate を実測化（固定0解消）。`/collaboration`（長時間接続）と `/metrics`（スクレイプ）は計測除外。登録は `UseStaticFiles` 後 — API/SignalR/health トラフィックのみ対象
