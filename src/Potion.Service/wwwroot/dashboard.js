@@ -365,7 +365,7 @@ class PotionDashboard {
     }
 
     updateAlertsBadge(count) {
-        const badge = document.getElementById('alerts-count');
+        const badge = document.getElementById('alerts-count-side');
         if (count > 0) {
             badge.textContent = count > 99 ? '99+' : count;
             badge.style.display = 'inline-block';
@@ -1187,7 +1187,6 @@ class PotionDashboard {
             const metrics = await response.json();
 
             this.updatePerformanceMetrics(metrics);
-            this.updateResourceChart(metrics);
 
         } catch (error) {
             console.error('Failed to load performance data:', error);
@@ -1212,45 +1211,6 @@ class PotionDashboard {
                 <span class="metric-value">${item.value}</span>
             </div>`
         ).join('');
-    }
-
-    updateResourceChart(metrics) {
-        // Simple chart implementation - could be enhanced with Chart.js
-        const canvas = document.getElementById('resource-chart');
-        const ctx = canvas.getContext('2d');
-
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Simple bar chart
-        const data = [
-            { label: 'CPU', value: metrics.cpu.usagePercent, color: '#0052CC' },
-            { label: 'Memory', value: metrics.memory.usedPercent, color: '#36B37E' },
-            { label: 'Disk', value: metrics.disk.usedPercent, color: '#FFAB00' }
-        ];
-
-        const barWidth = 60;
-        const spacing = 80;
-        const maxHeight = 150;
-
-        data.forEach((item, index) => {
-            const x = 50 + (index * spacing);
-            const height = (item.value / 100) * maxHeight;
-            const y = canvas.height - 50 - height;
-
-            // Draw bar
-            ctx.fillStyle = item.color;
-            ctx.fillRect(x, y, barWidth, height);
-
-            // Draw label
-            ctx.fillStyle = '#172B4D';
-            ctx.font = '12px Inter';
-            ctx.textAlign = 'center';
-            ctx.fillText(item.label, x + barWidth/2, canvas.height - 20);
-
-            // Draw value
-            ctx.fillText(`${item.value.toFixed(0)}%`, x + barWidth/2, y - 10);
-        });
     }
 
     async loadLogsData() {
