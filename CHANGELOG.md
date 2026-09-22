@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Chore (開発設定の死参照除去)
+
+- **`.claude/settings.local.json` の死パーミッション56件を除去** — 削除済みファイル（QuantumComputingService・MetaverseController・BlockchainAuditService 等の旧削除層）への allow エントリが残存していた。実在パス参照のみ温存
+
 ### Fixed (アラート同一性・表示フリッカー)
 
 - **継続中のアラートがクールダウン中にスナップショットから消えていた実バグ** — `EmitPressureAlert` がクールダウン判定で早期 return していたため、発火済み条件が `/api/health` の `alerts` から次ポーリングで消失（ダッシュボードで一瞬だけ表示され消える）。クールダウンはイベント発火のみに適用し、継続中条件はスナップショットに常時含めるよう修正
