@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Fixed (k8s/deployment.yaml の多重破損 — CrashLoop 継続 + 架空設定)
+
+- **k8s でも Kestrel バインド破損が残っていた実バグ** — ConfigMap が `ASPNETCORE_URLS` を注入していたが `Kestrel:Endpoints` 設定が優先されるため Pod は `localhost:5000` バインドのまま、probe `:80` 不通で **引き続き CrashLoop 確定**。`Kestrel__Endpoints__Http__Url=http://+:80` へ修正
+- **アプリ非バインドの架空 env を一掃** — `Potion__*`・`HealthCheck__*`・`Security__*`・`Performance__*`・`Logging__*`・`ASPNETCORE_HTTPS_PORT`（全てコードが読まない設定）。実バインドの `FeatureFlags__RepairExecutionEnabled` のみ残す
+- **未設定 HTTPS ポート443 を除去** — containerPort/Service 共に実エンドポイント無し（Kestrel:Endpoints は Http のみ）
+- **Ingress の rewrite-target 破損** — `/api(/|$)(.*)`→`/$2` で `/api/health` が `/health` に書き換えられ liveness 文字列を返す不一致。パスそのまま転送へ修正、`/` ルートも dashboard 到達可能に
+- **`imagePullPolicy: Always` → `IfNotPresent`** — レジストリ無しローカルイメージで pull 失敗確定だった
+- **`runAsNonRoot` + `readOnlyRootFilesystem` で `ServicePaths` が書き込み先を失う潜在起動バグ** — `HOME=/app/data` + emptyDir マウントで `~/.local/share` フォールバック先を確保
+- **Dockerfile も同型バグ** — `useradd -r` で home 未作成の非ルートユーザは `LocalApplicationData` が書けないため `ENV HOME=/home/potion` + chown 作成、`EXPOSE 80` 追加（compose/k8s の実ポート整合）
+- Azure LB アノテーション除去（ClusterIP で無意味）
+
 ### Fixed (docker-compose のサービス到達不能バグ — Kestrel エンドポイント上書き)
 
 - **docker-compose で起動したサービスが外部から到達不能だった実バグ** — `ASPNETCORE_URLS=http://+:80` を指定していたが、`appsettings.json` の `Kestrel:Endpoints:Http` 設定が `ASPNETCORE_URLS` より優先されるため、コンテナは依然 `localhost:5000` にのみバインド（port マッピング `5000:80`・prometheus ターゲット `potion-service:80` が両方不通）。`Kestrel__Endpoints__Http__Url=http://+:80` の環境変数上書きに変更 — 実環境で `:8899` へのバインド変更を検証済み

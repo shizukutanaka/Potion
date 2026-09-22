@@ -6,31 +6,14 @@ metadata:
   labels:
     app: potion-service
 data:
-  # Application settings
+  # Application settings — only keys the app actually binds.
+  # Kestrel:Endpoints in appsettings.json beats ASPNETCORE_URLS, so the
+  # endpoint itself must be overridden for the pod to listen on :80.
   ASPNETCORE_ENVIRONMENT: "Production"
-  ASPNETCORE_URLS: "http://+:80"
-  ASPNETCORE_HTTPS_PORT: "443"
+  Kestrel__Endpoints__Http__Url: "http://+:80"
 
-  # Logging configuration
-  Logging__LogLevel__Default: "Information"
-  Logging__LogLevel__Microsoft: "Warning"
-  Logging__LogLevel__Potion: "Information"
-
-  # Service configuration
-  Potion__ServiceName: "Potion Self-Healing Service"
-  Potion__Version: "2.0.0"
-
-  # Health check intervals
-  HealthCheck__IntervalSeconds: "30"
-  HealthCheck__TimeoutSeconds: "10"
-
-  # Security settings
-  Security__AuditIntervalHours: "12"
-  Security__MaxLogRetentionDays: "90"
-
-  # Performance settings
-  Performance__MaxConcurrency: "8"
-  Performance__MemoryLimitMB: "512"
+  # Feature flags (default off — enable deliberately per environment)
+  FeatureFlags__RepairExecutionEnabled: "false"
 
 ---
 apiVersion: apps/v1
@@ -59,15 +42,18 @@ spec:
       containers:
       - name: potion-service
         image: potion-service:2.0.0
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
           name: http
-        - containerPort: 443
-          name: https
         envFrom:
         - configMapRef:
             name: potion-service-config
+        env:
+        # ServicePaths falls back to $HOME/.local/share; with a read-only
+        # rootfs this must point at a writable mount.
+        - name: HOME
+          value: /app/data
         resources:
           requests:
             memory: "256Mi"
@@ -102,8 +88,8 @@ spec:
         volumeMounts:
         - name: logs
           mountPath: /app/logs
-        - name: config
-          mountPath: /app/config
+        - name: data
+          mountPath: /app/data
         securityContext:
           allowPrivilegeEscalation: false
           runAsNonRoot: true
@@ -115,9 +101,8 @@ spec:
       volumes:
       - name: logs
         emptyDir: {}
-      - name: config
-        configMap:
-          name: potion-service-config
+      - name: data
+        emptyDir: {}
       securityContext:
         fsGroup: 101
       affinity:
@@ -140,8 +125,6 @@ metadata:
   namespace: potion-system
   labels:
     app: potion-service
-  annotations:
-    service.beta.kubernetes.io/azure-load-balancer-resource-group: "potion-rg"
 spec:
   type: ClusterIP
   ports:
@@ -149,10 +132,6 @@ spec:
     targetPort: 80
     protocol: TCP
     name: http
-  - port: 443
-    targetPort: 443
-    protocol: TCP
-    name: https
   selector:
     app: potion-service
 ---
@@ -166,11 +145,7 @@ metadata:
   annotations:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/use-regex: "true"
-    nginx.ingress.kubernetes.io/rewrite-target: "/$2"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    nginx.ingress.kubernetes.io/rate-limit: "100"
-    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
 spec:
   tls:
   - hosts:
@@ -180,21 +155,29 @@ spec:
   - host: potion-service.example.com
     http:
       paths:
-      - path: /api(/|$)(.*)
+      # Backend serves these paths natively — no rewrite needed.
+      - path: /api
         pathType: Prefix
         backend:
           service:
             name: potion-service
             port:
               number: 80
-      - path: /health(/|$)(.*)
+      - path: /health
         pathType: Prefix
         backend:
           service:
             name: potion-service
             port:
               number: 80
-      - path: /metrics(/|$)(.*)
+      - path: /metrics
+        pathType: Prefix
+        backend:
+          service:
+            name: potion-service
+            port:
+              number: 80
+      - path: /
         pathType: Prefix
         backend:
           service:
