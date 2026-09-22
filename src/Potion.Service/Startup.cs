@@ -128,6 +128,7 @@ public class Startup
         });
 
         services.AddSignalR();
+        services.AddHttpClient();
         services.AddSingleton<CollaborationService>();
         services.AddOptions<CollaborationOptions>();
 
@@ -233,6 +234,7 @@ public class Startup
         }
 
         app.UseRequestLocalization();
+        app.UseStaticFiles();
         app.UseRouting();
         app.UseAuthorization();
 
