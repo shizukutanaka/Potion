@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -217,7 +220,9 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         return Task.FromResult(values);
     }
 
-    private static SystemMetrics CreateMetrics()
+    private readonly SystemMetricsSampler _sampler = new();
+
+    private SystemMetrics CreateMetrics()
     {
         var totalMemory = (double)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
         var managedMemory = (double)GC.GetTotalMemory(forceFullCollection: false);
@@ -225,11 +230,16 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var availableBytes = Math.Max(totalMemory - managedMemory, 0.0);
         var now = DateTimeOffset.UtcNow;
 
+        var cpuPercent = _sampler.CpuUsagePercent();
+        var (diskUsedPercent, diskFreeBytes, diskTotalBytes) = _sampler.SystemDriveCapacity();
+        var (diskReadRate, diskWriteRate) = _sampler.DiskRates();
+        var (netRxRate, netTxRate, activeConnections) = _sampler.NetworkRates();
+
         return new SystemMetrics(
-            new CpuMetrics(0, 0, 0, Environment.ProcessorCount, Environment.ProcessorCount),
+            new CpuMetrics(cpuPercent, 0, 0, Environment.ProcessorCount, Environment.ProcessorCount),
             new MemoryMetrics(usedPercent, availableBytes, totalMemory, managedMemory, managedMemory, 0),
-            new DiskMetrics(0, 0, 0, 0, 0),
-            new NetworkMetrics(0, 0, 0),
+            new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
+            new NetworkMetrics(netRxRate, netTxRate, activeConnections),
             new WindowsEventMetrics(0, 0, 0, 0, now),
             new ServiceMetrics(0, 0, 0, 0, Array.Empty<string>()),
             new SecurityMetrics(false, false, 0, false, now),
@@ -241,5 +251,197 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new ResourcePressureMetrics(PressureLevel.None, PressureLevel.None, PressureLevel.None, PressureLevel.None),
             new EventCorrelationMetrics(0, 0),
             new CompatibilityMetrics(Environment.Version.ToString(), true));
+    }
+}
+
+/// <summary>
+/// Collects real machine counters where the platform exposes them:
+/// CPU via Windows performance counters or /proc/stat on Linux, disk
+/// capacity via DriveInfo, network throughput from interface counters.
+/// Rate-type values need a previous sample — the first call returns 0.
+/// </summary>
+internal sealed class SystemMetricsSampler
+{
+    private PerformanceCounter? _cpuCounter;
+    private PerformanceCounter? _diskReadCounter;
+    private PerformanceCounter? _diskWriteCounter;
+    private bool _windowsCountersTried;
+    private long[]? _lastLinuxCpu;
+    private double _linuxCpuPercent;
+    private (long rx, long tx)? _lastNetTotals;
+    private DateTimeOffset _lastNetSampleTime;
+    private double _netRxRate;
+    private double _netTxRate;
+
+    public double CpuUsagePercent()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            EnsureWindowsCounters();
+            try
+            {
+                return _cpuCounter?.NextValue() ?? 0.0;
+            }
+            catch
+            {
+                return 0.0;
+            }
+        }
+
+        if (OperatingSystem.IsLinux())
+        {
+            return LinuxCpuPercent();
+        }
+
+        return 0.0;
+    }
+
+    public (double usedPercent, double freeBytes, double totalBytes) SystemDriveCapacity()
+    {
+        try
+        {
+            var root = Path.GetPathRoot(Environment.SystemDirectory) ?? Path.GetPathRoot(AppContext.BaseDirectory);
+            if (root is null)
+            {
+                return (0, 0, 0);
+            }
+
+            var drive = new DriveInfo(root);
+            if (!drive.IsReady)
+            {
+                return (0, 0, 0);
+            }
+
+            var total = (double)drive.TotalSize;
+            var free = (double)drive.AvailableFreeSpace;
+            var used = total > 0 ? Math.Clamp((total - free) / total * 100.0, 0.0, 100.0) : 0.0;
+            return (used, free, total);
+        }
+        catch
+        {
+            return (0, 0, 0);
+        }
+    }
+
+    public (double readBytesPerSec, double writeBytesPerSec) DiskRates()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return (0.0, 0.0);
+        }
+
+        EnsureWindowsCounters();
+        try
+        {
+            return (_diskReadCounter?.NextValue() ?? 0.0, _diskWriteCounter?.NextValue() ?? 0.0);
+        }
+        catch
+        {
+            return (0.0, 0.0);
+        }
+    }
+
+    public (double rxBytesPerSec, double txBytesPerSec, int activeConnections) NetworkRates()
+    {
+        long rx = 0;
+        long tx = 0;
+        var active = 0;
+
+        try
+        {
+            foreach (var nic in NetworkInterface.GetAllNetworkInterfaces())
+            {
+                if (nic.OperationalStatus != OperationalStatus.Up ||
+                    nic.NetworkInterfaceType == NetworkInterfaceType.Loopback)
+                {
+                    continue;
+                }
+
+                var stats = nic.GetIPv4Statistics();
+                rx += stats.BytesReceived;
+                tx += stats.BytesSent;
+            }
+
+            active = IPGlobalProperties.GetIPGlobalProperties().GetActiveTcpConnections().Length;
+        }
+        catch
+        {
+            // fall through — report whatever was collected
+        }
+
+        var now = DateTimeOffset.UtcNow;
+        if (_lastNetTotals is { } last && now > _lastNetSampleTime)
+        {
+            var seconds = (now - _lastNetSampleTime).TotalSeconds;
+            _netRxRate = Math.Max(rx - last.rx, 0) / seconds;
+            _netTxRate = Math.Max(tx - last.tx, 0) / seconds;
+        }
+
+        _lastNetTotals = (rx, tx);
+        _lastNetSampleTime = now;
+        return (_netRxRate, _netTxRate, active);
+    }
+
+    private void EnsureWindowsCounters()
+    {
+        if (_windowsCountersTried)
+        {
+            return;
+        }
+
+        _windowsCountersTried = true;
+        try
+        {
+            _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true);
+            _diskReadCounter = new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total", readOnly: true);
+            _diskWriteCounter = new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total", readOnly: true);
+            _ = _cpuCounter.NextValue(); // prime the counter — first sample is always 0
+        }
+        catch
+        {
+            _cpuCounter = null;
+            _diskReadCounter = null;
+            _diskWriteCounter = null;
+        }
+    }
+
+    private double LinuxCpuPercent()
+    {
+        try
+        {
+            var line = File.ReadLines("/proc/stat").FirstOrDefault();
+            if (line is null || !line.StartsWith("cpu"))
+            {
+                return _linuxCpuPercent;
+            }
+
+            var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            var ticks = new long[fields.Length - 1];
+            for (var i = 1; i < fields.Length; i++)
+            {
+                ticks[i - 1] = long.Parse(fields[i]);
+            }
+
+            if (_lastLinuxCpu is { } last && last.Length == ticks.Length)
+            {
+                long idleDelta = (ticks[3] + (ticks.Length > 4 ? ticks[4] : 0)) - (last[3] + (last.Length > 4 ? last[4] : 0));
+                long totalDelta = 0;
+                for (var i = 0; i < ticks.Length; i++)
+                {
+                    totalDelta += ticks[i] - last[i];
+                }
+
+                _linuxCpuPercent = totalDelta > 0
+                    ? Math.Clamp((1.0 - (double)idleDelta / totalDelta) * 100.0, 0.0, 100.0)
+                    : _linuxCpuPercent;
+            }
+
+            _lastLinuxCpu = ticks;
+            return _linuxCpuPercent;
+        }
+        catch
+        {
+            return _linuxCpuPercent;
+        }
     }
 }
