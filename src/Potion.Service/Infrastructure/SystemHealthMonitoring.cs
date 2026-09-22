@@ -198,13 +198,15 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
     private readonly ILogger<SystemHealthMonitor> _logger;
     private readonly EventCorrelationStats _correlationStats;
     private readonly RequestMetricsTracker _requestMetrics;
+    private readonly RemediationExecutionStats _remediationStats;
 
     public SystemHealthMonitor(ILogger<SystemHealthMonitor> logger, EventCorrelationStats correlationStats,
-        RequestMetricsTracker requestMetrics)
+        RequestMetricsTracker requestMetrics, RemediationExecutionStats remediationStats)
     {
         _logger = logger;
         _correlationStats = correlationStats;
         _requestMetrics = requestMetrics;
+        _remediationStats = remediationStats;
     }
 
     public event EventHandler<SystemHealthAlert>? HealthAlert = delegate { };
@@ -334,7 +336,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast == DateTimeOffset.MinValue ? now : evtLast),
             new ServiceMetrics(services.Total, services.Running, services.Stopped, services.Failed, services.FailedNames),
             new SecurityMetrics(security.Defender, security.Firewall, security.ActiveThreats, security.SecureBoot, security.LastScan),
-            new SystemIntegrityMetrics(!pendingRepairs, 0, 0, restorePoint, now),
+            new SystemIntegrityMetrics(!pendingRepairs, pendingRepairs ? 1 : 0, (int)_remediationStats.SucceededCount, restorePoint, now),
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
             new SecurityContextMetrics(Environment.UserName, elevated, elevated, true),
             new RuntimePerformanceMetrics(perf.Rps, perf.AverageLatencyMs, perf.ErrorRate, currentProcess.Threads.Count,
@@ -1040,4 +1042,26 @@ internal sealed class SystemMetricsSampler
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool SamplerGlobalMemoryStatusEx(ref SamplerMemoryStatusEx lpBuffer);
+}
+
+/// <summary>
+/// Process-lifetime remediation execution counts, shared between the
+/// flag-gated executor (writer) and the health monitor (reader) so
+/// SystemIntegrityMetrics reports real repaired counts instead of 0.
+/// </summary>
+public sealed class RemediationExecutionStats
+{
+    private long _executedCount;
+    private long _succeededCount;
+    private long _failedCount;
+
+    public long ExecutedCount => Interlocked.Read(ref _executedCount);
+    public long SucceededCount => Interlocked.Read(ref _succeededCount);
+    public long FailedCount => Interlocked.Read(ref _failedCount);
+
+    public void RecordExecution(bool success)
+    {
+        Interlocked.Increment(ref _executedCount);
+        Interlocked.Increment(ref success ? ref _succeededCount : ref _failedCount);
+    }
 }

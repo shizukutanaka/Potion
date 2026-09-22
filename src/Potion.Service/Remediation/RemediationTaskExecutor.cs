@@ -22,15 +22,18 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
     private readonly ILogger<RemediationTaskExecutor> _logger;
     private readonly IProcessRunner _processRunner;
     private readonly ICommandValidator _commandValidator;
+    private readonly RemediationExecutionStats _executionStats;
 
     public RemediationTaskExecutor(
         ILogger<RemediationTaskExecutor> logger,
         IProcessRunner processRunner,
-        ICommandValidator commandValidator)
+        ICommandValidator commandValidator,
+        RemediationExecutionStats executionStats)
     {
         _logger = logger;
         _processRunner = processRunner;
         _commandValidator = commandValidator;
+        _executionStats = executionStats;
     }
 
     public async Task ExecuteAsync(RemediationTaskDescriptor descriptor, CancellationToken cancellationToken)
@@ -67,6 +70,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
             );
 
             PotionMetrics.RecordRemediationTask(option.Name, success, duration);
+            _executionStats.RecordExecution(success);
 
             if (!success)
             {
@@ -79,6 +83,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         catch (Exception ex)
         {
             PotionMetrics.RecordRemediationTask(option.Name, false, DateTimeOffset.UtcNow - startUtc);
+            _executionStats.RecordExecution(false);
             _logger.LogError(ex, "Remediation task {TaskName} failed with exception", option.Name);
             throw;
         }

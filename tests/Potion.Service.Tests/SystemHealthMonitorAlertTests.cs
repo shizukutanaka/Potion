@@ -13,7 +13,8 @@ namespace Potion.Service.Tests;
 public sealed class SystemHealthMonitorAlertTests
 {
     private static SystemHealthMonitor CreateMonitor() =>
-        new(NullLogger<SystemHealthMonitor>.Instance, new EventCorrelationStats(), new RequestMetricsTracker());
+        new(NullLogger<SystemHealthMonitor>.Instance, new EventCorrelationStats(), new RequestMetricsTracker(),
+            new RemediationExecutionStats());
 
     private static void Emit(SystemHealthMonitor monitor, string component, double percent, PressureLevel level)
     {

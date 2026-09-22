@@ -86,6 +86,7 @@ public class Startup
         services.AddHostedService<MemoryMonitor>();
         services.AddHostedService<AnomalyDetector>();
         services.AddSingleton<EventCorrelationStats>();
+        services.AddSingleton<RemediationExecutionStats>();
         services.AddSingleton<RequestMetricsTracker>();
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();

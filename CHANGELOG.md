@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (SystemIntegrityMetrics の恒常0スタブを実値化)
+
+- **`ViolationCount`/`RepairedCount` が恒常的に0の架空値だった** — 修復実行数を数える機構が存在せず永久に変化しないフィールド。共有カウンタ `RemediationExecutionStats` を新設（executor が実行毎にインクリメント・monitor が `SucceededCount` を `RepairedCount` へ読み込み・`ViolationCount` は pendingRepairs の実検出値へ）— フラグ配下で修復が走ればメトリクスが実値で増える経路を確立
+
 ### Fixed (コンプライアンスチェックの正直な文言)
 
 - **PCI-DSS「Access Control」チェックが昇格実行を compliant=true とし「適切な権限」と記録していた** — PCI-DSS の最小権限原則とは意味が逆転（サービスは SFC/DISM のため昇格が必要＝意図的な設計）。チェック名を「Required Privileges」へ改め「昇格実行は修復機能に必須・PCI-DSS の最小権限はサービスアカウント単位で評価」の正直な説明へ
