@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (死設定 `TelemetryRetention` セクション)
+
+- `appsettings.json` の `TelemetryRetention` セクションを削除 — `TelemetryRetentionOptions` は #14 で削除済み、`Configure` バインドもなく**どのコードも読まない死設定**だった（同型監査の最後の残件）。`TelemetryRetentionService` 自体は DI 未登録で `AutoRecoveryManager` の文字列スイッチにのみ残存
+- テストの in-memory 設定からも同キー除去（参照消滅の後片付け）
+- README を実態へ更新: エンドポイント一覧に `/health`・`/api/health*` を追加、`TelemetryRetention` を節リストから削除し監視オプション各セクション（環境変数調整可能）を記載、テスト数を 134 へ
+- 検証: JSON パース確認・DI テスト 5/5・0警告0エラー
+
 ### Removed (未使用 NuGet パッケージ15件 — ライブラリ削除の説明)
 
 - 製品 csproj から14件: 全て**ソース内参照ゼロ**を確認済み（`using`/型利用なし・NuGet restore のみに存在し PublishTrimmed の肥大化要因）

@@ -31,6 +31,8 @@ dotnet run --project src/Potion.Service/Potion.Service.csproj
 The service listens on `http://localhost:5000` by default and serves:
 
 - `GET /index.html` — dashboard
+- `GET /health` — liveness probe (`200 Healthy`)
+- `GET /api/health`, `/api/health/metrics`, `/api/health/security`, `/api/health/security/summary` — dashboard data endpoints fed by `ISystemHealthMonitor`
 - `GET /metrics` — Prometheus metrics
 - `POST /collaboration/negotiate` — SignalR hub
 
@@ -48,14 +50,14 @@ sc.exe start "PotionService"
 Bound sections in `appsettings.json` (unbound sections were removed — see CHANGELOG):
 
 - `RemediationPolicy` — repair command allowlist and remediation policy options
-- `TelemetryRetention` — telemetry retention settings
+- `MemoryMonitor`, `PerformanceOptimizer`, `EventCorrelation`, `Compliance`, `Collaboration` — monitoring-service options (thresholds/`Enabled`); can also be set via env vars, e.g. `MemoryMonitor__MonitoringIntervalSeconds=60`
 - `FeatureFlags` — feature toggles read at startup; `RepairExecutionEnabled` (default `false`) activates the autonomous repair-execution services
 - `Serilog`, `AllowedHosts`, `Kestrel` — framework settings
 
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 126/126 tests
+dotnet test Potion.sln   # 134/134 tests
 ```
 
 ## License
