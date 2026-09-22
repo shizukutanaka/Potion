@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added (RemediationTaskExecutor ユニットテスト — 134→139)
+
+- `Remediation/RemediationTaskExecutorTests` 新規5件 — 修復実行の最終段（実プロセス実行への橋渡し）の振る舞いを `IProcessRunner` モックで検証:
+  - null descriptor → `ArgumentNullException`
+  - `ProcessStartInfo` が Option から正しく構築されること（FileName=Command・Arguments・UseShellExecute=false・出力リダイレクト・CreateNoWindow・TimeoutSeconds→timeout）
+  - `AllowedExitCodes` 空のとき 0 以外は失敗扱い（警告ログ）／指定コード（3010 等）は成功扱い
+  - runner 例外の伝播
+- 検証: 0警告0エラー・新規5/5・合計139件
+
 ### Removed (消費者ゼロの死ファイル2件 — 1,099行)＋ 生型の移設
 
 - `Infrastructure/SecureLogService.cs`（617行）削除 — `ISecureLogService`/`SecureLogService`/`LogEntry`/`LogSecurityReport`/`LogAccessControl` 全て参照ゼロ（DI 登録・サービス消費・テスト利用なし）。ファイル内の `LogLevel` enum は `ErrorHandler.HandleError` の公開API型（内部で MEL `LogLevel` へ序数キャスト）のため **`ErrorHandler.cs` へ移設**
