@@ -1,4 +1,7 @@
+using System;
 using System.Globalization;
+using System.Linq;
+using System.Threading;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
@@ -187,6 +190,47 @@ public class Startup
         {
             endpoints.MapHub<CollaborationHub>("/collaboration");
             endpoints.MapHealthChecks("/health");
+
+            // Dashboard API: the wwwroot dashboard fetches these routes.
+            // All data comes from the registered ISystemHealthMonitor snapshot.
+            endpoints.MapGet("/api/health", async (ISystemHealthMonitor monitor, CancellationToken ct) =>
+            {
+                var snapshot = await monitor.GetCurrentHealthAsync(ct);
+                return Results.Ok(new { metrics = snapshot.Metrics, alerts = snapshot.Alerts });
+            });
+            endpoints.MapGet("/api/health/metrics", async (ISystemHealthMonitor monitor, CancellationToken ct) =>
+            {
+                var snapshot = await monitor.GetCurrentHealthAsync(ct);
+                return Results.Ok(snapshot.Metrics);
+            });
+            endpoints.MapGet("/api/health/security", async (ISystemHealthMonitor monitor, CancellationToken ct) =>
+            {
+                var snapshot = await monitor.GetCurrentHealthAsync(ct);
+                var s = snapshot.Metrics.Security;
+                return Results.Ok(new
+                {
+                    defenderStatus = s.WindowsDefenderEnabled ? "Enabled" : "Disabled",
+                    firewallStatus = s.FirewallEnabled ? "Enabled" : "Disabled",
+                    realTimeProtection = s.WindowsDefenderEnabled ? "Active" : "Inactive",
+                    securityCount = s.ActiveThreatCount,
+                    securityAlerts = snapshot.Alerts.Select(a => new
+                    {
+                        message = a.Message,
+                        severity = a.Severity.ToString(),
+                        timestamp = a.Timestamp,
+                    }),
+                });
+            });
+            endpoints.MapGet("/api/health/security/summary", async (ISystemHealthMonitor monitor, CancellationToken ct) =>
+            {
+                var snapshot = await monitor.GetCurrentHealthAsync(ct);
+                var s = snapshot.Metrics.Security;
+                var score = 100
+                    - (s.WindowsDefenderEnabled ? 0 : 30)
+                    - (s.FirewallEnabled ? 0 : 30)
+                    - Math.Min(s.ActiveThreatCount * 10, 40);
+                return Results.Ok(new { securityScore = Math.Max(score, 0) });
+            });
 
             // Prometheus metrics endpoint for scraping
             endpoints.MapPrometheusScrapingEndpoint();
