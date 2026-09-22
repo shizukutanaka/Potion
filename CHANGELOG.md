@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (コンプライアンスチェックの正直な文言)
+
+- **PCI-DSS「Access Control」チェックが昇格実行を compliant=true とし「適切な権限」と記録していた** — PCI-DSS の最小権限原則とは意味が逆転（サービスは SFC/DISM のため昇格が必要＝意図的な設計）。チェック名を「Required Privileges」へ改め「昇格実行は修復機能に必須・PCI-DSS の最小権限はサービスアカウント単位で評価」の正直な説明へ
+- GDPR「Data Minimization」の固定 `Compliant=true` に「assertion・自動計測不可・収集範囲は新コレクタ追加時にレビュー要」の注記
+
 ### Fixed (アラートエピソードIDの衝突排除)
 
 - **解除→再発火が同一ミリ秒内で AlertId が衝突しうる実バグ** — AlertId のタイムスタンプがミリ秒解像度まででも、高速ポーリング環境で解除直後の再発火と同一エピソード扱いになる余地があった（回帰テストで再現）。AlertId を `{component}-{level}-{発火時刻}-{エピソード番号}` へ拡張し、`_alertState` にエピソードシーケンスを保持して ID をエピソード単位で一意化

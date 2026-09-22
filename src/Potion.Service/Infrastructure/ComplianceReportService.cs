@@ -121,8 +121,9 @@ public class ComplianceReportService : IHostedService, IDisposable
             status.Checks.Add(new ComplianceCheck
             {
                 CheckName = "Data Minimization",
-                Compliant = true, // Assume minimal data collection
-                Details = "Only necessary system metrics are collected"
+                Compliant = true, // assertion — scope is not automatically measurable
+                Details = "Asserted: the service collects only system metrics; " +
+                    "collection scope should be reviewed when new collectors are added"
             });
         }
 
@@ -156,9 +157,12 @@ public class ComplianceReportService : IHostedService, IDisposable
 
             status.Checks.Add(new ComplianceCheck
             {
-                CheckName = "Access Control",
+                CheckName = "Required Privileges",
                 Compliant = healthSnapshot.Metrics.SecurityContext.CurrentUserIsAdmin,
-                Details = "Running with appropriate privileges"
+                Details = healthSnapshot.Metrics.SecurityContext.CurrentUserIsAdmin
+                    ? "Running elevated — required for system repair functions (SFC/DISM); " +
+                      "PCI-DSS least-privilege must be assessed at the service-account level"
+                    : "Not running elevated — repair functions will fail"
             });
         }
 
