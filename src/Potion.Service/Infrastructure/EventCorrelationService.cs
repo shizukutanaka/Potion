@@ -19,18 +19,30 @@ public class EventCorrelationOptions
 
 public class EventCorrelationService : IHostedService, IDisposable
 {
+    private static readonly IReadOnlyDictionary<string, string> MetricEventTypes = new Dictionary<string, string>
+    {
+        ["CpuUsage"] = "cpu_usage",
+        ["MemoryUsage"] = "memory_usage",
+        ["DiskUsage"] = "disk_usage",
+        ["BytesReceivedPerSec"] = "network_bytes_per_sec",
+        ["BytesSentPerSec"] = "network_bytes_per_sec",
+    };
+
     private readonly ILogger<EventCorrelationService> _logger;
     private readonly EventCorrelationOptions _options;
+    private readonly ISystemHealthMonitor _healthMonitor;
     private readonly ConcurrentQueue<SystemEvent> _eventBuffer = new();
     private readonly List<CorrelationRule> _rules = new();
     private Timer? _correlationTimer;
 
     public EventCorrelationService(
         ILogger<EventCorrelationService> logger,
-        IOptions<EventCorrelationOptions> options)
+        IOptions<EventCorrelationOptions> options,
+        ISystemHealthMonitor healthMonitor)
     {
         _logger = logger;
         _options = options.Value;
+        _healthMonitor = healthMonitor;
         InitializeRules();
     }
 
@@ -93,6 +105,8 @@ public class EventCorrelationService : IHostedService, IDisposable
         _correlationTimer = new Timer(ProcessEventCorrelations, null, TimeSpan.Zero,
             TimeSpan.FromMinutes(_options.CorrelationWindowMinutes));
 
+        _healthMonitor.HealthAlert += OnHealthAlert;
+
         return Task.CompletedTask;
     }
 
@@ -116,10 +130,25 @@ public class EventCorrelationService : IHostedService, IDisposable
         }
     }
 
+    private void OnHealthAlert(object? sender, SystemHealthAlert alert)
+    {
+        RecordEvent("health.alert", alert, alert.Timestamp, "health-monitor");
+    }
+
     private void ProcessEventCorrelations(object? state)
     {
         try
         {
+            var metrics = _healthMonitor.GetCurrentMetricsAsync().GetAwaiter().GetResult();
+            var now = DateTimeOffset.UtcNow;
+            foreach (var (metric, eventType) in MetricEventTypes)
+            {
+                if (metrics.TryGetValue(metric, out var value))
+                {
+                    RecordEvent(eventType, value, now, "health-monitor");
+                }
+            }
+
             var events = _eventBuffer.ToArray();
             var windowStart = DateTimeOffset.UtcNow - TimeSpan.FromMinutes(_options.CorrelationWindowMinutes);
 
@@ -252,6 +281,7 @@ public class EventCorrelationService : IHostedService, IDisposable
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        _healthMonitor.HealthAlert -= OnHealthAlert;
         _correlationTimer?.Change(Timeout.Infinite, 0);
         return Task.CompletedTask;
     }

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (機能的に死んでいた監視サービス2件を実接続)
+
+- `AnomalyDetector` — 3分毎の分析タイマーは動いていたが `RecordMetric` の呼出元がゼロで、空の履歴を永遠に解析していた。`ISystemHealthMonitor.GetCurrentMetricsAsync()` から各周期メトリクスを投入するよう接続
+- `EventCorrelationService` — 相関ルール（cpu_usage/memory_usage 等）は存在するが `RecordEvent` の呼出元がゼロ。`HealthAlert` イベントを購読して `health.alert` イベントを記録＋相関周期で現在メトリクスをルールのイベント型名（`cpu_usage` 等）へマッピングして投入。`StopAsync` で購読解除
+
 ### Fixed (dependabot.yml の構文破損)
 
 - `.github/dependabot.yml` — `automerge`/`with`/`key`/`restore-keys` 等の Dependabot に存在しないキー（CI キャッシュ設定の混入）を除去し、本来の `nuget` エコシステム定義を追加。従来はバリデーション不備で NuGet 更新 PR が一切発行されない構成だった
