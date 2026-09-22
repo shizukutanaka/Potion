@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Management;
 using System.Net.NetworkInformation;
 using System.Threading;
 using System.Threading.Tasks;
@@ -234,6 +235,8 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var (diskUsedPercent, diskFreeBytes, diskTotalBytes) = _sampler.SystemDriveCapacity();
         var (diskReadRate, diskWriteRate) = _sampler.DiskRates();
         var (netRxRate, netTxRate, activeConnections) = _sampler.NetworkRates();
+        var services = _sampler.ServiceCounts();
+        var currentProcess = Process.GetCurrentProcess();
 
         return new SystemMetrics(
             new CpuMetrics(cpuPercent, 0, 0, Environment.ProcessorCount, Environment.ProcessorCount),
@@ -241,17 +244,28 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
             new WindowsEventMetrics(0, 0, 0, 0, now),
-            new ServiceMetrics(0, 0, 0, 0, Array.Empty<string>()),
+            new ServiceMetrics(services.Total, services.Running, services.Stopped, services.Failed, services.FailedNames),
             new SecurityMetrics(false, false, 0, false, now),
             new SystemIntegrityMetrics(true, 0, 0, false, now),
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, string.Empty, string.Empty, string.Empty),
             new SecurityContextMetrics(Environment.UserName, false, false, true),
-            new RuntimePerformanceMetrics(0, 0, 0, Environment.ProcessorCount, 0),
+            new RuntimePerformanceMetrics(0, 0, 0, currentProcess.Threads.Count,
+                OperatingSystem.IsWindows() ? currentProcess.HandleCount : 0),
             new ResourceMonitoringMetrics(Environment.TickCount64 / 1000.0, 0, GC.CollectionCount(0)),
-            new ResourcePressureMetrics(PressureLevel.None, PressureLevel.None, PressureLevel.None, PressureLevel.None),
+            new ResourcePressureMetrics(
+                ToPressure(cpuPercent),
+                ToPressure(usedPercent),
+                ToPressure(diskUsedPercent),
+                PressureLevel.None),
             new EventCorrelationMetrics(0, 0),
             new CompatibilityMetrics(Environment.Version.ToString(), true));
     }
+
+    private static PressureLevel ToPressure(double usedPercent) =>
+        usedPercent >= 95.0 ? PressureLevel.Critical :
+        usedPercent >= 85.0 ? PressureLevel.High :
+        usedPercent >= 70.0 ? PressureLevel.Medium :
+        PressureLevel.None;
 }
 
 /// <summary>
@@ -380,6 +394,50 @@ internal sealed class SystemMetricsSampler
         _lastNetTotals = (rx, tx);
         _lastNetSampleTime = now;
         return (_netRxRate, _netTxRate, active);
+    }
+
+    public (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) ServiceCounts()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return (0, 0, 0, 0, Array.Empty<string>());
+        }
+
+        try
+        {
+            var total = 0;
+            var running = 0;
+            var stopped = 0;
+            var failedNames = new List<string>();
+
+            // Win32_Service: a Stopped service configured for Automatic start is treated as failed.
+            using var searcher = new ManagementObjectSearcher(
+                "SELECT Name, State, StartMode FROM Win32_Service");
+            foreach (var service in searcher.Get())
+            {
+                total++;
+                var state = service["State"] as string;
+                var startMode = service["StartMode"] as string;
+                if (state == "Running")
+                {
+                    running++;
+                }
+                else
+                {
+                    stopped++;
+                    if (state == "Stopped" && startMode == "Auto")
+                    {
+                        failedNames.Add(service["Name"] as string ?? string.Empty);
+                    }
+                }
+            }
+
+            return (total, running, stopped, failedNames.Count, failedNames);
+        }
+        catch
+        {
+            return (0, 0, 0, 0, Array.Empty<string>());
+        }
     }
 
     private void EnsureWindowsCounters()
