@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Tests
+
+- `RequestMetricsTracker` 単体テスト新規（90→99）: ローリング窓の RPS/平均レイテンシ/5xx エラー率算出と `/collaboration`・`/metrics` 計測除外を検証
+
 ### Fixed (異常検知ルーティングのケース不一致)
 
 - `AnomalyDetector.HandleAdvancedAnomaly` の switch ケースが `cpu_usage_percent` 等の旧キー名で、実際に供給されるキー（`CpuUsage`/`MemoryUsage`/`DiskUsage`/`Bytes*PerSec`）と全不一致 → 全異常が Generic 経路へ落ちていた実バグ。実キーの小文字形に修正（`ToLower`→`ToLowerInvariant` も併せて）
