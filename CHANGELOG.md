@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Fixed (docker-compose.yml を実際に起動できる最小構成へ修復)
+
+- 従来ファイルは参照先欠落で**半分のサービスが起動不能**だった:
+  - `./scripts/init.sql`、`./monitoring/loki-config.yml`、`./monitoring/tempo-config.yml`、`./monitoring/grafana/{dashboards,provisioning}` が全て不存在
+  - `postgres`/`redis` はアプリ側に DB/Redis 利用コードが一切ない死依存（平文パスワードも混入）
+- 最小構成へ修正: `potion-service`（`ASPNETCORE_URLS=http://+:80`、HTTP のみで証明書不要）+ `prometheus` + `alertmanager`（存在する設定のみ）
+- `monitoring/prometheus.yml` 修正: 不存在の `rule_files: alerts.yml` で Prometheus 自体が起動失敗していた + スクレイプ先が不存在パス `/api/health/metrics/custom` → 実在する `/metrics` へ。クラスタ前提の k8s ジョブは compose 文脈で無意味なため削除
+- 検証: YAML パース確認済み（docker 非搭載のため実起動は未検証 — 参照パスは全て実在を確認）
+- 残件: `docker-compose.enterprise.yml`/`docker-compose.monitoring.yml`/`kubernetes-enterprise.yml` も同様に不存在参照多数 — 別サイクルで対応予定
+
 ### Removed (死設定 `TelemetryRetention` セクション)
 
 - `appsettings.json` の `TelemetryRetention` セクションを削除 — `TelemetryRetentionOptions` は #14 で削除済み、`Configure` バインドもなく**どのコードも読まない死設定**だった（同型監査の最後の残件）。`TelemetryRetentionService` 自体は DI 未登録で `AutoRecoveryManager` の文字列スイッチにのみ残存
