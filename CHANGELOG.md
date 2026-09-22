@@ -66,3 +66,11 @@
   - `ResiliencePipelines.CreateRemediationPipeline` から未使用の `enableChaos` パラメータを削除（Chaos 実装削除の残滓。唯一の呼び出し元 `Startup.cs` はロガーのみ渡していたため外部影響なし）
 - テストプロジェクトの警告も整理: `<Nullable>annotations</Nullable>` 追加（CS8632 解消）＋ `<NoWarn>CA1416;CS1998</NoWarn>`（製品が Windows 専用のため CA1416 は想定内、async テスト骨格の CS1998 も設計意図どおり）
 - `PerformanceTests`: コールドスタート時に Compiled 正規表現/JIT 初期化コストが性能アサーション（0.1ms/回 等）を超過し偶発失敗していたフレイキーを、計測前ウォームアップ（正規表現ベースの3テスト）で根本原因から修正
+
+### Removed (デッドテスト資産の削除)
+
+- 廃止API向けの除外テスト6ファイル（計 ~1,900行・89テスト相当）を削除
+  - `LocalizationTests.cs`: `HealthController`/`LocalizedString` が実装から削除済み（`InternationalizationService` は `InternationalizationServiceTests.cs` が継続カバー）
+  - `BillingTests.cs`/`PerformanceOptimizerTests.cs`/`SystemHealthMonitorTests.cs`/`RemediationSchedulerTests.cs`/`SecurityAndPerformanceTests.cs`: 対象サービスが全て DI 未登録の到達不能コードであり、削除済み・改名済みメンバを参照しコンパイル不能。`SecurityAndPerformanceTests` の `CommandGuardTests`/`PerformanceTests`/`IntegrationTests` は同名クラスとして現行のコンパイル済みテストが網羅済み
+  - 判断基準: DI 登録がないサービス = 実行パスに到達しないため、テスト復元は維持コストのみ増大する無駄（利用者が実際に使わない機能）
+- 不存在 `TestData` ディレクトリへの `<None Update>` エントリを csproj から除去
