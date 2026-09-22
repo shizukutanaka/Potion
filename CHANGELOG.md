@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (テスト専用サービス第2弾 — 約2,300行)
+
+- `AdvancedCacheService`・`DatabaseOptimizationService`・`ErrorHandler`(+`IErrorHandler`/`LogLevel`/`ErrorType`/`ErrorSeverity`/`ErrorRecoveryAction` 等の付属型) — いずれも DI 未登録・本番参照ゼロで、対応するテストファイルだけが参照していた
+- 上記専用テスト3件を削除: `AdvancedCacheServiceTests`・`DatabaseOptimizationServiceTests`・`ErrorHandlerTests`
+- `Microsoft.Data.SqlClient` 7.0.3 を csproj から除去 — 唯一の利用者が `DatabaseOptimizationService` だった（ライブラリ削除: 唯一消費者の消失に伴う。将来 SQL アクセスが必要になれば再追加で復元可能）
+- テスト総数 90→41。残存テストは全て live コードを対象
+
 ### Removed (テスト専用バリデータクラスタ — 本番未接続、約2,900行)
 
 - `CommandGuard`/`ICommandGuard`（76行）— 本番で一度もインスタンス化・DI登録されていないファサード。実際の許可リスト強制は `ICommandValidator`/`CommandValidator` が担う（PR #32 で executor に配線済み）
