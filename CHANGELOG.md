@@ -91,3 +91,13 @@
   - `System.Security.Cryptography.Pkcs` 9.0.13 をローカル参照（製品の明示 8.0.1 と SqlClient 7.0.3 推移要件 >=9.0.13 の不整合を解消）
   - 検証: `--filter "*EnsureCommandIsAllowed*" --job dry` で実計測成功（約29.5ns/op・168B割当）
 - `.gitignore` に `BenchmarkDotNet.Artifacts/` を追加（実行成果物の誤コミット防止）
+
+### Removed (死設定の削除)
+
+- appsettings 監査で未バインド設定セクションを削除（運用者が変更しても何も起きない silent no-op の解消）
+  - `appsettings.json`: `LogCompression`/`Backup`/`Report`/`PerformanceOptimizer`/`SystemDiagnostics`/`Security`/`CorrelationAnalysis`/`MachineLearning`/`NetworkSecurity`/`HealthCheck`/`Observability`/`Metrics`/`CsrfProtection`/`ZeroTrust` の14セクション（`GetSection`/`Configure`/`AddOptions`/`Bind` のいずれにも到達しないことを確認）
+  - `appsettings.Development.json`: `CorrelationAnalysis`/`MachineLearning`/`Security`/`Metrics`
+  - `appsettings.Production.json`: `Security`/`NetworkSecurity`/`CorrelationAnalysis`/`MachineLearning`/`HealthCheck`/`Metrics`/`PerformanceOptimizer`/`Compliance`
+  - 維持したセクション: `Serilog`/`AllowedHosts`/`Kestrel`（フレームワーク消費）、`RemediationPolicy`/`TelemetryRetention`/`FeatureFlags`（`GetSection` で実バインド確認済み）
+  - `Options/*.cs` の `SectionName` 定数は未使用だがクラス自体は存続コードが利用するため温存
+- ルート `appsettings.Personal.json` を削除 — csproj はプロジェクトディレクトリ内の `appsettings*.json` のみコピーするため、リポジトリルートのこのファイルは一切ロードされない設定残滓
