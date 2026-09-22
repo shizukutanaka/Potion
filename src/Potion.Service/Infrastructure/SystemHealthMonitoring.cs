@@ -497,8 +497,32 @@ internal sealed class SystemMetricsSampler
             : 0UL;
     }
 
+    private static string SysctlString(string name)
+    {
+        var size = IntPtr.Zero;
+        if (sysctlbyname(name, IntPtr.Zero, ref size, IntPtr.Zero, UIntPtr.Zero) != 0 ||
+            size == IntPtr.Zero)
+        {
+            return string.Empty;
+        }
+        var buf = Marshal.AllocHGlobal(size);
+        try
+        {
+            return sysctlbyname(name, buf, ref size, IntPtr.Zero, UIntPtr.Zero) == 0
+                ? Marshal.PtrToStringAnsi(buf) ?? string.Empty
+                : string.Empty;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buf);
+        }
+    }
+
     [DllImport("libc")]
     private static extern int sysctlbyname(string name, ref ulong oldValue, ref IntPtr oldSize, IntPtr newValue, UIntPtr newSize);
+
+    [DllImport("libc")]
+    private static extern int sysctlbyname(string name, IntPtr oldValue, ref IntPtr oldSize, IntPtr newValue, UIntPtr newSize);
 
     // Package temperature where the OS exposes it for free. Linux thermal_zone
     // reports millidegrees; the Windows WMI thermal zone reports tenths of
@@ -538,7 +562,7 @@ internal sealed class SystemMetricsSampler
 
     // Open file descriptors — the Unix analogue of the Windows handle count,
     // useful for catching descriptor leaks. Linux reads /proc/self/fd; macOS
-    // has no cheap equivalent — returns 0 there (honest unknown).
+    // queries proc_pidinfo(PROC_PIDLISTFDS).
     public int OpenDescriptorCount()
     {
         try
@@ -547,6 +571,28 @@ internal sealed class SystemMetricsSampler
             {
                 return Directory.EnumerateFileSystemEntries("/proc/self/fd").Count();
             }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                // proc_pidinfo(PROC_PIDLISTFDS) returns a packed proc_fdinfo
+                // array — byte count / entry size = open descriptor count.
+                var pid = (int)Environment.ProcessId;
+                var size = proc_pidinfo(pid, ProcPidListFds, 0, IntPtr.Zero, 0);
+                if (size <= 0)
+                {
+                    return 0;
+                }
+                var buf = Marshal.AllocHGlobal(size);
+                try
+                {
+                    var read = proc_pidinfo(pid, ProcPidListFds, 0, buf, size);
+                    return read > 0 ? read / ProcFdInfoSize : 0;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buf);
+                }
+            }
         }
         catch
         {
@@ -554,6 +600,12 @@ internal sealed class SystemMetricsSampler
         }
         return 0;
     }
+
+    private const int ProcPidListFds = 1;   // PROC_PIDLISTFDS
+    private const int ProcFdInfoSize = 32;  // sizeof(struct proc_fdinfo)
+
+    [DllImport("libproc")]
+    private static extern int proc_pidinfo(int pid, int flavor, ulong arg, IntPtr buffer, int bufferSize);
 
     // OS page cache — Linux /proc/meminfo "Cached:". Windows/macOS have no
     // cheap equivalent — returns 0 there (honest unknown).
@@ -1065,6 +1117,12 @@ internal sealed class SystemMetricsSampler
             return (ReadSysfs("/sys/class/dmi/id/sys_vendor"),
                 ReadSysfs("/sys/class/dmi/id/product_name"),
                 ReadSysfs("/sys/class/dmi/id/product_serial"));
+        }
+        if (OperatingSystem.IsMacOS())
+        {
+            // hw.model gives the model identifier (e.g. "MacBookPro18,3");
+            // serial requires IOKit — left empty (honest unknown).
+            return ("Apple", SysctlString("hw.model"), string.Empty);
         }
         if (!OperatingSystem.IsWindows())
         {

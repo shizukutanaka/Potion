@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (HandleCount・MachineInventory の macOS 実測化)
+
+- **`HandleCount` が macOS で固定0だった** — `proc_pidinfo(PROC_PIDLISTFDS)` でオープンFD数を実測（実機で 83 確認）
+- **`MachineInventory` が macOS で空文字だった** — `sysctlbyname("hw.model")` でモデル識別子を実測（実機で `VirtualMac2,1` 確認）・Manufacturer=`Apple`・serial は IOKit 必須のため空文字＝計測不可
+
 ### Improved (Linux 計測の spawn コスト削減)
 
 - **`systemctl`×2・`journalctl` が毎ポーリング（約5秒）で fork されていた** — 緩変化する集計値を30秒TTLでキャッシュ（ServiceCounts・WindowsEventCounts・Firewall 判定）。Linux 環境での子プロセス生成を約6分の1へ削減
