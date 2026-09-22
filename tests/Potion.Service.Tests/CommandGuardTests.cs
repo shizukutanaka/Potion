@@ -6,6 +6,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Potion.Service.Options;
+using Potion.Service.Infrastructure;
 using Xunit;
 
 namespace Potion.Service.Tests;
@@ -24,14 +25,14 @@ public class CommandGuardTests : IDisposable
 
         _testOptions = new RemediationPolicyOptions
         {
-            CommandAllowlist = new[] { "cmd.exe", "powershell.exe", "notepad.exe" }
+            CommandAllowlist = new List<string> { "cmd.exe", "powershell.exe", "notepad.exe" }
         };
 
         _optionsMonitorMock.Setup(x => x.CurrentValue).Returns(_testOptions);
         _optionsMonitorMock.Setup(x => x.OnChange(It.IsAny<Action<RemediationPolicyOptions, string>>()))
             .Returns(Mock.Of<IDisposable>());
 
-        _commandGuard = new CommandGuard(_loggerMock.Object, _optionsMonitorMock.Object);
+        _commandGuard = TestObjectFactory.CreateCommandGuard(_loggerMock.Object, _optionsMonitorMock.Object);
     }
 
     public void Dispose()
@@ -236,26 +237,23 @@ public class CommandGuardTests : IDisposable
     }
 
     [Fact]
-    public async Task CheckRateLimitAsync_RateLimitExceeded_ThrowsInvalidOperationException()
+    public async Task CheckRateLimitAsync_RateLimitExceeded_ReturnsFalse()
     {
         // Arrange
         var operation = "test-operation";
         var cancellationToken = CancellationToken.None;
 
-        // Act & Assert - レート制限を超えるまで繰り返し実行
-        for (var i = 0; i < 25; i++)
+        // Act & Assert - 未定義オペレーションの上限（10回/秒）を超えるまで繰り返し実行
+        for (var i = 0; i < 15; i++)
         {
-            if (i < 20)
+            var result = await _commandGuard.CheckRateLimitAsync(operation, cancellationToken);
+            if (i < 10)
             {
-                var result = await _commandGuard.CheckRateLimitAsync(operation, cancellationToken);
                 Assert.True(result);
             }
             else
             {
-                // 21回目でレート制限を超えるはず
-                var exception = await Assert.ThrowsAsync<InvalidOperationException>(
-                    () => _commandGuard.CheckRateLimitAsync(operation, cancellationToken));
-                Assert.Contains("Rate limit exceeded", exception.Message);
+                Assert.False(result);
             }
         }
     }
@@ -269,13 +267,23 @@ public class CommandGuardTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert - 異なるオペレーションは独立したレート制限を持つ
-        for (var i = 0; i < 25; i++)
+        // operation1を上限（10回/秒）まで消費させても、operation2は影響を受けない
+        for (var i = 0; i < 15; i++)
         {
             var result1 = await _commandGuard.CheckRateLimitAsync(operation1, cancellationToken);
-            var result2 = await _commandGuard.CheckRateLimitAsync(operation2, cancellationToken);
+            if (i < 10)
+            {
+                Assert.True(result1);
+            }
+            else
+            {
+                Assert.False(result1);
+            }
+        }
 
-            Assert.True(result1);
-            Assert.True(result2);
+        for (var i = 0; i < 5; i++)
+        {
+            Assert.True(await _commandGuard.CheckRateLimitAsync(operation2, cancellationToken));
         }
     }
 
@@ -324,7 +332,7 @@ public class CommandGuardTests : IDisposable
         Assert.Equal(sensitiveArguments, result);
         _loggerMock.Verify(
             x => x.Log(
-                LogLevel.Warning,
+                Microsoft.Extensions.Logging.LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.Is<It.IsAnyType>((o, t) => o.ToString()!.Contains("password")),
                 It.IsAny<Exception>(),

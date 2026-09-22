@@ -207,7 +207,6 @@ public class SecureCommunicatorTests
     [Theory]
     [InlineData("normal arguments", "normal arguments")] // 安全な引数
     [InlineData("dangerous & | ; ` $ args", "dangerous args")] // 危険な文字を含む引数
-    [InlineData("very long argument " + new string('x', 2000), "very long argument " + new string('x', 1024))] // 長い引数
     public void SanitizeArguments_InputValidation_RemovesDangerousCharacters(string input, string expected)
     {
         // Arrange
@@ -218,6 +217,17 @@ public class SecureCommunicatorTests
 
         // Assert
         result.Should().Be(expected);
+    }
+
+    [Fact]
+    public void SanitizeArguments_LongArgument_TruncatesToMaxLength()
+    {
+        // InlineData cannot reference non-constant strings; verified as a dedicated case.
+        var guard = new CommandGuard(_loggerMock.Object, _optionsMock.Object);
+
+        var result = guard.SanitizeArguments("very long argument " + new string('x', 2000));
+
+        result.Should().Be("very long argument " + new string('x', 1024));
     }
 
     [Fact]
@@ -930,3 +940,5 @@ public class CommandGuardTests
         guard.IsValidDomain("localhost").Should().BeFalse();
         guard.IsValidDomain("example").Should().BeFalse();
     }
+
+}

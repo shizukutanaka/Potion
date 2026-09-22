@@ -33,7 +33,10 @@ public sealed class RateLimiter : IRateLimiter, IDisposable
 
     public Task<bool> CheckRateLimitAsync(string operation, CancellationToken cancellationToken)
     {
-        cancellationToken.ThrowIfCancellationRequested();
+        if (cancellationToken.IsCancellationRequested)
+        {
+            return Task.FromCanceled<bool>(cancellationToken);
+        }
 
         // 操作の種類によってレート制限を変更
         var (maxRequests, window) = operation switch

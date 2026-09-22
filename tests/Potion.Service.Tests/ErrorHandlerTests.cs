@@ -1,8 +1,10 @@
 using System;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Potion.Service.Infrastructure;
 using Xunit;
 
 namespace Potion.Service.Tests;
@@ -36,7 +38,7 @@ public class ErrorHandlerTests : IDisposable
         // Assert
         _loggerMock.Verify(
             x => x.Log(
-                LogLevel.Error,
+                Microsoft.Extensions.Logging.LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),
@@ -52,12 +54,12 @@ public class ErrorHandlerTests : IDisposable
         var context = "TestContext";
 
         // Act
-        _errorHandler.HandleError(exception, context, LogLevel.Warning);
+        _errorHandler.HandleError(exception, context, Potion.Service.Infrastructure.LogLevel.Warning);
 
         // Assert
         _loggerMock.Verify(
             x => x.Log(
-                LogLevel.Warning,
+                Microsoft.Extensions.Logging.LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),
@@ -78,7 +80,7 @@ public class ErrorHandlerTests : IDisposable
         // Assert
         _loggerMock.Verify(
             x => x.Log(
-                LogLevel.Warning,
+                Microsoft.Extensions.Logging.LogLevel.Warning,
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),
@@ -260,11 +262,10 @@ public class ErrorHandlerTests : IDisposable
         var attemptNumber = 1;
         var cancellationToken = CancellationToken.None;
 
-        // Act - 回路遮断器を開くまで失敗させる
+        // Act - リトライ上限超過の失敗を閾値（5回）まで記録し回路遮断器を開く
         for (var i = 0; i < 5; i++)
         {
-            var result = await _errorHandler.CanRetryOperationAsync(exception, i + 1, cancellationToken);
-            // 最初の数回はtrueを返すが、最終的にfalseになるはず
+            await _errorHandler.CanRetryOperationAsync(exception, 10, cancellationToken);
         }
 
         // 回路遮断器が開いた状態で再度テスト
@@ -345,7 +346,7 @@ public class ErrorHandlerTests : IDisposable
         // Assert - ログが記録されていることを確認
         _loggerMock.Verify(
             x => x.Log(
-                LogLevel.Error,
+                Microsoft.Extensions.Logging.LogLevel.Error,
                 It.IsAny<EventId>(),
                 It.IsAny<It.IsAnyType>(),
                 It.IsAny<Exception>(),

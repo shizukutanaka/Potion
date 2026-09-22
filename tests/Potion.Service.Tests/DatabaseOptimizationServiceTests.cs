@@ -62,7 +62,7 @@ public class DatabaseOptimizationServiceTests
 
         // Assert
         report.Should().NotBeNull();
-        report.IsHealthy.Should().BeInRange(false, true);
+        Assert.IsType<bool>(report.IsHealthy);
         report.Status.Should().NotBeNullOrEmpty();
         report.GeneratedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromMinutes(1));
     }
@@ -77,7 +77,7 @@ public class DatabaseOptimizationServiceTests
         var result = await _service.OptimizeIndexesAsync();
 
         // Assert
-        result.Should().BeInRange(false, true);
+        Assert.IsType<bool>(result);
     }
 
     [Fact]
@@ -90,7 +90,7 @@ public class DatabaseOptimizationServiceTests
         var result = await _service.UpdateQueryStatisticsAsync();
 
         // Assert
-        result.Should().BeInRange(false, true);
+        Assert.IsType<bool>(result);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public class DatabaseOptimizationServiceTests
         var result = await _service.DefragmentIndexesAsync();
 
         // Assert
-        result.Should().BeInRange(false, true);
+        Assert.IsType<bool>(result);
     }
 
     [Fact]

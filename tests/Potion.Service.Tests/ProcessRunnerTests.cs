@@ -4,6 +4,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Moq;
+using Potion.Service.Infrastructure;
 using Xunit;
 
 namespace Potion.Service.Tests;
@@ -27,6 +28,8 @@ public class ProcessRunnerTests : IDisposable
     [Fact]
     public async Task RunAsync_ValidCommand_ReturnsProcessResult()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var startInfo = new ProcessStartInfo
         {
@@ -52,6 +55,8 @@ public class ProcessRunnerTests : IDisposable
     [Fact]
     public async Task RunAsync_CommandWithError_ReturnsErrorResult()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var startInfo = new ProcessStartInfo
         {
@@ -140,9 +145,10 @@ public class ProcessRunnerTests : IDisposable
     [Theory]
     [InlineData(-1)]
     [InlineData(0)]
-    public void RunAsync_InvalidTimeout_ThrowsArgumentOutOfRangeException(TimeSpan timeout)
+    public void RunAsync_InvalidTimeout_ThrowsArgumentOutOfRangeException(int timeoutSeconds)
     {
         // Arrange
+        var timeout = TimeSpan.FromSeconds(timeoutSeconds);
         var startInfo = new ProcessStartInfo
         {
             FileName = "cmd.exe",
@@ -200,6 +206,8 @@ public class ProcessRunnerTests : IDisposable
     [Fact]
     public async Task RunAsync_TimeoutExceeded_ThrowsTimeoutException()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var startInfo = new ProcessStartInfo
         {
@@ -221,6 +229,8 @@ public class ProcessRunnerTests : IDisposable
     [Fact]
     public async Task RunAsync_LargeOutput_TruncatesProperly()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange - Create a command that generates large output
         var startInfo = new ProcessStartInfo
         {

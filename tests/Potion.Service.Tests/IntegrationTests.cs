@@ -1,11 +1,14 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using Potion.Service.Options;
+using Potion.Service.Infrastructure;
 using Xunit;
 
 namespace Potion.Service.Tests;
@@ -30,14 +33,14 @@ public class IntegrationTests : IDisposable
 
         _testOptions = new RemediationPolicyOptions
         {
-            CommandAllowlist = new[] { "cmd.exe", "powershell.exe", "notepad.exe" }
+            CommandAllowlist = new List<string> { "cmd.exe", "powershell.exe", "notepad.exe" }
         };
 
         _optionsMonitorMock.Setup(x => x.CurrentValue).Returns(_testOptions);
         _optionsMonitorMock.Setup(x => x.OnChange(It.IsAny<Action<RemediationPolicyOptions, string>>()))
             .Returns(Mock.Of<IDisposable>());
 
-        _commandGuard = new CommandGuard(_commandGuardLoggerMock.Object, _optionsMonitorMock.Object);
+        _commandGuard = TestObjectFactory.CreateCommandGuard(_commandGuardLoggerMock.Object, _optionsMonitorMock.Object);
         _processRunner = new ProcessRunner(_processRunnerLoggerMock.Object);
     }
 
@@ -50,6 +53,8 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task CommandGuard_ProcessRunner_Integration_SuccessfulExecution()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var command = "cmd.exe";
         var arguments = "/c echo Hello Integration Test";
@@ -97,6 +102,8 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task CommandGuard_ProcessRunner_Integration_ArgumentSanitization()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var command = "cmd.exe";
         var dangerousArguments = "/c echo test; rm -rf /";
@@ -131,6 +138,8 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task CommandGuard_ProcessRunner_Integration_TimeoutHandling()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var command = "cmd.exe";
         var longRunningArguments = "/c timeout /t 30 /nobreak"; // 30秒待機
@@ -225,6 +234,8 @@ public class IntegrationTests : IDisposable
     [Fact]
     public async Task CommandGuard_ProcessRunner_Integration_ErrorHandling()
     {
+        if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用
+
         // Arrange
         var command = "cmd.exe";
         var invalidArguments = "/c exit 1"; // エラー終了

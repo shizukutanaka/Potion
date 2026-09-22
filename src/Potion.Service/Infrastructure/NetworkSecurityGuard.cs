@@ -190,7 +190,7 @@ internal static class NetworkSecurityGuard
         }
 
         var labels = domain.Split('.', StringSplitOptions.RemoveEmptyEntries);
-        if (labels.Length == 0)
+        if (labels.Length < 2)
         {
             return false;
         }
@@ -236,7 +236,7 @@ internal static class NetworkSecurityGuard
             }
 
             var labels = normalizedHost.Split('.', StringSplitOptions.RemoveEmptyEntries);
-            if (labels.Any(label => DangerousDomains.Contains(label)))
+            if (labels.Length > 0 && DangerousDomains.Contains(labels[^1]))
             {
                 return true;
             }
