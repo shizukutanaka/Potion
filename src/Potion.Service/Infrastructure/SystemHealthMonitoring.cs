@@ -325,12 +325,15 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var restorePoint = _sampler.RestorePointAvailable();
         var pendingRepairs = _sampler.HasPendingRepairs();
         var ioOpsRate = _sampler.IoOpsRate();
+        var cpuFreq = _sampler.CpuFrequencyMhz();
+        var cpuTemp = _sampler.CpuTemperatureCelsius();
+        var cachedBytes = _sampler.MemoryCachedBytes();
         var perf = _requestMetrics.Snapshot();
         var currentProcess = Process.GetCurrentProcess();
 
         var metrics = new SystemMetrics(
-            new CpuMetrics(cpuPercent, 0, 0, Environment.ProcessorCount, Environment.ProcessorCount),
-            new MemoryMetrics(usedPercent, availableBytes, totalMemory, osUsedBytes, managedMemory, 0),
+            new CpuMetrics(cpuPercent, cpuFreq, cpuTemp, Environment.ProcessorCount, Process.GetProcesses().Length),
+            new MemoryMetrics(usedPercent, availableBytes, totalMemory, osUsedBytes, managedMemory, cachedBytes),
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
             new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast == DateTimeOffset.MinValue ? now : evtLast),
@@ -419,6 +422,108 @@ internal sealed class SystemMetricsSampler
         }
 
         return 0.0;
+    }
+
+    // Current CPU frequency. Windows exposes it via WMI; Linux via /proc/cpuinfo.
+    // No cheap equivalent exists on macOS — returns 0 there (honest unknown).
+    public double CpuFrequencyMhz()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var searcher = new ManagementObjectSearcher("SELECT CurrentClockSpeed FROM Win32_Processor");
+                foreach (var cpu in searcher.Get())
+                {
+                    if (cpu["CurrentClockSpeed"] is uint mhz)
+                    {
+                        return mhz;
+                    }
+                }
+                return 0.0;
+            }
+
+            if (OperatingSystem.IsLinux())
+            {
+                foreach (var line in File.ReadLines("/proc/cpuinfo"))
+                {
+                    if (!line.StartsWith("cpu MHz", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+                    var colon = line.IndexOf(':');
+                    if (colon >= 0 && double.TryParse(line[(colon + 1)..].Trim(), out var mhz))
+                    {
+                        return mhz;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // fall through to honest unknown
+        }
+        return 0.0;
+    }
+
+    // Package temperature where the OS exposes it for free. Linux thermal_zone
+    // reports millidegrees; the Windows WMI thermal zone reports tenths of
+    // Kelvin. Many systems lack the sensor — 0 means "not measurable".
+    public double CpuTemperatureCelsius()
+    {
+        try
+        {
+            if (OperatingSystem.IsLinux() && File.Exists("/sys/class/thermal/thermal_zone0/temp"))
+            {
+                var raw = File.ReadAllText("/sys/class/thermal/thermal_zone0/temp").Trim();
+                if (double.TryParse(raw, out var millidegrees))
+                {
+                    return millidegrees / 1000.0;
+                }
+            }
+
+            if (OperatingSystem.IsWindows())
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    @"root\WMI", "SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
+                foreach (var zone in searcher.Get())
+                {
+                    if (zone["CurrentTemperature"] is uint kelvinX10)
+                    {
+                        return (kelvinX10 - 2732) / 10.0;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // thermal provider often unavailable — fall through to honest unknown
+        }
+        return 0.0;
+    }
+
+    // OS page cache — Linux /proc/meminfo "Cached:". Windows/macOS have no
+    // cheap equivalent — returns 0 there (honest unknown).
+    public long MemoryCachedBytes()
+    {
+        try
+        {
+            if (OperatingSystem.IsLinux())
+            {
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    if (line.StartsWith("Cached:", StringComparison.Ordinal))
+                    {
+                        return ParseMeminfoKb(line) * 1024L;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // fall through to honest unknown
+        }
+        return 0;
     }
 
     // Real OS memory usage — the managed heap is a tiny fraction of RAM and

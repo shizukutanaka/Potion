@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (CpuMetrics/MemoryMetrics の固定0フィールド実測化)
+
+- **`ProcessCount` が `ProcessorCount`（CPUコア数）を転記していた誤値** — プロセス数ではなくコア数を報告していた。`Process.GetProcesses().Length` の実測へ
+- **`FrequencyMhz`/`TemperatureCelsius`/`CachedBytes` の固定0** — 実測可能なソースを配線: FrequencyMhz（Windows WMI `Win32_Processor.CurrentClockSpeed`・Linux `/proc/cpuinfo`）、TemperatureCelsius（Linux `/sys/class/thermal/thermal_zone0`・Windows WMI `MSAcpi_ThermalZoneTemperature`）、CachedBytes（Linux `/proc/meminfo Cached`）。取得不能な環境（macOS の周波数/温度/キャッシュ等）は引き続き0＝「計測不可」の正直な値
+
 ### Fixed (IsServiceContext の架空値を実測化)
 
 - **`SecurityContextMetrics.IsServiceContext` が固定 `true` の架空値だった** — コンソール実行でも「サービスコンテキスト」と主張。`!Environment.UserInteractive` の実測へ（SCM/サービス実行→true・対話コンソール→false）
