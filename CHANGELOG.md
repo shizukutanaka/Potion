@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (WindowsEventMetrics / 復元ポイントの実測化)
+
+- `WindowsEventMetrics` — `EventLogReader` の XPath クエリ（`TimeCreated[timediff <= 24h]`）で System/Security ログの直近24時間イベント数・エラー・Critical・最新時刻を実測（`System.Diagnostics.EventLog` 10.0.12 を明示追加 — 既に推移導入済みの同バージョン。走査上限5,000件。他OSは0）
+- `SystemIntegrityMetrics.RestorePointAvailable` — `root\DEFAULT` の `SystemRestore` WMI クラスで復元ポイント有無を実測（他OSは false。IntegrityCheckPassed/ViolationCount/RepairedCount は安価な実測源が無いため従来値のまま）
+
 ### Fixed (EventCorrelationMetrics の実測化)
 
 - `EventCorrelationStats` 共有カウンタを新設し、`EventCorrelationService` が稼働ルール数・累計検出相関数を記録、`SystemHealthMonitor` がスナップショットに反映（固定 0 解消）。`EventCorrelationService`/`SystemHealthMonitor` の ctor に DI 注入として追加

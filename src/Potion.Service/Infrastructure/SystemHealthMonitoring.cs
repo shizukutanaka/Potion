@@ -2,6 +2,7 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Management;
 using System.Net.NetworkInformation;
@@ -286,6 +287,8 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var security = _sampler.SecurityState();
         var inventory = _sampler.MachineInventory();
         var elevated = _sampler.IsElevated();
+        var (evtTotal, evtErrors, evtSecurity, evtCritical, evtLast) = _sampler.WindowsEventCounts();
+        var restorePoint = _sampler.RestorePointAvailable();
         var currentProcess = Process.GetCurrentProcess();
 
         return new SystemMetrics(
@@ -293,10 +296,10 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new MemoryMetrics(usedPercent, availableBytes, totalMemory, managedMemory, managedMemory, 0),
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
-            new WindowsEventMetrics(0, 0, 0, 0, now),
+            new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast == DateTimeOffset.MinValue ? now : evtLast),
             new ServiceMetrics(services.Total, services.Running, services.Stopped, services.Failed, services.FailedNames),
             new SecurityMetrics(security.Defender, security.Firewall, security.ActiveThreats, security.SecureBoot, security.LastScan),
-            new SystemIntegrityMetrics(true, 0, 0, false, now),
+            new SystemIntegrityMetrics(true, 0, 0, restorePoint, now),
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
             new SecurityContextMetrics(Environment.UserName, elevated, elevated, true),
             new RuntimePerformanceMetrics(0, 0, 0, currentProcess.Threads.Count,
@@ -603,6 +606,82 @@ internal sealed class SystemMetricsSampler
             return OperatingSystem.IsWindows() &&
                 new WindowsPrincipal(WindowsIdentity.GetCurrent())
                     .IsInRole(WindowsBuiltInRole.Administrator);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private const int MaxEventsToScan = 5000;
+    private static readonly TimeSpan EventWindow = TimeSpan.FromHours(24);
+
+    public (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) WindowsEventCounts()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return (0, 0, 0, 0, DateTimeOffset.MinValue);
+        }
+
+        try
+        {
+            var (total, errors, critical, lastAt) = CountEvents("System");
+            var (secTotal, secErrors, secCritical, secLast) = CountEvents("Security");
+            return (total + secTotal, errors + secErrors, secTotal, critical + secCritical,
+                lastAt > secLast ? lastAt : secLast);
+        }
+        catch
+        {
+            return (0, 0, 0, 0, DateTimeOffset.MinValue);
+        }
+    }
+
+    private static (int Total, int Errors, int Critical, DateTimeOffset LastAt) CountEvents(string logName)
+    {
+        var xpath = $"*[System[TimeCreated[timediff(@SystemTime) <= {(long)EventWindow.TotalMilliseconds}]]]";
+        var query = new EventLogQuery(logName, PathType.LogName, xpath);
+        using var reader = new EventLogReader(query);
+        var total = 0;
+        var errors = 0;
+        var critical = 0;
+        var lastAt = DateTimeOffset.MinValue;
+
+        EventRecord? record;
+        while ((record = reader.ReadEvent()) != null && total < MaxEventsToScan)
+        {
+            using (record)
+            {
+                total++;
+                if (record.Level == 1)
+                {
+                    critical++;
+                }
+                else if (record.Level == 2)
+                {
+                    errors++;
+                }
+                if (record.TimeCreated is { } created && created > lastAt)
+                {
+                    lastAt = created;
+                }
+            }
+        }
+
+        return (total, errors, critical, lastAt);
+    }
+
+    public bool RestorePointAvailable()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return false;
+        }
+
+        try
+        {
+            using var searcher = new ManagementObjectSearcher(@"root\DEFAULT", "SELECT SequenceNumber FROM SystemRestore");
+            using var results = searcher.Get();
+            return results.Count > 0;
         }
         catch
         {
