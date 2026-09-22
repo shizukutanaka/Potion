@@ -106,3 +106,11 @@
 
 - `CollaborationService` を DI 登録（`services.AddSingleton<CollaborationService>()` + `AddOptions<CollaborationOptions>()`）— `/collaboration` にマップされた `CollaborationHub` が生成時に同クラスを注入するが未登録だったため、SignalR 接続のたびに DI 解決失敗していた実バグを修正
 - ランタイム監査の補足所見（要判断事項として報告）: `AutoRecoveryManager`/`MemoryMonitor`/`PerformanceOptimizer`/`PredictiveRemediationService` 等の `BackgroundService`/`IHostedService` 実装が存在するが `AddHostedService` 登録がゼロのため、自己修復監視ループは現状起動しない設計。また `wwwroot/`（index.html/styles.css/dashboard.js）は `UseStaticFiles` 未呼び出しで配信されない
+
+### Fixed (起動検証で検出した実バグ群) — 初のランタイム起動成功
+
+- DI ビルド時検証を有効化（`DefaultServiceProviderFactory` + `ValidateOnBuild`/`ValidateScopes`）— 登録サービスの依存解決失敗を起動時に fail-fast で検出する再発防止
+- `services.AddHttpClient()` を追加 — 検証により `ServiceMeshService` が未登録の `IHttpClientFactory` を注入している潜伏バグを発見・修正
+- `app.UseStaticFiles()` を追加 — `wwwroot/` のダッシュボード（index.html/styles.css/dashboard.js）が配信されるよう有効化
+- Kestrel 証明書設定の実バグ修正 — ベース/開発設定の `Https` エンドポイントは証明書 `Path` が空で全環境で起動失敗していたため HTTP のみに限定。本番設定の `Password` は `${VAR:?}` シェル構文で .NET が展開しない無効プレースホルダだったため除去（本番では環境変数 `Kestrel__Endpoints__Https__Certificate__Password` で注入する方式に）
+- **初のランタイム起動検証成功**（macOS・Development 環境）: `dotnet run` で `Now listening on: http://localhost:5000` / `Application started` まで到達し、実 HTTP レスポンスを確認 — `index.html`/`swagger`/`metrics`/`/collaboration/negotiate` が全て 200（SignalR Hub の DI 修正が実行時にも検証済み）
