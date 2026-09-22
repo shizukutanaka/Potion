@@ -18,3 +18,4 @@ __pycache__/
 # build outputs
 bin/
 obj/
+BenchmarkDotNet.Artifacts/

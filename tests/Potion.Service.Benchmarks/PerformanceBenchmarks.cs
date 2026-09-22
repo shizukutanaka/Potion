@@ -1,140 +1,77 @@
-using System;
-using System.Diagnostics;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Jobs;
-using Microsoft.Extensions.Logging;
-using Moq;
+using Microsoft.Extensions.Logging.Abstractions;
+using Microsoft.Extensions.Options;
 using Potion.Service.Infrastructure;
 using Potion.Service.Options;
-using Xunit;
 
 namespace Potion.Service.Benchmarks;
 
-[SimpleJob(RuntimeMoniker.Net80)]
-[MemoryDiagnoser]
-public class SystemHealthMonitorBenchmarks
+internal sealed class StubOptionsMonitor<T> : IOptionsMonitor<T> where T : class
 {
-    private SystemHealthMonitor _monitor;
-    private Mock<ILogger<SystemHealthMonitor>> _loggerMock;
+    private readonly T _value;
 
-    [GlobalSetup]
-    public void Setup()
-    {
-        _loggerMock = new Mock<ILogger<SystemHealthMonitor>>();
-        _monitor = new SystemHealthMonitor(_loggerMock.Object);
-    }
+    public StubOptionsMonitor(T value) => _value = value;
 
-    [Benchmark]
-    public async Task GetHealthStatusAsync()
-    {
-        var status = _monitor.GetHealthStatus();
-        Assert.NotNull(status);
-    }
-
-    [Benchmark]
-    public async Task GetPerformanceMetricsAsync()
-    {
-        var metrics = _monitor.GetPerformanceMetrics();
-        Assert.NotNull(metrics);
-    }
-
-    [Benchmark]
-    public async Task HealthCheckCycleAsync()
-    {
-        // Simulate a full health check cycle
-        var stopwatch = Stopwatch.StartNew();
-
-        var status = _monitor.GetHealthStatus();
-        var metrics = _monitor.GetPerformanceMetrics();
-
-        stopwatch.Stop();
-
-        // Assert reasonable performance (should be under 100ms)
-        Assert.True(stopwatch.ElapsedMilliseconds < 100, $"Health check took {stopwatch.ElapsedMilliseconds}ms");
-    }
+    public T CurrentValue => _value;
+    public T Get(string? name) => _value;
+    public System.IDisposable? OnChange(System.Action<T, string?> listener) => null;
 }
 
-[SimpleJob(RuntimeMoniker.Net80)]
+/// <summary>
+/// セキュリティホットパス（コマンド許可リスト・引数サニタイズ・URL 検証）の
+/// 性能リグレッション検出用ベンチマーク。全コマンド実行時に通る経路を計測する。
+/// </summary>
+[SimpleJob]
 [MemoryDiagnoser]
 public class CommandGuardBenchmarks
 {
-    private CommandGuard _commandGuard;
-    private Mock<ILogger<CommandGuard>> _loggerMock;
-    private Mock<IOptionsMonitor<RemediationPolicyOptions>> _optionsMock;
+    private CommandGuard _commandGuard = null!;
 
     [GlobalSetup]
     public void Setup()
     {
-        _loggerMock = new Mock<ILogger<CommandGuard>>();
-        _optionsMock = new Mock<IOptionsMonitor<RemediationPolicyOptions>>();
-
-        var options = new RemediationPolicyOptions
+        var options = new StubOptionsMonitor<RemediationPolicyOptions>(new RemediationPolicyOptions
         {
-            CommandAllowlist = new[] { "sfc.exe", "dism.exe", "cleanmgr.exe", "chkdsk.exe" }
-        };
-        _optionsMock.Setup(o => o.CurrentValue).Returns(options);
+            CommandAllowlist = new List<string> { "sfc.exe", "dism.exe", "cleanmgr.exe", "chkdsk.exe" }
+        });
 
-        _commandGuard = new CommandGuard(_loggerMock.Object, _optionsMock.Object);
+        _commandGuard = new CommandGuard(
+            new CommandValidator(NullLogger<CommandValidator>.Instance, options),
+            new ArgumentSanitizer(NullLogger<ArgumentSanitizer>.Instance),
+            new UrlValidator(NullLogger<UrlValidator>.Instance),
+            new DomainValidator(NullLogger<DomainValidator>.Instance),
+            new RateLimiter(NullLogger<RateLimiter>.Instance));
     }
 
     [Benchmark]
-    public async Task ValidateAllowedCommandAsync()
-    {
-        var result = await _commandGuard.EnsureCommandIsAllowedAsync("sfc.exe", "/scannow");
-        Assert.True(result);
-    }
+    public string EnsureCommandIsAllowed()
+        => _commandGuard.EnsureCommandIsAllowed("sfc.exe");
 
     [Benchmark]
-    public async Task ValidateBlockedCommandAsync()
-    {
-        var result = await _commandGuard.EnsureCommandIsAllowedAsync("powershell.exe", "-c Write-Host 'test'");
-        Assert.False(result);
-    }
+    public string SanitizeArguments()
+        => _commandGuard.SanitizeArguments("/c echo test; rm -rf / && del /f /s /q c:\\* || format c:");
 
     [Benchmark]
-    public async Task SanitizeArgumentsAsync()
-    {
-        var sanitized = await _commandGuard.SanitizeArgumentsAsync("sfc.exe", "/scannow && echo hacked");
-        Assert.Equal("/scannow", sanitized);
-    }
+    public bool IsValidUrl()
+        => _commandGuard.IsValidUrl("https://example.com/path?query=value&other=123");
 }
 
-[SimpleJob(RuntimeMoniker.Net80)]
+/// <summary>
+/// レート制限チェックの性能リグレッション検出。操作ごとの呼び出し頻度が高い経路。
+/// </summary>
+[SimpleJob]
 [MemoryDiagnoser]
-public class TelemetryRetentionBenchmarks
+public class RateLimiterBenchmarks
 {
-    private TelemetryRetentionService _retentionService;
-    private Mock<ILogger<TelemetryRetentionService>> _loggerMock;
-    private Mock<IOptionsMonitor<LogCompressionOptions>> _optionsMock;
-    private Mock<ITelemetryRetentionMetrics> _metricsMock;
+    private RateLimiter _rateLimiter = null!;
 
     [GlobalSetup]
-    public void Setup()
-    {
-        _loggerMock = new Mock<ILogger<TelemetryRetentionService>>();
-        _optionsMock = new Mock<IOptionsMonitor<LogCompressionOptions>>();
-        _metricsMock = new Mock<ITelemetryRetentionMetrics>();
-
-        var options = new LogCompressionOptions
-        {
-            Enabled = true,
-            CompressionAgeDays = 7,
-            MaxLogDirectorySizeBytes = 1073741824, // 1GB
-            MaxCompressionFileSizeBytes = 104857600 // 100MB
-        };
-        _optionsMock.Setup(o => o.CurrentValue).Returns(options);
-
-        _retentionService = new TelemetryRetentionService(
-            _loggerMock.Object,
-            _optionsMock.Object,
-            _metricsMock.Object);
-    }
+    public void Setup() => _rateLimiter = new RateLimiter(NullLogger<RateLimiter>.Instance);
 
     [Benchmark]
-    public async Task ProcessRetentionCleanupAsync()
-    {
-        await _retentionService.ProcessRetentionCleanupAsync(default);
-        // This would normally clean up old telemetry files
-    }
+    public Task<bool> CheckRateLimit()
+        => _rateLimiter.CheckRateLimitAsync("DomainValidation", default);
 }
