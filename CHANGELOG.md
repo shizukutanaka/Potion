@@ -106,3 +106,31 @@
 
 - `CollaborationService` を DI 登録（`services.AddSingleton<CollaborationService>()` + `AddOptions<CollaborationOptions>()`）— `/collaboration` にマップされた `CollaborationHub` が生成時に同クラスを注入するが未登録だったため、SignalR 接続のたびに DI 解決失敗していた実バグを修正
 - ランタイム監査の補足所見（要判断事項として報告）: `AutoRecoveryManager`/`MemoryMonitor`/`PerformanceOptimizer`/`PredictiveRemediationService` 等の `BackgroundService`/`IHostedService` 実装が存在するが `AddHostedService` 登録がゼロのため、自己修復監視ループは現状起動しない設計。また `wwwroot/`（index.html/styles.css/dashboard.js）は `UseStaticFiles` 未呼び出しで配信されない
+
+### Fixed (起動検証で検出した実バグ群) — 初のランタイム起動成功
+
+- DI ビルド時検証を有効化（`DefaultServiceProviderFactory` + `ValidateOnBuild`/`ValidateScopes`）— 登録サービスの依存解決失敗を起動時に fail-fast で検出する再発防止
+- `services.AddHttpClient()` を追加 — 検証により `ServiceMeshService` が未登録の `IHttpClientFactory` を注入している潜伏バグを発見・修正
+- `app.UseStaticFiles()` を追加 — `wwwroot/` のダッシュボード（index.html/styles.css/dashboard.js）が配信されるよう有効化
+- Kestrel 証明書設定の実バグ修正 — ベース/開発設定の `Https` エンドポイントは証明書 `Path` が空で全環境で起動失敗していたため HTTP のみに限定。本番設定の `Password` は `${VAR:?}` シェル構文で .NET が展開しない無効プレースホルダだったため除去（本番では環境変数 `Kestrel__Endpoints__Https__Certificate__Password` で注入する方式に）
+- **初のランタイム起動検証成功**（macOS・Development 環境）: `dotnet run` で `Now listening on: http://localhost:5000` / `Application started` まで到達し、実 HTTP レスポンスを確認 — `index.html`/`swagger`/`metrics`/`/collaboration/negotiate` が全て 200（SignalR Hub の DI 修正が実行時にも検証済み）
+
+### Added (自己修復監視ループの有効化)
+
+- 観測・レポート専用の BackgroundService を `AddHostedService` で有効化 — これまで自己修復監視ループは一度も起動していなかった（`AddHostedService` 登録ゼロ）
+  - `MemoryMonitor`（メモリ統計・GC/ワーキングセット最適化）、`AnomalyDetector`（MLベース異常検知）、`EventCorrelationService`（イベント相関）、`ComplianceReportService`（コンプライアンスレポート）
+  - 依存 `ISystemHealthMonitor`→`SystemHealthMonitor` と各 `IOptions`/`IOptionsMonitor` を登録
+- 起動検証: MemoryMonitor/AnomalyDetector が起動ログを出力し、EventCorrelation/Compliance は各オプションの `Enabled=false` で適切に待機 — 観測ループのみ動作
+- 修復実行系（`AutoRecoveryManager`/`PerformanceOptimizer`/`PredictiveRemediationService`/`EventDrivenRemediationService`/`RemediationTaskExecutor`）は OS 修復を自律実行するため未登録のまま温存 — 有効化は明示的な製品判断が必要
+
+### Removed (デッドAPI面の整理 — ライブラリ削除を伴うため説明)
+
+- コントローラがリポジトリ内に1つも存在しないため、MVC/Swagger/APIバージョニングの設定一式を削除 — `AddControllers`/`AddEndpointsApiExplorer`/`AddSwaggerGen`/`AddApiVersioning`/`UseSwagger`/`UseSwaggerUI`/`MapControllers` は全て無効構成であり、起動時の「No action descriptors found」警告の根本原因だった
+- パッケージ削除（ライブラリ削除の説明）: `Swashbuckle.AspNetCore` 8.1.4 と `Microsoft.AspNetCore.Mvc.Versioning` 5.1.0 — エンドポイント0件の API 面のみに使用されており未使用化。将来コントローラ追加時は csproj + Startup に再追加するだけで復元可能
+- 維持: SignalR Hub（`/collaboration`）と Prometheus `/metrics` は存続し全て 200 を確認。`swagger` エンドポイントは空の API を文書化していただけのため廃止
+
+### Removed (到達不能サービスの最終整理)
+
+- 到達性解析（DI登録型＋テスト参照型を起点に型参照の推移閉包）で到達不能と確定した18ファイルを削除 — `AdvancedAuthenticationService`/`DeviceTrustService`/`NotificationService`/`RateLimitingService`/`RemoteManagementClient`/`SecureCommunicator`/`SecurityPolicyEngine`/`TenantService`/`UserBehaviorAnalyzer`/`ZeroTrustSecurityService`（全て DI 未登録）と、削除済みサービスの孤立 Options 8件（Backup/Billing/CloudIntegration/LogCompression/RemoteManagementConfigValidator/Report/SystemDiagnostics/WindowsRepair）
+- `ZeroTrustSecurityService` は削除済み依存（DeviceTrust/UserBehavior/SecurityPolicyEngine）に依存しており非修復系のため同様に削除
+- 削除後検証: `dotnet build` 0警告0エラー・126/126テスト — 実行時動作への影響なし
