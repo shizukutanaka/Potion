@@ -196,11 +196,14 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
 {
     private readonly ILogger<SystemHealthMonitor> _logger;
     private readonly EventCorrelationStats _correlationStats;
+    private readonly RequestMetricsTracker _requestMetrics;
 
-    public SystemHealthMonitor(ILogger<SystemHealthMonitor> logger, EventCorrelationStats correlationStats)
+    public SystemHealthMonitor(ILogger<SystemHealthMonitor> logger, EventCorrelationStats correlationStats,
+        RequestMetricsTracker requestMetrics)
     {
         _logger = logger;
         _correlationStats = correlationStats;
+        _requestMetrics = requestMetrics;
     }
 
     public event EventHandler<SystemHealthAlert>? HealthAlert = delegate { };
@@ -289,6 +292,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var elevated = _sampler.IsElevated();
         var (evtTotal, evtErrors, evtSecurity, evtCritical, evtLast) = _sampler.WindowsEventCounts();
         var restorePoint = _sampler.RestorePointAvailable();
+        var perf = _requestMetrics.Snapshot();
         var currentProcess = Process.GetCurrentProcess();
 
         return new SystemMetrics(
@@ -302,7 +306,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             new SystemIntegrityMetrics(true, 0, 0, restorePoint, now),
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
             new SecurityContextMetrics(Environment.UserName, elevated, elevated, true),
-            new RuntimePerformanceMetrics(0, 0, 0, currentProcess.Threads.Count,
+            new RuntimePerformanceMetrics(perf.Rps, perf.AverageLatencyMs, perf.ErrorRate, currentProcess.Threads.Count,
                 OperatingSystem.IsWindows() ? currentProcess.HandleCount : 0),
             new ResourceMonitoringMetrics(Environment.TickCount64 / 1000.0, 0, GC.CollectionCount(0)),
             new ResourcePressureMetrics(
