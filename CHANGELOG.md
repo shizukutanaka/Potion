@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (ResourceMonitoringMetrics の値ミスマッチ修正)
+
+- `CpuTimeSeconds` — `Environment.TickCount64`（システム稼働時間）が入っていた実バグを `Process.TotalProcessorTime`（プロセスCPU時間）に修正
+- `IoOperationsPerSecond` — Linux で `/proc/self/io` の `syscr+syscw` 差分レートを実測（Windows はインスタンス名衝突のため安全側0）
+- `GcCollectionCount` — gen0 のみだったものを gen0+gen1+gen2 の合計に修正
+
 ### Fixed (async void タイマーコールバック解消)
 
 - `ComplianceReportService.GenerateComplianceReport` の `async void` を廃止 — 同期コールバックから `_ = GenerateComplianceReportAsync()` を火消し起動する形に変更（`async void` 特有の未観測例外・同期コンテキスト問題を解消。コードベース内の `async void` はこれで全滅）
