@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (MemoryMonitor が全OSで完全に死んでいた実バグ)
+
+- **`MemoryStatusEx.dwLength` が未設定** — `new MemoryStatusEx()` は `dwLength=0` で `GlobalMemoryStatusEx` の必須条件を満たさず Windows でも P/Invoke が常に失敗 → システムメモリ情報が常に 0 → `ShouldOptimizeMemory` が常 false で監視が機能停止（非Windowsでも同様に全 0 を返していた）。`dwLength` を `Marshal.SizeOf` で設定、`Size=72`（誤り・正しくは64）の明示レイアウトサイズを除去
+- `TrimWorkingSetAsync` — 「トリミングを試行しました」と報告しながら何もしないプレースホルダを、実際の `SetProcessWorkingSetSize(handle, -1, -1)` P/Invoke に実装（kernel32、新規 DllImport）。他OSは「このプラットフォームでは利用できません」と正直に報告
+
 ### Fixed (AutoRecoveryManager の回復偽装・非Windows毎サイクル失敗)
 
 - **回復アクションが何もせず成功を返していた**: `RestartServiceAsync`/`RestartComponentAsync`/`PerformFailoverAsync` が `Task.Delay` のみで `true` を返却 — 失敗カウントがクリアされ「回復済み」扱いになる偽装成功。実機構が無いため `ResetConfigurationAsync` と同じく正直に `false` を返すよう修正（`ClearCacheAsync` の実動作は維持）

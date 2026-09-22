@@ -419,24 +419,27 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
             var currentProcess = Process.GetCurrentProcess();
             var beforeWorkingSet = currentProcess.WorkingSet64;
 
-            // Windowsのメモリ管理関数を使用してワーキングセットをトリミング
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                // 注意: これらの関数はプラットフォーム固有の実装が必要
-                actions.Add("ワーキングセットのトリミングを試行しました");
+                // -1,-1 でワーキングセットを最小化（実際のトリム）
+                if (SetProcessWorkingSetSize(currentProcess.Handle, -1, -1))
+                {
+                    currentProcess.Refresh();
+                    var afterTrim = currentProcess.WorkingSet64;
+                    memoryFreed = beforeWorkingSet - afterTrim;
+                    actions.Add(memoryFreed > 0
+                        ? $"ワーキングセットをトリミングしました: {memoryFreed / 1024 / 1024}MB解放"
+                        : "ワーキングセットをトリミングしました");
+                }
+                else
+                {
+                    actions.Add($"ワーキングセットのトリミングに失敗しました (Win32 error {Marshal.GetLastWin32Error()})");
+                }
             }
             else
             {
-                // 代替としてプロセスを最小化/復元
-                actions.Add("プロセスメモリの最適化を試行しました");
-            }
-
-            var afterWorkingSet = currentProcess.WorkingSet64;
-            memoryFreed = beforeWorkingSet - afterWorkingSet;
-
-            if (memoryFreed > 0)
-            {
-                actions.Add($"ワーキングセットをトリミングしました: {memoryFreed / 1024 / 1024}MB解放");
+                // 他OSに等価のワーキングセット制御は無い — 何もしないことを正直に報告
+                actions.Add("ワーキングセットのトリミングはこのプラットフォームでは利用できません");
             }
         }
         catch (Exception ex)
@@ -497,7 +500,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                var memoryStatus = new MemoryStatusEx();
+                var memoryStatus = new MemoryStatusEx { dwLength = (uint)Marshal.SizeOf<MemoryStatusEx>() };
                 if (GlobalMemoryStatusEx(ref memoryStatus))
                 {
                     var totalPhysical = (long)memoryStatus.ullTotalPhys;
@@ -531,7 +534,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
         return lastUsage - firstUsage;
     }
 
-    [StructLayout(LayoutKind.Sequential, Size = 72)]
+    [StructLayout(LayoutKind.Sequential)]
     private struct MemoryStatusEx
     {
         public uint dwLength;
@@ -548,4 +551,8 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
     [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
     [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GlobalMemoryStatusEx(ref MemoryStatusEx lpBuffer);
+
+    [DllImport("kernel32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SetProcessWorkingSetSize(IntPtr hProcess, IntPtr dwMinimumWorkingSetSize, IntPtr dwMaximumWorkingSetSize);
 }
