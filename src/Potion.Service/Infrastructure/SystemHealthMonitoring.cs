@@ -194,10 +194,12 @@ public sealed record CompatibilityMetrics(
 public sealed class SystemHealthMonitor : ISystemHealthMonitor
 {
     private readonly ILogger<SystemHealthMonitor> _logger;
+    private readonly EventCorrelationStats _correlationStats;
 
-    public SystemHealthMonitor(ILogger<SystemHealthMonitor> logger)
+    public SystemHealthMonitor(ILogger<SystemHealthMonitor> logger, EventCorrelationStats correlationStats)
     {
         _logger = logger;
+        _correlationStats = correlationStats;
     }
 
     public event EventHandler<SystemHealthAlert>? HealthAlert = delegate { };
@@ -305,7 +307,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
                 ToPressure(usedPercent),
                 ToPressure(diskUsedPercent),
                 PressureLevel.None),
-            new EventCorrelationMetrics(0, 0),
+            new EventCorrelationMetrics(_correlationStats.CorrelatedEventCount, _correlationStats.ActiveCorrelationRules),
             new CompatibilityMetrics(Environment.Version.ToString(), true));
     }
 
