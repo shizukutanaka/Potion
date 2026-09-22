@@ -238,23 +238,34 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
             return;
         }
 
-        if (_alertState.TryGetValue(component, out var previous) &&
+        var withinCooldown = _alertState.TryGetValue(component, out var previous) &&
             previous.Level == level &&
-            now - previous.At < AlertCooldown)
+            now - previous.At < AlertCooldown;
+
+        // The snapshot's alert list must mirror conditions active right now,
+        // not just alerts fired this call — otherwise an ongoing condition
+        // vanishes from /api/health for the rest of its cooldown.
+        var firingSince = withinCooldown ? previous.At : now;
+        var alert = new SystemHealthAlert
+        {
+            // Stable per firing episode: same condition => same id, so clients
+            // can acknowledge/dedup; a new episode (after resolve or cooldown
+            // expiry) gets a new id and surfaces again.
+            AlertId = $"{component}-{level.ToString().ToLowerInvariant()}-{firingSince:yyyyMMddHHmmss}",
+            Component = component,
+            Title = $"{label} is {level.ToString().ToLowerInvariant()}",
+            Message = $"{label} at {valuePercent:F1}%",
+            Severity = level == PressureLevel.Critical ? AlertSeverity.Critical : AlertSeverity.Warning,
+            Timestamp = firingSince,
+        };
+        alerts.Add(alert);
+
+        if (withinCooldown)
         {
             return;
         }
 
         _alertState[component] = (level, now);
-
-        var alert = new SystemHealthAlert
-        {
-            Component = component,
-            Title = $"{label} is {level.ToString().ToLowerInvariant()}",
-            Message = $"{label} at {valuePercent:F1}%",
-            Severity = level == PressureLevel.Critical ? AlertSeverity.Critical : AlertSeverity.Warning,
-        };
-        alerts.Add(alert);
         PotionMetrics.RecordAnomaly(component, label);
         HealthAlert?.Invoke(this, alert);
     }
