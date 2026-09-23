@@ -307,6 +307,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
 
     private SystemMetrics CreateMetrics()
     {
+        var snapshotWatch = Stopwatch.StartNew();
         var (usedPercent, osAvailBytes, osTotalBytes, osUsedBytes) = _sampler.OsMemoryUsage();
         var managedMemory = (double)GC.GetTotalMemory(forceFullCollection: false);
         var totalMemory = (double)osTotalBytes;
@@ -360,6 +361,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         PotionMetrics.UpdateMemoryUsage(usedPercent);
         PotionMetrics.UpdateDiskAvailable((long)(diskFreeBytes / (1024.0 * 1024.0 * 1024.0)));
         PotionMetrics.UpdateHealthScore(HealthScore(metrics));
+        PotionMetrics.RecordHealthCheckDuration(snapshotWatch.ElapsedMilliseconds);
         return metrics;
     }
 
@@ -1665,14 +1667,20 @@ public sealed class RemediationExecutionStats
     private long _executedCount;
     private long _succeededCount;
     private long _failedCount;
+    private long _inFlightCount;
 
     public long ExecutedCount => Interlocked.Read(ref _executedCount);
     public long SucceededCount => Interlocked.Read(ref _succeededCount);
     public long FailedCount => Interlocked.Read(ref _failedCount);
+    public long InFlightCount => Interlocked.Read(ref _inFlightCount);
 
     public void RecordExecution(bool success)
     {
         Interlocked.Increment(ref _executedCount);
         Interlocked.Increment(ref success ? ref _succeededCount : ref _failedCount);
     }
+
+    public void IncrementInFlight() => Interlocked.Increment(ref _inFlightCount);
+
+    public void DecrementInFlight() => Interlocked.Decrement(ref _inFlightCount);
 }

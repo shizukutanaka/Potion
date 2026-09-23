@@ -45,6 +45,8 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         _commandValidator.EnsureCommandIsAllowed(option.Command);
         _logger.LogInformation("Executing remediation task: {TaskName}", option.Name);
 
+        _executionStats.IncrementInFlight();
+        PotionMetrics.UpdateConcurrentOperations((int)_executionStats.InFlightCount);
         try
         {
             var startInfo = new ProcessStartInfo
@@ -86,6 +88,11 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
             _executionStats.RecordExecution(false);
             _logger.LogError(ex, "Remediation task {TaskName} failed with exception", option.Name);
             throw;
+        }
+        finally
+        {
+            _executionStats.DecrementInFlight();
+            PotionMetrics.UpdateConcurrentOperations((int)_executionStats.InFlightCount);
         }
     }
 }

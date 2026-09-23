@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (デッド計器への実値供給)
+
+- **`potion.monitoring.health_check_duration` が永久0のデッド計器だった** — `CreateMetrics` のスナップショット所要時間を実測して供給（spawn プローブコスト可視化）
+- **`potion.resilience.concurrent_operations` が永久0のデッド計器だった** — `RemediationExecutionStats` に `InFlightCount`（Interlocked 増減）を追加し executor の実行中インスタンス数を実値で報告
+
 ### Fixed (相関の繰り返し発火をクールダウンで抑制)
 
 - **同一相関が条件持続中に毎ウィンドウ再発火し警告ログが垂れ流しになっていた** — ルール別の最終報告時刻を記録し15分のクールダウンで抑制（報告数のみ CorrelatedEventCount に計上）
