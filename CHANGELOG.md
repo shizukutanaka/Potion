@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (Ingress が SignalR エンドポイントをルーティングしていなかった)
+
+- **k8s Ingress のパス一覧に `/collaboration` が欠落し、稼働中の SignalR Hub がクラスタエントリポイント経由で到達不能だった** — `/collaboration` パスを追加（nginx-ingress は WebSocket アップグレードを既定で透過）。Dockerfile・Deployment の監査も完遂：マルチステージビルド・非rootユーザー・書込み可能HOME・三種プローブ・強固なsecurityContext（nonRoot/drop ALL/readOnlyRootFS）・ConfigMap→Container env・Prometheus注釈は全て実構成と整合
+
 ### Fixed (異常検出の自己混入による周縁異常マスク)
 
 - **`FailurePattern.IsAnomaly` が検査対象値をベースラインへ先に混入させてから閾値評価していた統計的欠陥** — 候補値が自身の平均・偏差を膨張させ、実効閾値が 2σ → 約2.3σ へ偏移して (2σ, 2.3σ) の周縁異常をマスクしていた。先行ウィンドウに対して評価し、評価後にサンプルを追加（適応ベースラインの吸収設計は維持 — 持続的異常は従来通り徐々にベースライン化）。回帰テスト3件追加（154→157件）

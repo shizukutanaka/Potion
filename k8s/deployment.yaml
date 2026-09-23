@@ -176,6 +176,13 @@ spec:
             name: potion-service
             port:
               number: 80
+      - path: /collaboration
+        pathType: Prefix
+        backend:
+          service:
+            name: potion-service
+            port:
+              number: 80
       - path: /
         pathType: Prefix
         backend:
