@@ -85,6 +85,9 @@ public class Startup
         services.AddSingleton<ISystemHealthMonitor, SystemHealthMonitor>();
         services.AddHostedService<MemoryMonitor>();
         services.AddHostedService<AnomalyDetector>();
+        // Expose the hosted instance for injection (e.g. CollaborationService
+        // subscribes to AnomalyDetector.AnomalyDetected).
+        services.AddSingleton(sp => sp.GetServices<IHostedService>().OfType<AnomalyDetector>().Single());
         services.AddSingleton<EventCorrelationStats>();
         services.AddSingleton<RemediationExecutionStats>();
         services.AddSingleton<RequestMetricsTracker>();

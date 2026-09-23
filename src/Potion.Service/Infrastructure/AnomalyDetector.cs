@@ -5,8 +5,12 @@ using System.Collections.Concurrent;
 
 namespace Potion.Service.Infrastructure;
 
+public sealed record DetectedAnomaly(string MetricName, double Value, double Score, string AnomalyType, DateTimeOffset At);
+
 public interface IAnomalyDetector : IHostedService
 {
+    event EventHandler<DetectedAnomaly>? AnomalyDetected;
+
     void RecordMetric(string metricName, double value, DateTimeOffset? timestamp = null);
 
     bool IsAnomaly(string metricName, double value);
@@ -21,6 +25,8 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly ConcurrentDictionary<string, AdvancedMetricTimeSeries> _metricHistory = new();
     private Timer? _analysisTimer;
+
+    public event EventHandler<DetectedAnomaly>? AnomalyDetected;
 
     public AnomalyDetector(
         ILogger<AnomalyDetector> logger,
@@ -71,6 +77,9 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
                     var anomalyType = GetAnomalyType(statisticalAnomaly, patternAnomaly, trendAnomaly);
                     _logger.LogWarning("Advanced anomaly detected in metric {Metric}: value {Value}, score {Score}, type {Type}",
                         metric.Key, latestValue, anomalyScore, anomalyType);
+
+                    AnomalyDetected?.Invoke(this, new DetectedAnomaly(
+                        metric.Key, latestValue, anomalyScore, anomalyType, DateTimeOffset.UtcNow));
 
                     // Enhanced remediation handling
                     HandleAdvancedAnomaly(metric.Key, latestValue, anomalyScore, anomalyType);

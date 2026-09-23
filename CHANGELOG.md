@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (残りの死SignalR通知経路の活性化)
+
+- **`NotifyAnomalyDetectedAsync`/`NotifyTaskCompletedAsync` に呼出し元ゼロの死経路だった**（異常検出・修復完了が購読クライアントへ届かない）— `AnomalyDetector.AnomalyDetected` イベントと `RemediationExecutionStats.TaskCompleted` イベントを新設し `CollaborationService` が購読・ブロードキャストへ配線。`AnomalyDetector` は hosted 登録を維持したまま注入用シングルトン経路を追加（既存の hosted 登録検証テストを満たす形）
+
 ### Fixed (死SignalRブロードキャスト経路の活性化)
 
 - **`BroadcastAlertAsync`/`BroadcastSystemHealthAsync` が呼出しゼロの死経路だった**（アラート・ヘルスが購読クライアントへ一切届かない）— `HealthAlert` イベントからアラートを fire-and-forget でブロードキャスト＋接続ユーザーがいる間は1分間隔でヘルススナップショットを `system-monitors` グループへプッシュ

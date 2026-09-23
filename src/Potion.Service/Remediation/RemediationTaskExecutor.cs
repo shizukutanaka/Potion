@@ -72,7 +72,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
             );
 
             PotionMetrics.RecordRemediationTask(option.Name, success, duration);
-            _executionStats.RecordExecution(success);
+            _executionStats.RecordExecution(success, option.Name);
 
             if (!success)
             {
@@ -85,7 +85,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         catch (Exception ex)
         {
             PotionMetrics.RecordRemediationTask(option.Name, false, DateTimeOffset.UtcNow - startUtc);
-            _executionStats.RecordExecution(false);
+            _executionStats.RecordExecution(false, option.Name);
             _logger.LogError(ex, "Remediation task {TaskName} failed with exception", option.Name);
             throw;
         }

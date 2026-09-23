@@ -1662,6 +1662,8 @@ internal sealed class SystemMetricsSampler
 /// flag-gated executor (writer) and the health monitor (reader) so
 /// SystemIntegrityMetrics reports real repaired counts instead of 0.
 /// </summary>
+public sealed record RemediationTaskCompleted(string TaskName, bool Success, DateTimeOffset At);
+
 public sealed class RemediationExecutionStats
 {
     private long _executedCount;
@@ -1669,15 +1671,21 @@ public sealed class RemediationExecutionStats
     private long _failedCount;
     private long _inFlightCount;
 
+    public event EventHandler<RemediationTaskCompleted>? TaskCompleted;
+
     public long ExecutedCount => Interlocked.Read(ref _executedCount);
     public long SucceededCount => Interlocked.Read(ref _succeededCount);
     public long FailedCount => Interlocked.Read(ref _failedCount);
     public long InFlightCount => Interlocked.Read(ref _inFlightCount);
 
-    public void RecordExecution(bool success)
+    public void RecordExecution(bool success, string? taskName = null)
     {
         Interlocked.Increment(ref _executedCount);
         Interlocked.Increment(ref success ? ref _succeededCount : ref _failedCount);
+        if (taskName is not null)
+        {
+            TaskCompleted?.Invoke(this, new RemediationTaskCompleted(taskName, success, DateTimeOffset.UtcNow));
+        }
     }
 
     public void IncrementInFlight() => Interlocked.Increment(ref _inFlightCount);

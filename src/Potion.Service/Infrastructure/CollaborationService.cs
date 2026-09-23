@@ -91,7 +91,9 @@ public class CollaborationService : IDisposable
         ILogger<CollaborationService> logger,
         IOptions<CollaborationOptions> options,
         IHubContext<CollaborationHub> hubContext,
-        ISystemHealthMonitor healthMonitor)
+        ISystemHealthMonitor healthMonitor,
+        AnomalyDetector anomalyDetector,
+        RemediationExecutionStats executionStats)
     {
         _logger = logger;
         _options = options.Value;
@@ -101,6 +103,14 @@ public class CollaborationService : IDisposable
         {
             // Fire-and-forget: alert fan-out must not block the monitor loop.
             _ = BroadcastAlertAsync(alert.Component, alert.Message, alert);
+        };
+        anomalyDetector.AnomalyDetected += (_, anomaly) =>
+        {
+            _ = NotifyAnomalyDetectedAsync(anomaly.AnomalyType, anomaly.Score, anomaly);
+        };
+        executionStats.TaskCompleted += (_, task) =>
+        {
+            _ = NotifyTaskCompletedAsync(task.TaskName, task.Success, task);
         };
         _healthBroadcastTimer = new Timer(_ => _ = BroadcastHealthTickAsync(), null,
             HealthBroadcastInterval, HealthBroadcastInterval);
