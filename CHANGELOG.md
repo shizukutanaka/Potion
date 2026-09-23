@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (RequestMetricsTracker・RemediationExecutionStats のユニットテスト)
+
+- **計測カウンタの回帰テスト5件追加** — 窓RPS/平均レイテンシ/5xx率・空窓の0・4xx非エラー・修復実行の成否分離カウント（141→146）
+
 ### Improved (境界値ユニットテスト追加)
 
 - **`ToPressure` 閾値・`ShouldTrack` 除外・`ReadSysfs` のユニットテスト16件追加** — ToPressure/ReadSysfs を internal 化（Theory 境界値: 95/85/70 境界・除外パス・ファイル読取/欠落）。125→141
