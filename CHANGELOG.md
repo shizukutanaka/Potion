@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボードのテーマ/コンパクト/ツールチップ設定が完全無効だった)
+
+- **JS は `dark-theme`・`light-theme`・`compact-mode`・`no-tooltips` を body にトグルするが、CSS に対応ルールが1件も存在しなかった** — 設定画面のテーマ選択・コンパクトモード・ツールチップ無効化が全て見た目上 no-op だった。唯一のダーク定義は `prefers-color-scheme: dark` メディア内の `.dark-mode`（誰も適用しない死セレクタ）で二重に破綻
+- `--surface` 変数を新設し `background: white` 33箇所を変数化 → `.dark-theme` で surface/gray-50〜300/text/shadow を上書きする無条件ブロックへ置換（'auto' は JS 側で prefers-color-scheme 解決済みのためメディアクエリ不要）— 実ブラウザでダーク全面描画を確認済み
+- `.compact-mode`（コンテンツ/セクション/グリッド/カード/アラートの余白圧縮）・`body.no-tooltips .tooltip:hover .tooltip-content`（ツールチップ抑止、ホバールールより高詳細度）を追加
+- 残件： JS/HTML 未参照の死 CSS セレクタ約90件（about-*/banner-*/dropdown*/inline-*/skeleton-*/status-* 等の未実装UI群）は削除候補として報告
+
 ### Fixed (インストールしたサービスが certificate.pfx 不在で起動失敗していた)
 
 - **全3インストール経路（deploy-windows.ps1・package-installer.ps1・Potion.wxs MSI）が環境変数未設定でサービスを登録** — ASP.NET は未設定時 Production 環境で起動し、本番 Kestrel の HTTPS エンドポイントは `C:\ProgramData\Potion\certs\certificate.pfx` を必須とするが、いずれの経路も証明書を提供しないためサービスが起動即死していた。サービス `Environment` レジストリへ `ASPNETCORE_URLS=http://localhost:5000` を設定し HTTP バインドを保証（HTTPS は証明書配置＋レジストリ削除で有効化する旨をコメント/案内に明記）
