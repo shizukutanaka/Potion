@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (境界値ユニットテスト追加)
+
+- **`ToPressure` 閾値・`ShouldTrack` 除外・`ReadSysfs` のユニットテスト16件追加** — ToPressure/ReadSysfs を internal 化（Theory 境界値: 95/85/70 境界・除外パス・ファイル読取/欠落）。125→141
+
 ### Improved (spawn パーサーの純粋関数分離＋ユニットテスト)
 
 - **systemctl/launchctl/journalctl の出力パーサーを純粋関数へ分離** — `ParseSystemctlServiceLines`/`ParseLaunchctlServiceLines`/`ParseJournalLines` を internal 化、文字列入力で単体テスト可能に

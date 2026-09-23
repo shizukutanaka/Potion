@@ -369,7 +369,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         return Math.Clamp(1.0 - worst / 100.0, 0.0, 1.0);
     }
 
-    private static PressureLevel ToPressure(double usedPercent) =>
+    internal static PressureLevel ToPressure(double usedPercent) =>
         usedPercent >= 95.0 ? PressureLevel.Critical :
         usedPercent >= 85.0 ? PressureLevel.High :
         usedPercent >= 70.0 ? PressureLevel.Medium :
@@ -1159,7 +1159,7 @@ internal sealed class SystemMetricsSampler
         }
     }
 
-    private static string ReadSysfs(string path)
+    internal static string ReadSysfs(string path)
     {
         try
         {
