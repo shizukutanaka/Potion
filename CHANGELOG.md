@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (deploy-windows.ps1 の sc.exe 引数構文違反)
+
+- **`sc.exe` のオプションは `name= value` 形式（`=` 直後に必須スペース）が仕様だが、`binPath="..."`/`start=auto`/`depend=Winmgmt/...` 等でスペースが全欠落** — package-installer.ps1 は正しい `name= value` 形式の一方 deploy-windows.ps1 は違反形式で、環境によってサービス登録が弾かれる可能性があった。`create`/`failure`/`config` 全呼出しを正規構文へ統一
+- **`password=""` を除去** — `obj=` が `NT AUTHORITY\SYSTEM`（LocalSystem＝パスワード不要の組込みアカウント）のため指定自体が無意味かつ誤読を招く（package-installer.ps1・Potion.wxs は当初から正しい）
+- **シークレットスキャン結果**： 追跡ファイル154件に平文シークレット混入なし（`kubernetes-enterprise.yml` の `REPLACE_WITH_ACTUAL_SECRET` はプレースホルダー、resx の PublicKeyToken はアセンブリ署名鍵IDで非秘匿）
+
 ### Fixed (ダッシュボードのテーマ/コンパクト/ツールチップ設定が完全無効だった)
 
 - **JS は `dark-theme`・`light-theme`・`compact-mode`・`no-tooltips` を body にトグルするが、CSS に対応ルールが1件も存在しなかった** — 設定画面のテーマ選択・コンパクトモード・ツールチップ無効化が全て見た目上 no-op だった。唯一のダーク定義は `prefers-color-scheme: dark` メディア内の `.dark-mode`（誰も適用しない死セレクタ）で二重に破綻

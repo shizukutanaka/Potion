@@ -97,14 +97,14 @@ if (Get-Service $ServiceName -ErrorAction SilentlyContinue) {
     }
 }
 
+# sc.exe requires a space after '=' in every option; LocalSystem needs no password.
 sc.exe create "$ServiceName" `
-    binPath="$InstallPath\Potion.Service.exe" `
-    start=auto `
-    DisplayName="$ServiceDescription" `
-    obj="$ServiceAccount" `
-    password="" `
-    type=own `
-    error=normal
+    binPath= "$InstallPath\Potion.Service.exe" `
+    start= auto `
+    DisplayName= "$ServiceDescription" `
+    obj= "$ServiceAccount" `
+    type= own `
+    error= normal
 
 if ($LASTEXITCODE -ne 0) {
     Write-Error "Failed to create Windows service!"
@@ -114,10 +114,10 @@ if ($LASTEXITCODE -ne 0) {
 # Configure service recovery
 Write-Host "🔄 Configuring service recovery..." -ForegroundColor Yellow
 
-sc.exe failure "$ServiceName" reset=86400 actions=restart/60000/restart/60000/restart/60000
+sc.exe failure "$ServiceName" reset= 86400 actions= restart/60000/restart/60000/restart/60000
 
 # Configure service dependencies
-sc.exe config "$ServiceName" depend=Winmgmt/LanmanWorkstation
+sc.exe config "$ServiceName" depend= Winmgmt/LanmanWorkstation
 
 # Without env vars the service boots in the Production environment, whose
 # Kestrel HTTPS endpoint requires certificate.pfx — a cert this script does
