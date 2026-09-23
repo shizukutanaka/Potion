@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (パターンバッファへの値の二重書き込み)
+
+- **`AdvancedMetricTimeSeries.UpdateMLModel` が `AddValue` と同じ `_patternBuffer`/`_patternIndex` を再書き込みしていた実バグ** — `RecordMetric`→`AddValue`（書込み1回目）の後、解析ループ→`UpdateMLModel`（同一値を次スロットへ2回目）で各値が連続2スロットを占有し、20要素バッファが実効10値しか保持できずパターン検出が歪んでいた。パターン追加もインクリメント後の `_count % 20` でずれた境界で二重発火。`UpdateMLModel` は格納パターン履歴の上限化（10件）のみを担うよう修正 — `UpdateTrend`（呼出しなし死メソッド・その中の季節トレンド計算も常時0を返すフィルタバグ）は削除候補
+- **ML層は実統計で健全と確認** — Holt-Winters 三重指数平滑化・Pearson 相関・最小二乗トレンド・複合スコア（予測誤差0.5＋パターン0.3＋トレンド0.2）は全て正当な実装
+
 ### Fixed (プロセス起動失敗時の例外マスクとハンドルリーク)
 
 - **`ProcessRunner` で `process.Start()` 失敗時（非Windows で sfc.exe 等の許可済みバイナリが不在という一般ケース）に `process.HasExited` が未起動プロセスで `InvalidOperationException` を投げていた実バグ** — 元の `Win32Exception`（ファイル不在等）をマスクし、finally 内の job handle・CancellationTokenSource の破棄もスキップしていた。`TryTerminate` の `HasExited` チェックを try 内へ移動し、finally のチェックも try で保護 — 元の例外が正しく伝播し、リソースが常に破棄される

@@ -476,19 +476,12 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
 
         public void UpdateMLModel(double latestValue)
         {
-            // Update pattern buffer
-            _patternBuffer[_patternIndex] = latestValue;
-            _patternIndex = (_patternIndex + 1) % _patternBuffer.Length;
-
-            // Add new pattern periodically
-            if (_count % 20 == 0 && _count > 0)
+            // The pattern buffer/index and periodic pattern capture are already
+            // maintained by AddValue — writing here would double-store every
+            // value. This hook only bounds the stored pattern history.
+            if (Patterns.Count > 10)
             {
-                Patterns.Add((double[])_patternBuffer.Clone());
-                // Keep only recent patterns to prevent memory bloat
-                if (Patterns.Count > 10)
-                {
-                    Patterns.RemoveRange(0, Patterns.Count - 10);
-                }
+                Patterns.RemoveRange(0, Patterns.Count - 10);
             }
         }
 
