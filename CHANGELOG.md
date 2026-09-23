@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (Dockerfile の NuGet restore レイヤーをキャッシュ化)
+
+- **Dockerfile がソース全コピー後に `dotnet restore` を実行していたため、どの .cs ファイルの変更でも restore レイヤーのキャッシュが失効していた** — csproj 先行コピー→restore→残ソースコピーの標準2段構成へ変更（プロジェクト参照なしを確認済み）。ソース変更のみのビルドで NuGet restore がスキップされ、CI/ローカルの docker build が大幅に高速化
+- **`.dockerignore` と COPY 対象の整合も検証済み** — `*.md` 除外は wwwroot（dashboard.js/index.html/styles.css のみ）に影響なし・bin/obj/.git/.github は不要
+
 ### Improved (予防修復のスケジュール重複抑制へ回帰テストを追加)
 
 - **`PredictiveRemediationService` のスケジュールクールダウン（サイクル144で追加）が未テストだった** — `SchedulePreventiveRemediation` を internal 化（`EvaluateCompliance` と同前例）して回帰テスト4件を追加（マッピング済みメトリクスの実行・同一メトリクスの15分内再発火抑制・異メトリクスの独立スケジュール・未マッピングメトリクスのスキップ）。テスト 163→167件。併せて `RemediationTaskExecutor` の全監査を完遂 — バリデート済みコマンド→実プロセス→exit code 意味論（許可コード or 空リスト時0）→統計/計器/activity の全経路が正確
