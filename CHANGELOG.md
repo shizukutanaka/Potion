@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (イベント駆動トリガーの無制限再発火を抑制)
+
+- **`EventDrivenRemediationService` が HealthAlert 発火のたび毎回修復タスクを実行していた** — アラートが15分毎に再発火する間、同一トリガールールのアクション（sfc /verifyonly・cleanmgr 等、最大300sタイムアウト）が重複起動し続ける。ルール別の最終実行時刻を記録し15分クールダウンを適用（AlertCooldown/CorrelationCooldown と同一慣行・本パターン3件目の統一修正）。併せて監査：`SendEmail` アクション型は未実装（削除候補として記録）
+
 ### Fixed (予防修復タスクの無制限重複スケジュールを抑制)
 
 - **`PredictiveRemediationService` が予測失敗を検出するたび5分毎に同一メトリクスの修復タスクを無制限スケジュールしていた** — デデュープ機構なし（タスク名もタイムスタンプ付きで一意＝スケジューラ側でも重複不可視）。メトリクス別の最終スケジュール時刻を記録し15分クールダウンを適用（AlertCooldown/CorrelationCooldown と同一慣行）。併せて監査：全実行経路がバリデータ経由・FailurePattern のベースラインは限界値あり
