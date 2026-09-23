@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (コンプライアンスレポートの誤準拠判定＋間隔設定ミスの耐性欠如)
+
+- **未知のコンプライアンス標準（タイポ・非対応名）が「チェック0件で vacuous truth により OverallCompliance=true」を返していた実バグ** — 例えば `PCI_DSS` のような誤記が一切の検査なしに「準拠」と報告された。チェックが1件も定義されていない標準は非準拠として報告し警告ログを出力（回帰テスト追加）
+- **`Compliance:ReportIntervalHours <= 0` でタイマーがゼロ周期発火しレポート生成・ファイル書込みが無限連射される設定ミス耐性の欠如** — 有効時は `StartAsync` で fail-fast 検証（ValidateOnStart の設計方針と整合）。回帰テスト4件追加（146→150件）
+
 ### Fixed (アラート深刻度が数値シリアライズでダッシュボード表示が恒常的に不発)
 
 - **`/api/health` が `AlertSeverity` enum を数値で返していたため、ダッシュボードが深刻度判定・アラート描画を全て誤動作させていた実バグ** — JS 側は `severity === 'Critical'`・`severity.toLowerCase()`・CSS クラス名で文字列を期待しており、数値だと `toLowerCase` で例外を投げてアラートが一件も描画されず、深刻度ステータスも常に「Healthy」表示だった。`JsonStringEnumConverter` を HTTP JSON オプションへ登録し、全 enum を名前文字列でシリアライズ（`/api/health/security` の手動 `ToString()` と挙動を統一）。`resourcePressure` 等の enum 項目も文字列化（実機検証済み）

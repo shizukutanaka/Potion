@@ -45,6 +45,12 @@ public class ComplianceReportService : IHostedService, IDisposable
             return Task.CompletedTask;
         }
 
+        if (_options.ReportIntervalHours <= 0)
+        {
+            throw new InvalidOperationException(
+                "Compliance:ReportIntervalHours must be a positive number of hours when compliance reporting is enabled.");
+        }
+
         _logger.LogInformation("Starting compliance report service with standards: {Standards}",
             string.Join(", ", _options.Standards));
 
@@ -89,7 +95,7 @@ public class ComplianceReportService : IHostedService, IDisposable
         return report;
     }
 
-    private ComplianceStatus EvaluateCompliance(string standard, SystemHealthSnapshot healthSnapshot)
+    internal ComplianceStatus EvaluateCompliance(string standard, SystemHealthSnapshot healthSnapshot)
     {
         var status = new ComplianceStatus
         {
@@ -166,8 +172,14 @@ public class ComplianceReportService : IHostedService, IDisposable
             });
         }
 
-        // Overall compliance is true if all checks pass
-        status.OverallCompliance = status.Checks.All(c => c.Compliant);
+        // Overall compliance requires at least one real check: an unknown or
+        // misspelled standard must not report as vacuously compliant.
+        if (status.Checks.Count == 0)
+        {
+            _logger.LogWarning("No compliance checks are defined for configured standard {Standard}; reporting it as non-compliant", standard);
+        }
+
+        status.OverallCompliance = status.Checks.Count > 0 && status.Checks.All(c => c.Compliant);
 
         return status;
     }
