@@ -116,7 +116,7 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         _logger.LogInformation("Starting event correlation service");
 
-        _correlationTimer = new Timer(ProcessEventCorrelations, null, TimeSpan.Zero,
+        _correlationTimer = new Timer(_ => _ = ProcessEventCorrelationsAsync(), null, TimeSpan.Zero,
             TimeSpan.FromMinutes(_options.CorrelationWindowMinutes));
 
         _healthMonitor.HealthAlert += OnHealthAlert;
@@ -149,11 +149,11 @@ public class EventCorrelationService : IHostedService, IDisposable
         RecordEvent("health.alert", alert, alert.Timestamp, "health-monitor");
     }
 
-    private void ProcessEventCorrelations(object? state)
+    private async Task ProcessEventCorrelationsAsync()
     {
         try
         {
-            var metrics = _healthMonitor.GetCurrentMetricsAsync().GetAwaiter().GetResult();
+            var metrics = await _healthMonitor.GetCurrentMetricsAsync();
             var now = DateTimeOffset.UtcNow;
             foreach (var (metric, eventType) in MetricEventTypes)
             {

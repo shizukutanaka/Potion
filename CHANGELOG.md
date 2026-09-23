@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (タイマーコールバックの sync-over-async ブロッキングを解消)
+
+- **`AnomalyDetector`・`EventCorrelationService` のタイマーコールバックが `GetAwaiter().GetResult()` でスレッドプールスレッドを同期的にブロックしていた** — Timer の `void` シグネチャ上の制約から強制されていた同期ブロッキングを、コードベース確立の fire-and-forget パターン（`_ => _ = MethodAsync()`、例外は非同期メソッド内部で捕捉）へ変更。タイマースレッドは即座に解放され、解析は継続スレッドで実行
+
 ### Fixed (Ingress が SignalR エンドポイントをルーティングしていなかった)
 
 - **k8s Ingress のパス一覧に `/collaboration` が欠落し、稼働中の SignalR Hub がクラスタエントリポイント経由で到達不能だった** — `/collaboration` パスを追加（nginx-ingress は WebSocket アップグレードを既定で透過）。Dockerfile・Deployment の監査も完遂：マルチステージビルド・非rootユーザー・書込み可能HOME・三種プローブ・強固なsecurityContext（nonRoot/drop ALL/readOnlyRootFS）・ConfigMap→Container env・Prometheus注釈は全て実構成と整合

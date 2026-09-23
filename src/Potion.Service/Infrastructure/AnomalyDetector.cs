@@ -43,16 +43,16 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
         _logger.LogInformation("Starting advanced ML-based anomaly detector with pattern recognition");
 
         // Analyze metrics every 3 minutes for more responsive detection
-        _analysisTimer = new Timer(AnalyzeMetrics, null, TimeSpan.Zero, TimeSpan.FromMinutes(3));
+        _analysisTimer = new Timer(_ => _ = AnalyzeMetricsAsync(), null, TimeSpan.Zero, TimeSpan.FromMinutes(3));
 
         return Task.CompletedTask;
     }
 
-    private void AnalyzeMetrics(object? state)
+    private async Task AnalyzeMetricsAsync()
     {
         try
         {
-            var currentMetrics = _healthMonitor.GetCurrentMetricsAsync().GetAwaiter().GetResult();
+            var currentMetrics = await _healthMonitor.GetCurrentMetricsAsync();
             foreach (var sample in currentMetrics)
             {
                 RecordMetric(sample.Key, sample.Value);
