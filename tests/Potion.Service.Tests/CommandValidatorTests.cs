@@ -76,4 +76,36 @@ public class CommandValidatorTests
         var validator = CreateValidator(new[] { "sfc.exe" });
         Assert.Throws<ArgumentException>(() => validator.EnsureCommandIsAllowed("  "));
     }
+
+    [Fact]
+    public void CommandsAreAllowlisted_RejectsPathedCommandMatchingBareNameEntry()
+    {
+        // Config-time validation must enforce the same rule as the runtime
+        // validator, or a pathed task passes startup checks but dies at execution.
+        var options = new RemediationPolicyOptions
+        {
+            CommandAllowlist = new List<string> { "sfc.exe" },
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "evil", Command = @"D:\tmp\sfc.exe", Enabled = true }
+            }
+        };
+        Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+            () => RemediationPolicyOptionsValidators.CommandsAreAllowlisted(options));
+    }
+
+    [Fact]
+    public void CommandsAreAllowlisted_AllowsBareNameAndPathedEntries()
+    {
+        var options = new RemediationPolicyOptions
+        {
+            CommandAllowlist = new List<string> { "sfc.exe", @"C:\Windows\System32\chkdsk.exe" },
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "a", Command = "sfc.exe", Enabled = true },
+                new() { Name = "b", Command = @"C:\Windows\System32\chkdsk.exe", Enabled = true }
+            }
+        };
+        Assert.True(RemediationPolicyOptionsValidators.CommandsAreAllowlisted(options));
+    }
 }

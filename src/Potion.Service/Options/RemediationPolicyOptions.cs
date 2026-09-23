@@ -130,8 +130,12 @@ public static class RemediationPolicyOptionsValidators
                 continue;
             }
 
+            // Same rule as CommandValidator: bare-name allowlist entries only bless
+            // PATH-resolved bare-name commands; a path-qualified command must match a
+            // path-qualified entry (checked above via the full-command comparison).
+            var hasExplicitPath = command.IndexOfAny(new[] { '/', '\\', ':' }) >= 0;
             var commandFileName = Path.GetFileName(command);
-            if (!string.IsNullOrEmpty(commandFileName) && allowlist.Contains(commandFileName))
+            if (!hasExplicitPath && !string.IsNullOrEmpty(commandFileName) && allowlist.Contains(commandFileName))
             {
                 continue;
             }
