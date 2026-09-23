@@ -141,8 +141,7 @@ public static class ResiliencePipelines
                 ShouldHandle = new PredicateBuilder<ProcessResult>()
                     .HandleResult(r => r.IsTransientFailure)
                     .Handle<IOException>()
-                    .Handle<UnauthorizedAccessException>()
-                    .Handle<OperationCanceledException>(),
+                    .Handle<UnauthorizedAccessException>(),
                 OnRetry = args =>
                 {
                     var delay = args.RetryDelay.TotalMilliseconds;

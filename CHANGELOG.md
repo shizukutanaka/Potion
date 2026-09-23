@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (キャンセルの誤リトライ除去)
+
+- **リトライ戦略が `OperationCanceledException` を再試行対象に含めていた設計欠陥** — キャンセル要求を飲み込み最大3回まで遅延させていた。停止要求は正しく伝播するよう除外
+
 ### Fixed (デッド計器への実値供給)
 
 - **`potion.monitoring.health_check_duration` が永久0のデッド計器だった** — `CreateMetrics` のスナップショット所要時間を実測して供給（spawn プローブコスト可視化）
