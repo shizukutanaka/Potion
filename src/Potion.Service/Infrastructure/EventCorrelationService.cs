@@ -14,7 +14,6 @@ public class EventCorrelationOptions
     public bool Enabled { get; set; } = false;
     public int CorrelationWindowMinutes { get; set; } = 5;
     public int MaxEventsToCorrelate { get; set; } = 1000;
-    public List<string> CorrelationRules { get; set; } = new();
 }
 
 public class EventCorrelationService : IHostedService, IDisposable
@@ -89,12 +88,6 @@ public class EventCorrelationService : IHostedService, IDisposable
             Severity = "High",
             Description = "Multiple health alerts in the correlation window"
         });
-
-        // Add custom rules from configuration
-        foreach (var ruleConfig in _options.CorrelationRules)
-        {
-            // Parse and add custom rules if needed
-        }
     }
 
     public Task StartAsync(CancellationToken cancellationToken)

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Removed (死設定オプションの削除)
+
+- **`EventCorrelationOptions.CorrelationRules` を削除** — `List<string>` で構造ルールを表現不能・空 TODO ループで完全に死んだ設定面（組込みルール3件は `InitializeRules` で常駐）
+
 ### Fixed (相関マッチイベントの閾値不適合混入)
 
 - **`MatchedEvents` が型一致のみで判定され閾値不適合イベントも混入していた** — 閾値を実際に満たしたイベントのみへ（`EventSatisfies` 抽出・`count` 演算子は集合レベル扱い）
