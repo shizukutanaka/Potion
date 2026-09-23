@@ -102,6 +102,18 @@ public class EventCorrelationService : IHostedService, IDisposable
             return Task.CompletedTask;
         }
 
+        if (_options.CorrelationWindowMinutes <= 0)
+        {
+            throw new InvalidOperationException(
+                "EventCorrelation:CorrelationWindowMinutes must be a positive number of minutes when event correlation is enabled.");
+        }
+
+        if (_options.MaxEventsToCorrelate <= 0)
+        {
+            throw new InvalidOperationException(
+                "EventCorrelation:MaxEventsToCorrelate must be positive when event correlation is enabled.");
+        }
+
         _logger.LogInformation("Starting event correlation service");
 
         _correlationTimer = new Timer(ProcessEventCorrelations, null, TimeSpan.Zero,
