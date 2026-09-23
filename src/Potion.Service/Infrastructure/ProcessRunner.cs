@@ -131,7 +131,10 @@ public sealed class ProcessRunner : IProcessRunner, IDisposable
                 return;
             }
 
-            AppendWithLimit(outputQueue, args.Data);
+            if (!Volatile.Read(ref outputTruncated))
+            {
+                AppendWithLimit(outputQueue, args.Data);
+            }
         };
 
         process.ErrorDataReceived += (_, args) =>
@@ -142,7 +145,10 @@ public sealed class ProcessRunner : IProcessRunner, IDisposable
                 return;
             }
 
-            AppendWithLimit(errorQueue, args.Data);
+            if (!Volatile.Read(ref errorTruncated))
+            {
+                AppendWithLimit(errorQueue, args.Data);
+            }
         };
 
         var stopwatch = Stopwatch.StartNew();

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (出力キューの無制限増大を防止)
+
+- **出力トランケーション後もイベントハンドラが全行をキューへ enqueue し続ける設計漏洩** — 128K 超の verbose 出力でワーカー終了後も `ConcurrentQueue` が無制限に肥大。`truncated` フラグで enqueue を停止（worst-case メモリリーク解消）
+
 ### Fixed (キャンセルの誤リトライ除去 — HealthCheckPipeline も同型)
 
 - **HealthCheckPipeline の CB/Retry が `.Handle<Exception>()` で `OperationCanceledException` を捕捉していた同型欠陥** — シャットダウン要求がリトライされ・CB を誤発火させていた。`e is not OperationCanceledException` で除外
