@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (CommandValidator の許可リストバイパス — 任意パスの同名バイナリが検証を通過)
+
+- **修復コマンドの許可リストが「ファイル名一致」で判定していたため、許可エントリ `sfc.exe`/`net.exe` 等のベア名に対し `C:\evil\sfc.exe` や `D:\tmp\net.exe` 等の任意パスに置かれた同名バイナリが `Path.GetFileName` 一致で検証を通過していた** — RepairExecutionEnabled 有効時、許可リストをすり抜ける実行経路になりえた構造的欠陥
+- **修正**： コマンドの fileName にパス区切り（`/`・`\`・`:` — Unix では `\` が非区切りのため文字判定）を含む場合は「完全コマンド一致」または「パス修飾エントリとの fileName 一致」を要求。ベア名エントリは PATH 解決されるベア名コマンドにのみ適用 — 全実呼出し（sfc.exe/powercfg.exe/netsh.exe/cleanmgr.exe）はベア名のため挙動不変
+- CommandValidator の専用テストを新設（10件）: バイパス4系統の拒否・パス修飾エントリの自己一致・完全コマンド一致・空許可リストの既定拒否を回帰固定
+
 ### Fixed (deploy-windows.ps1 の sc.exe 引数構文違反)
 
 - **`sc.exe` のオプションは `name= value` 形式（`=` 直後に必須スペース）が仕様だが、`binPath="..."`/`start=auto`/`depend=Winmgmt/...` 等でスペースが全欠落** — package-installer.ps1 は正しい `name= value` 形式の一方 deploy-windows.ps1 は違反形式で、環境によってサービス登録が弾かれる可能性があった。`create`/`failure`/`config` 全呼出しを正規構文へ統一
