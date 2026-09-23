@@ -111,8 +111,14 @@ public class Startup
                 limiter.QueueLimit = 0;
             });
         });
-        services.Configure<MemoryMonitorOptions>(Configuration.GetSection(MemoryMonitorOptions.SectionName));
-        services.Configure<PerformanceOptimizerOptions>(Configuration.GetSection(PerformanceOptimizerOptions.SectionName));
+        services.AddOptions<MemoryMonitorOptions>()
+            .Bind(Configuration.GetSection(MemoryMonitorOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddOptions<PerformanceOptimizerOptions>()
+            .Bind(Configuration.GetSection(PerformanceOptimizerOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
         services.Configure<EventCorrelationOptions>(Configuration.GetSection("EventCorrelation"));
         services.Configure<ComplianceOptions>(Configuration.GetSection("Compliance"));
 
@@ -124,6 +130,7 @@ public class Startup
         {
             services.AddOptions<RemediationPolicyOptions>()
                 .Bind(Configuration.GetSection("RemediationPolicy"))
+                .ValidateDataAnnotations()
                 .Validate(RemediationPolicyOptionsValidators.HasUniqueTaskNames, "Remediation policy contains duplicate task names.")
                 .Validate(RemediationPolicyOptionsValidators.CommandsAreAllowlisted, "Remediation policy references commands outside the allowlist.")
                 .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowsAreValid, "Remediation policy contains invalid maintenance windows.")

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (45件のデータアノテーションが死属性だった — 一括実効化)
+
+- **`[Required]`/`[Range]`/`[StringLength]`/`[RegularExpression]` の45属性が `ValidateDataAnnotations()` 未呼出しで一切検証されない死属性だった** — 例えば `MemoryMonitor:MonitoringIntervalSeconds=0`（`Range(10,300)` 違反）が `TimeSpan.FromSeconds(0)` のスピンループを引き起こし得た。`MemoryMonitorOptions`・`PerformanceOptimizerOptions` を `AddOptions().ValidateDataAnnotations().ValidateOnStart()` へ昇格、`RemediationPolicyOptions` のチェーンにも追加（ネストした Tasks 要素の属性も再帰検証）。全出荷値が範囲内であることを確認済み — 起動時に設定ミスが fail-fast で検出されるようになった
+
 ### Fixed (イベント相関サービスの設定ミス耐性欠如)
 
 - **`EventCorrelation:CorrelationWindowMinutes <= 0` でゼロ周期タイマーがメトリクスサンプラーを無限連射する設定ミス耐性の欠如**（CPUスピン）。**`MaxEventsToCorrelate <= 0` でバッファが全イベントを即時破棄しサービスが通知なく死ぬ沈黙障害**。有効時は起動時 fail-fast 検証へ（サイクル151のコンプライアンスガードと同パターン・ValidateOnStart 方針と整合）。相関ルールのメトリクスキー・演算子・HealthAlert 供給経路は全て実値駆動と確認。回帰テスト4件追加（150→154件）
