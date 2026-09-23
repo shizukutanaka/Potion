@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (MemoryMonitor の5オプションも同様に無視されていた — リークチェックが一度も実行されない等)
+
+- **`LeakCheckIntervalMinutes` が未読取で `CheckMemoryLeaksAsync` がループから一切呼ばれていなかった** — リーク検出機能が実装済みなのに死機能化。間隔設定どおり定期実行し、兆候検出時は警告ログ出力
+- **`OptimizationCooldownSeconds` が未適用で、閾値超過中は毎間隔（30s既定）フルGC+ワーキングセットトリムが連発していた** — GC連発は性能阻害要因のため、クールダウン経過まで最適化を抑止
+- **`HistoryRetentionCount`（既定1000＝ハードコードと同値）・`OptimizationTimeoutSeconds`（従来は最適化に上限なし→連結CTSで実上限化）・`EnableDetailedLogging`（詳細ログの個別制御）も配線
+- 残件（削除候補として報告）： `MaxOptimizationAttempts`（間隔あたり最大回数 — 現在1回/間隔で意味不成立）・`LeakDetectionThresholdMb`（Private/WorkingSet 二閾値検出への写像が不確か）・RemediationPolicyOptions の `DebugMode`・`SkipSignatureValidation`（署名検証は未実装機能 — 安易な接続を避け候補扱い）
+
 ### Fixed (PerformanceOptimizer の8オプションが定義のみで完全に無視されていた)
 
 - **`Enabled` スイッチが読み取られておらず、管理者が `PerformanceOptimizer:Enabled=false` に設定しても最適化が常時実行されていた** — MemoryMonitor/EventCorrelationService の `if (options.Enabled)` パターンと同様に ExecuteAsync で評価
