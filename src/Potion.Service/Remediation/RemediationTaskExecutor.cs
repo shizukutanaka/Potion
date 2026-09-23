@@ -22,15 +22,18 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
     private readonly ILogger<RemediationTaskExecutor> _logger;
     private readonly IProcessRunner _processRunner;
     private readonly ICommandValidator _commandValidator;
+    private readonly RemediationExecutionStats _executionStats;
 
     public RemediationTaskExecutor(
         ILogger<RemediationTaskExecutor> logger,
         IProcessRunner processRunner,
-        ICommandValidator commandValidator)
+        ICommandValidator commandValidator,
+        RemediationExecutionStats executionStats)
     {
         _logger = logger;
         _processRunner = processRunner;
         _commandValidator = commandValidator;
+        _executionStats = executionStats;
     }
 
     public async Task ExecuteAsync(RemediationTaskDescriptor descriptor, CancellationToken cancellationToken)
@@ -40,8 +43,12 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         var startUtc = DateTimeOffset.UtcNow;
 
         _commandValidator.EnsureCommandIsAllowed(option.Command);
+        using var activity = PotionActivitySource.StartRemediationActivity(option.Name);
         _logger.LogInformation("Executing remediation task: {TaskName}", option.Name);
 
+        _executionStats.IncrementInFlight();
+        PotionMetrics.UpdateConcurrentOperations((int)_executionStats.InFlightCount);
+        PotionEventSource.Log.RemediationTaskStarted(option.Name, option.MaintenanceWindowTag ?? "on-demand");
         try
         {
             var startInfo = new ProcessStartInfo
@@ -66,10 +73,17 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
                 option.Name, duration.TotalMilliseconds, result.ExitCode
             );
 
+            activity?.SetStatus(success ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
             PotionMetrics.RecordRemediationTask(option.Name, success, duration);
+            _executionStats.RecordExecution(success, option.Name);
 
-            if (!success)
+            if (success)
             {
+                PotionEventSource.Log.RemediationTaskCompleted(option.Name, (long)duration.TotalMilliseconds, result.ExitCode);
+            }
+            else
+            {
+                PotionEventSource.Log.RemediationTaskFailed(option.Name, $"exit code {result.ExitCode}");
                 _logger.LogWarning(
                     "Remediation task {TaskName} failed: {Error}",
                     option.Name, result.StandardError
@@ -78,9 +92,17 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             PotionMetrics.RecordRemediationTask(option.Name, false, DateTimeOffset.UtcNow - startUtc);
+            _executionStats.RecordExecution(false, option.Name);
+            PotionEventSource.Log.RemediationTaskFailed(option.Name, ex.Message);
             _logger.LogError(ex, "Remediation task {TaskName} failed with exception", option.Name);
             throw;
+        }
+        finally
+        {
+            _executionStats.DecrementInFlight();
+            PotionMetrics.UpdateConcurrentOperations((int)_executionStats.InFlightCount);
         }
     }
 }

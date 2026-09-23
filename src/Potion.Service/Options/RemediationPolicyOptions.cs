@@ -90,11 +90,8 @@ public static class RemediationPolicyOptionsValidators
 {
     public static bool HasUniqueTaskNames(RemediationPolicyOptions options)
     {
-        if (options.Tasks.Count == 0)
-        {
-            return false;
-        }
-
+        // An empty task set vacuously has unique names — a flag-enabled service
+        // with no scheduled tasks is a legitimate configuration.
         var taskNames = options.Tasks.Select(task => task.Name).ToList();
         var duplicates = taskNames
             .GroupBy(name => name, StringComparer.OrdinalIgnoreCase)

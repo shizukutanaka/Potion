@@ -3,7 +3,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Localization;
 using OpenTelemetry.Metrics;
@@ -74,6 +76,11 @@ public class Startup
             return ResiliencePipelines.CreateDiagnosticPipeline(logger);
         });
 
+        // The dashboard compares alert severities as strings ("Critical");
+        // serialize enums as names so /api/health responses match the contract.
+        services.ConfigureHttpJsonOptions(o =>
+            o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+
         services.AddSignalR();
         services.AddHttpClient();
         services.AddSingleton<CollaborationService>();
@@ -83,13 +90,35 @@ public class Startup
         services.AddSingleton<ISystemHealthMonitor, SystemHealthMonitor>();
         services.AddHostedService<MemoryMonitor>();
         services.AddHostedService<AnomalyDetector>();
+        // Expose the hosted instance for injection (e.g. CollaborationService
+        // subscribes to AnomalyDetector.AnomalyDetected).
+        services.AddSingleton(sp => sp.GetServices<IHostedService>().OfType<AnomalyDetector>().Single());
         services.AddSingleton<EventCorrelationStats>();
+        services.AddSingleton<RemediationExecutionStats>();
         services.AddSingleton<RequestMetricsTracker>();
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();
         services.AddHealthChecks();
-        services.Configure<MemoryMonitorOptions>(Configuration.GetSection(MemoryMonitorOptions.SectionName));
-        services.Configure<PerformanceOptimizerOptions>(Configuration.GetSection(PerformanceOptimizerOptions.SectionName));
+        services.AddRateLimiter(options =>
+        {
+            // The alertmanager webhook is the only anonymous write endpoint;
+            // bound it so a misbehaving poster cannot flood the service.
+            options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+            options.AddFixedWindowLimiter("webhook", limiter =>
+            {
+                limiter.PermitLimit = 60;
+                limiter.Window = TimeSpan.FromMinutes(1);
+                limiter.QueueLimit = 0;
+            });
+        });
+        services.AddOptions<MemoryMonitorOptions>()
+            .Bind(Configuration.GetSection(MemoryMonitorOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+        services.AddOptions<PerformanceOptimizerOptions>()
+            .Bind(Configuration.GetSection(PerformanceOptimizerOptions.SectionName))
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
         services.Configure<EventCorrelationOptions>(Configuration.GetSection("EventCorrelation"));
         services.Configure<ComplianceOptions>(Configuration.GetSection("Compliance"));
 
@@ -99,7 +128,13 @@ public class Startup
         // "FeatureFlags:RepairExecutionEnabled" flag — disabled by default.
         if (Configuration.GetValue<bool>("FeatureFlags:RepairExecutionEnabled"))
         {
-            services.Configure<RemediationPolicyOptions>(Configuration.GetSection("RemediationPolicy"));
+            services.AddOptions<RemediationPolicyOptions>()
+                .Bind(Configuration.GetSection("RemediationPolicy"))
+                .ValidateDataAnnotations()
+                .Validate(RemediationPolicyOptionsValidators.HasUniqueTaskNames, "Remediation policy contains duplicate task names.")
+                .Validate(RemediationPolicyOptionsValidators.CommandsAreAllowlisted, "Remediation policy references commands outside the allowlist.")
+                .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowsAreValid, "Remediation policy contains invalid maintenance windows.")
+                .ValidateOnStart();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<ICommandValidator, CommandValidator>();
             services.AddSingleton<IRemediationTaskExecutor, RemediationTaskExecutor>();
@@ -195,6 +230,7 @@ public class Startup
         app.UseStaticFiles();
         app.UseMiddleware<RequestMetricsMiddleware>();
         app.UseRouting();
+        app.UseRateLimiter();
 
         // Map Prometheus metrics endpoint (OpenTelemetry export)
         app.UseEndpoints(endpoints =>
@@ -249,30 +285,53 @@ public class Startup
                 var logger = loggerFactory.CreateLogger("Potion.Alerts.Webhook");
                 var received = 0;
 
-                using var document = await JsonDocument.ParseAsync(ctx.Request.Body, cancellationToken: ct);
-                if (document.RootElement.TryGetProperty("alerts", out var alerts))
+                JsonDocument document;
+                try
                 {
-                    foreach (var alert in alerts.EnumerateArray())
+                    document = await JsonDocument.ParseAsync(ctx.Request.Body, cancellationToken: ct);
+                }
+                catch (JsonException ex)
+                {
+                    logger.LogWarning("Rejected malformed alertmanager webhook payload: {Error}", ex.Message);
+                    return Results.BadRequest(new { error = "malformed JSON payload" });
+                }
+
+                using (document)
+                {
+                    if (document.RootElement.TryGetProperty("alerts", out var alerts)
+                        && alerts.ValueKind == JsonValueKind.Array)
                     {
-                        var status = alert.TryGetProperty("status", out var s) ? s.GetString() : "unknown";
-                        var name = alert.TryGetProperty("labels", out var l) && l.TryGetProperty("alertname", out var an) ? an.GetString() : "unknown";
-                        var summary = alert.TryGetProperty("annotations", out var a) && a.TryGetProperty("summary", out var sum) ? sum.GetString() : null;
-
-                        if (status == "resolved")
+                        foreach (var alert in alerts.EnumerateArray())
                         {
-                            logger.LogInformation("Alert resolved: {AlertName} - {Summary}", name, summary);
-                        }
-                        else
-                        {
-                            logger.LogWarning("Alert firing: {AlertName} - {Summary}", name, summary);
-                        }
+                            if (alert.ValueKind != JsonValueKind.Object)
+                            {
+                                continue;
+                            }
 
-                        received++;
+                            var status = alert.TryGetProperty("status", out var s) ? s.GetString() : "unknown";
+                            var name = alert.TryGetProperty("labels", out var l)
+                                && l.ValueKind == JsonValueKind.Object
+                                && l.TryGetProperty("alertname", out var an) ? an.GetString() : "unknown";
+                            var summary = alert.TryGetProperty("annotations", out var a)
+                                && a.ValueKind == JsonValueKind.Object
+                                && a.TryGetProperty("summary", out var sum) ? sum.GetString() : null;
+
+                            if (status == "resolved")
+                            {
+                                logger.LogInformation("Alert resolved: {AlertName} - {Summary}", name, summary);
+                            }
+                            else
+                            {
+                                logger.LogWarning("Alert firing: {AlertName} - {Summary}", name, summary);
+                            }
+
+                            received++;
+                        }
                     }
                 }
 
                 return Results.Ok(new { received });
-            });
+            }).RequireRateLimiting("webhook");
 
             // Prometheus metrics endpoint for scraping
             endpoints.MapPrometheusScrapingEndpoint();

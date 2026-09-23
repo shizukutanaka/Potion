@@ -1,14 +1,15 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Potion.Service.Infrastructure;
 using System.Collections.Concurrent;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Potion.Service.Hubs;
 
 public class CollaborationOptions
 {
-    public bool Enabled { get; set; } = false;
     public int MaxConcurrentUsers { get; set; } = 50;
     public bool EnableRealTimeAlerts { get; set; } = true;
 }
@@ -38,10 +39,9 @@ public class CollaborationHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var userId = Context.UserIdentifier ?? Context.ConnectionId;
-        await _collaborationService.UserDisconnectedAsync(userId);
+        await _collaborationService.UserDisconnectedAsync(Context.ConnectionId);
 
-        _logger.LogInformation("User disconnected: {UserId}", userId);
+        _logger.LogInformation("User disconnected: {ConnectionId}", Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -76,21 +76,66 @@ public class CollaborationHub : Hub
     }
 }
 
-public class CollaborationService
+public class CollaborationService : IDisposable
 {
     private readonly ILogger<CollaborationService> _logger;
     private readonly CollaborationOptions _options;
     private readonly IHubContext<CollaborationHub> _hubContext;
+    private readonly ISystemHealthMonitor _healthMonitor;
     private readonly ConcurrentDictionary<string, UserSession> _activeUsers = new();
+    private readonly Timer _healthBroadcastTimer;
+    private static readonly TimeSpan HealthBroadcastInterval = TimeSpan.FromMinutes(1);
 
     public CollaborationService(
         ILogger<CollaborationService> logger,
         IOptions<CollaborationOptions> options,
-        IHubContext<CollaborationHub> hubContext)
+        IHubContext<CollaborationHub> hubContext,
+        ISystemHealthMonitor healthMonitor,
+        AnomalyDetector anomalyDetector,
+        RemediationExecutionStats executionStats)
     {
         _logger = logger;
         _options = options.Value;
         _hubContext = hubContext;
+        _healthMonitor = healthMonitor;
+        healthMonitor.HealthAlert += (_, alert) =>
+        {
+            // Fire-and-forget: alert fan-out must not block the monitor loop.
+            _ = BroadcastAlertAsync(alert.Component, alert.Message, alert);
+        };
+        anomalyDetector.AnomalyDetected += (_, anomaly) =>
+        {
+            _ = NotifyAnomalyDetectedAsync(anomaly.AnomalyType, anomaly.Score, anomaly);
+        };
+        executionStats.TaskCompleted += (_, task) =>
+        {
+            _ = NotifyTaskCompletedAsync(task.TaskName, task.Success, task);
+        };
+        _healthBroadcastTimer = new Timer(_ => _ = BroadcastHealthTickAsync(), null,
+            HealthBroadcastInterval, HealthBroadcastInterval);
+    }
+
+    private async Task BroadcastHealthTickAsync()
+    {
+        if (GetActiveUserCount() == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = await _healthMonitor.GetCurrentHealthAsync(CancellationToken.None);
+            await BroadcastSystemHealthAsync(snapshot);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast system health to collaboration clients");
+        }
+    }
+
+    public void Dispose()
+    {
+        _healthBroadcastTimer.Dispose();
     }
 
     public async Task UserConnectedAsync(string userId, string connectionId)
@@ -103,19 +148,21 @@ public class CollaborationService
             IsActive = true
         };
 
-        _activeUsers[userId] = session;
+        // Keyed by connection: one user may hold several live connections and
+        // each must count independently so one disconnect does not drop the rest.
+        _activeUsers[connectionId] = session;
 
         await BroadcastUserCountAsync();
         await _hubContext.Clients.All.SendAsync("UserConnected", userId);
     }
 
-    public async Task UserDisconnectedAsync(string userId)
+    public async Task UserDisconnectedAsync(string connectionId)
     {
-        if (_activeUsers.TryRemove(userId, out var session))
+        if (_activeUsers.TryRemove(connectionId, out var session))
         {
             session.IsActive = false;
             await BroadcastUserCountAsync();
-            await _hubContext.Clients.All.SendAsync("UserDisconnected", userId);
+            await _hubContext.Clients.All.SendAsync("UserDisconnected", session.UserId);
         }
     }
 

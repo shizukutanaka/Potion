@@ -141,8 +141,7 @@ public static class ResiliencePipelines
                 ShouldHandle = new PredicateBuilder<ProcessResult>()
                     .HandleResult(r => r.IsTransientFailure)
                     .Handle<IOException>()
-                    .Handle<UnauthorizedAccessException>()
-                    .Handle<OperationCanceledException>(),
+                    .Handle<UnauthorizedAccessException>(),
                 OnRetry = args =>
                 {
                     var delay = args.RetryDelay.TotalMilliseconds;
@@ -203,7 +202,7 @@ public static class ResiliencePipelines
                 BreakDuration = TimeSpan.FromMinutes(5),
                 ShouldHandle = new PredicateBuilder<bool>()
                     .HandleResult(r => !r)
-                    .Handle<Exception>(),
+                    .Handle<Exception>(e => e is not OperationCanceledException),
                 OnOpened = args =>
                 {
                     logger.LogCritical("Health check circuit breaker opened");
@@ -219,7 +218,7 @@ public static class ResiliencePipelines
                 BackoffType = DelayBackoffType.Exponential,
                 ShouldHandle = new PredicateBuilder<bool>()
                     .HandleResult(r => !r)
-                    .Handle<Exception>()
+                    .Handle<Exception>(e => e is not OperationCanceledException)
             })
 
             .Build();

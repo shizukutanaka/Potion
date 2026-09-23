@@ -14,11 +14,16 @@ namespace Potion.Service.Scheduling;
 /// </summary>
 public sealed class EventDrivenRemediationService : BackgroundService, IDisposable
 {
+    // Matches AlertCooldown/CorrelationCooldown: a rule whose condition keeps
+    // holding re-fires its action only after this interval.
+    private static readonly TimeSpan ActionCooldown = TimeSpan.FromMinutes(15);
+
     private readonly ILogger<EventDrivenRemediationService> _logger;
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly IRemediationTaskExecutor _taskExecutor;
     private readonly IOptionsMonitor<RemediationPolicyOptions> _optionsMonitor;
     private readonly ConcurrentDictionary<string, TriggerRule> _triggerRules = new();
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _lastExecutedAt = new();
     private readonly HttpClient _httpClient = new();
 
     public EventDrivenRemediationService(
@@ -58,10 +63,14 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
         _logger.LogInformation("ヘルスアラートを受信: {AlertId} - {Component}: {Message}", alert.AlertId, alert.Component, alert.Message);
 
         // トリガールールに基づいてアクションを実行
-        var applicableRules = _triggerRules.Values.Where(rule => MatchesTrigger(alert, rule));
+        var now = DateTimeOffset.UtcNow;
+        var applicableRules = _triggerRules.Values.Where(rule =>
+            MatchesTrigger(alert, rule)
+            && (!_lastExecutedAt.TryGetValue(rule.Name, out var lastAt) || now - lastAt >= ActionCooldown));
 
         foreach (var rule in applicableRules)
         {
+            _lastExecutedAt[rule.Name] = now;
             _ = ExecuteActionAsync(rule, alert);
         }
     }
@@ -91,6 +100,7 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
 
     private async Task ExecuteActionAsync(TriggerRule rule, SystemHealthAlert alert)
     {
+        using var activity = PotionActivitySource.StartSelfHealingActivity(alert.Component);
         try
         {
             _logger.LogInformation("トリガー '{TriggerName}' に基づいてアクション '{ActionType}' を実行", rule.Name, rule.Action.Type);

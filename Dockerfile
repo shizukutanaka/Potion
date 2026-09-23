@@ -2,14 +2,20 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
-# Copy the whole project directory (.dockerignore excludes bin/obj)
-COPY ["src/Potion.Service/", "Potion.Service/"]
+# Copy the project file first so the NuGet restore layer stays cached
+# unless package references themselves change.
+COPY ["src/Potion.Service/Potion.Service.csproj", "Potion.Service/"]
 
 # Restore dependencies
 WORKDIR "/src/Potion.Service"
 RUN dotnet restore "Potion.Service.csproj"
 
+# Copy the remaining sources (.dockerignore excludes bin/obj)
+WORKDIR /src
+COPY ["src/Potion.Service/", "Potion.Service/"]
+
 # Build the application
+WORKDIR "/src/Potion.Service"
 RUN dotnet build "Potion.Service.csproj" -c Release -o /app/build
 
 # Publish the application

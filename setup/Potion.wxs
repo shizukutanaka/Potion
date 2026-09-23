@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
-  <!-- Build: dotnet publish src/Potion.Service -c Release -r win-x64 --self-contained -p:PublishTrimmed=false -o src/Potion.Service/bin/Release/net8.0/win-x64/publish
+  <!-- Build: dotnet publish src/Potion.Service -c Release -r win-x64 -p:PublishSelfContained=true -p:PublishTrimmed=false -o src/Potion.Service/bin/Release/net8.0/win-x64/publish
        then: wix build setup/Potion.wxs -ext WixToolset.UI.wixext -o Potion.msi -->
   <Package Name="Potion Self-Healing Service" Manufacturer="Potion" Version="1.0.0" UpgradeCode="12345678-1234-1234-1234-123456789012">
 
@@ -51,6 +51,16 @@
           Start="install"
           Stop="both"
           Remove="uninstall" />
+        <!-- Without env vars the service boots in the Production environment,
+             whose Kestrel HTTPS endpoint requires certificate.pfx (not installed
+             here) and startup fails. Bind HTTP; operators add the cert under
+             ProgramData\Potion\certs and remove this value to enable HTTPS. -->
+        <RegistryKey Root="HKLM"
+                     Key="SYSTEM\CurrentControlSet\Services\Potion Self-Healing Service"
+                     ForceCreateOnInstall="yes">
+          <RegistryValue Type="multiString" Name="Environment"
+                         Value="ASPNETCORE_URLS=http://localhost:5000" />
+        </RegistryKey>
       </Component>
       <Files Include="..\src\Potion.Service\bin\Release\net8.0\win-x64\publish\**"
              Exclude="..\src\Potion.Service\bin\Release\net8.0\win-x64\publish\Potion.Service.exe" />

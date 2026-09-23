@@ -14,7 +14,6 @@ public class EventCorrelationOptions
     public bool Enabled { get; set; } = false;
     public int CorrelationWindowMinutes { get; set; } = 5;
     public int MaxEventsToCorrelate { get; set; } = 1000;
-    public List<string> CorrelationRules { get; set; } = new();
 }
 
 public class EventCorrelationService : IHostedService, IDisposable
@@ -34,6 +33,10 @@ public class EventCorrelationService : IHostedService, IDisposable
     private readonly EventCorrelationStats _stats;
     private readonly ConcurrentQueue<SystemEvent> _eventBuffer = new();
     private readonly List<CorrelationRule> _rules = new();
+    // Per-rule last-reported timestamp: a persistent condition would
+    // otherwise re-log the same correlation every window indefinitely.
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _lastCorrelationAt = new();
+    private static readonly TimeSpan CorrelationCooldown = TimeSpan.FromMinutes(15);
     private Timer? _correlationTimer;
 
     public EventCorrelationService(
@@ -89,12 +92,6 @@ public class EventCorrelationService : IHostedService, IDisposable
             Severity = "High",
             Description = "Multiple health alerts in the correlation window"
         });
-
-        // Add custom rules from configuration
-        foreach (var ruleConfig in _options.CorrelationRules)
-        {
-            // Parse and add custom rules if needed
-        }
     }
 
     public Task StartAsync(CancellationToken cancellationToken)
@@ -105,9 +102,21 @@ public class EventCorrelationService : IHostedService, IDisposable
             return Task.CompletedTask;
         }
 
+        if (_options.CorrelationWindowMinutes <= 0)
+        {
+            throw new InvalidOperationException(
+                "EventCorrelation:CorrelationWindowMinutes must be a positive number of minutes when event correlation is enabled.");
+        }
+
+        if (_options.MaxEventsToCorrelate <= 0)
+        {
+            throw new InvalidOperationException(
+                "EventCorrelation:MaxEventsToCorrelate must be positive when event correlation is enabled.");
+        }
+
         _logger.LogInformation("Starting event correlation service");
 
-        _correlationTimer = new Timer(ProcessEventCorrelations, null, TimeSpan.Zero,
+        _correlationTimer = new Timer(_ => _ = ProcessEventCorrelationsAsync(), null, TimeSpan.Zero,
             TimeSpan.FromMinutes(_options.CorrelationWindowMinutes));
 
         _healthMonitor.HealthAlert += OnHealthAlert;
@@ -140,11 +149,11 @@ public class EventCorrelationService : IHostedService, IDisposable
         RecordEvent("health.alert", alert, alert.Timestamp, "health-monitor");
     }
 
-    private void ProcessEventCorrelations(object? state)
+    private async Task ProcessEventCorrelationsAsync()
     {
         try
         {
-            var metrics = _healthMonitor.GetCurrentMetricsAsync().GetAwaiter().GetResult();
+            var metrics = await _healthMonitor.GetCurrentMetricsAsync();
             var now = DateTimeOffset.UtcNow;
             foreach (var (metric, eventType) in MetricEventTypes)
             {
@@ -167,10 +176,18 @@ public class EventCorrelationService : IHostedService, IDisposable
                 return;
 
             var correlations = FindCorrelations(recentEvents);
-            _stats.CorrelatedEventCount += correlations.Count;
 
             foreach (var correlation in correlations)
             {
+                if (_lastCorrelationAt.TryGetValue(correlation.Rule.Name, out var lastAt)
+                    && now - lastAt < CorrelationCooldown)
+                {
+                    continue;
+                }
+
+                _lastCorrelationAt[correlation.Rule.Name] = now;
+                _stats.CorrelatedEventCount++;
+
                 _logger.LogWarning("Event correlation detected: {Name} - {Description}",
                     correlation.Rule.Name, correlation.Rule.Description);
 
@@ -221,27 +238,35 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         switch (condition.Operator)
         {
-            case ">":
-                return matchingEvents.Any(e => GetEventValue(e) > condition.Threshold);
-            case "<":
-                return matchingEvents.Any(e => GetEventValue(e) < condition.Threshold);
-            case ">=":
-                return matchingEvents.Any(e => GetEventValue(e) >= condition.Threshold);
-            case "<=":
-                return matchingEvents.Any(e => GetEventValue(e) <= condition.Threshold);
             case "count":
                 return matchingEvents.Count >= condition.Threshold;
             default:
-                return false;
+                return matchingEvents.Any(e => EventSatisfies(condition, e));
         }
+    }
+
+    // A single event satisfies a threshold condition when its numeric value
+    // meets the operator's comparison; "count" is a set-level check and has
+    // no per-event meaning (any event of the type counts as contributing).
+    private static bool EventSatisfies(EventCondition condition, SystemEvent systemEvent)
+    {
+        return condition.Operator switch
+        {
+            ">" => GetEventValue(systemEvent) > condition.Threshold,
+            "<" => GetEventValue(systemEvent) < condition.Threshold,
+            ">=" => GetEventValue(systemEvent) >= condition.Threshold,
+            "<=" => GetEventValue(systemEvent) <= condition.Threshold,
+            "count" => true,
+            _ => false,
+        };
     }
 
     private bool MatchesCondition(SystemEvent systemEvent, List<EventCondition> conditions)
     {
-        return conditions.Any(c => c.EventType == systemEvent.Type);
+        return conditions.Any(c => c.EventType == systemEvent.Type && EventSatisfies(c, systemEvent));
     }
 
-    private double GetEventValue(SystemEvent systemEvent)
+    private static double GetEventValue(SystemEvent systemEvent)
     {
         // Extract numeric value from event data
         if (systemEvent.Data is double d)

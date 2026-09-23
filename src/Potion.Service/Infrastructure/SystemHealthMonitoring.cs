@@ -6,6 +6,7 @@ using System.Diagnostics.Eventing.Reader;
 using System.IO;
 using System.Management;
 using System.Net.NetworkInformation;
+using System.Runtime.InteropServices;
 using System.Security.Principal;
 using System.Threading;
 using System.Threading.Tasks;
@@ -197,30 +198,34 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
     private readonly ILogger<SystemHealthMonitor> _logger;
     private readonly EventCorrelationStats _correlationStats;
     private readonly RequestMetricsTracker _requestMetrics;
+    private readonly RemediationExecutionStats _remediationStats;
 
     public SystemHealthMonitor(ILogger<SystemHealthMonitor> logger, EventCorrelationStats correlationStats,
-        RequestMetricsTracker requestMetrics)
+        RequestMetricsTracker requestMetrics, RemediationExecutionStats remediationStats)
     {
         _logger = logger;
         _correlationStats = correlationStats;
         _requestMetrics = requestMetrics;
+        _remediationStats = remediationStats;
     }
 
     public event EventHandler<SystemHealthAlert>? HealthAlert = delegate { };
 
     public Task<SystemHealthSnapshot> GetCurrentHealthAsync(CancellationToken cancellationToken)
     {
+        using var activity = PotionActivitySource.StartHealthCheckActivity();
         var metrics = CreateMetrics();
         var snapshot = new SystemHealthSnapshot(metrics, EvaluatePressureAlerts(metrics));
         return Task.FromResult(snapshot);
     }
 
     private static readonly TimeSpan AlertCooldown = TimeSpan.FromMinutes(15);
-    private readonly ConcurrentDictionary<string, (PressureLevel Level, DateTimeOffset At)> _alertState = new();
+    private long _episodeSequence;
+    private readonly ConcurrentDictionary<string, (PressureLevel Level, DateTimeOffset At, long Seq)> _alertState = new();
 
     // Raise one alert per component per level, re-firing at most every AlertCooldown while the
     // condition persists; clears when pressure drops below High.
-    private List<SystemHealthAlert> EvaluatePressureAlerts(SystemMetrics metrics)
+    internal List<SystemHealthAlert> EvaluatePressureAlerts(SystemMetrics metrics)
     {
         var alerts = new List<SystemHealthAlert>();
         EmitPressureAlert(alerts, "cpu", "CPU usage", metrics.Cpu.UsagePercent, metrics.ResourcePressure.Cpu);
@@ -229,32 +234,58 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         return alerts;
     }
 
-    private void EmitPressureAlert(List<SystemHealthAlert> alerts, string component, string label, double valuePercent, PressureLevel level)
+    internal void EmitPressureAlert(List<SystemHealthAlert> alerts, string component, string label, double valuePercent, PressureLevel level)
     {
         var now = DateTimeOffset.UtcNow;
+        var hasEpisode = _alertState.TryGetValue(component, out var previous);
+
         if (level < PressureLevel.High)
         {
-            _alertState.TryRemove(component, out _);
-            return;
+            // Hysteresis: a firing episode holds while pressure stays within a
+            // 5-point band of the High floor (85%). A single dip across the
+            // threshold must not clear the episode and re-fire it as a new
+            // alert seconds later — polling dashboards call this often enough
+            // for threshold flapping to be routine.
+            if (hasEpisode && valuePercent >= 80.0)
+            {
+                level = previous.Level;
+            }
+            else
+            {
+                _alertState.TryRemove(component, out _);
+                return;
+            }
         }
 
-        if (_alertState.TryGetValue(component, out var previous) &&
+        var withinCooldown = hasEpisode &&
             previous.Level == level &&
-            now - previous.At < AlertCooldown)
-        {
-            return;
-        }
+            now - previous.At < AlertCooldown;
 
-        _alertState[component] = (level, now);
-
+        // The snapshot's alert list must mirror conditions active right now,
+        // not just alerts fired this call — otherwise an ongoing condition
+        // vanishes from /api/health for the rest of its cooldown.
+        var firingSince = withinCooldown ? previous.At : now;
+        var seq = withinCooldown ? previous.Seq : Interlocked.Increment(ref _episodeSequence);
         var alert = new SystemHealthAlert
         {
+            // Stable per firing episode: same condition => same id, so clients
+            // can acknowledge/dedup; a new episode (after resolve or cooldown
+            // expiry) gets a new id and surfaces again.
+            AlertId = $"{component}-{level.ToString().ToLowerInvariant()}-{firingSince:yyyyMMddHHmmssfff}-{seq}",
             Component = component,
             Title = $"{label} is {level.ToString().ToLowerInvariant()}",
             Message = $"{label} at {valuePercent:F1}%",
             Severity = level == PressureLevel.Critical ? AlertSeverity.Critical : AlertSeverity.Warning,
+            Timestamp = firingSince,
         };
         alerts.Add(alert);
+
+        if (withinCooldown)
+        {
+            return;
+        }
+
+        _alertState[component] = (level, now, seq);
         PotionMetrics.RecordAnomaly(component, label);
         HealthAlert?.Invoke(this, alert);
     }
@@ -277,10 +308,11 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
 
     private SystemMetrics CreateMetrics()
     {
-        var totalMemory = (double)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+        var snapshotWatch = Stopwatch.StartNew();
+        var (usedPercent, osAvailBytes, osTotalBytes, osUsedBytes) = _sampler.OsMemoryUsage();
         var managedMemory = (double)GC.GetTotalMemory(forceFullCollection: false);
-        var usedPercent = totalMemory > 0 ? Math.Clamp(managedMemory / totalMemory * 100.0, 0.0, 100.0) : 0.0;
-        var availableBytes = Math.Max(totalMemory - managedMemory, 0.0);
+        var totalMemory = (double)osTotalBytes;
+        var availableBytes = (double)osAvailBytes;
         var now = DateTimeOffset.UtcNow;
 
         var cpuPercent = _sampler.CpuUsagePercent();
@@ -293,24 +325,27 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var elevated = _sampler.IsElevated();
         var (evtTotal, evtErrors, evtSecurity, evtCritical, evtLast) = _sampler.WindowsEventCounts();
         var restorePoint = _sampler.RestorePointAvailable();
-        var pendingRepairs = _sampler.HasPendingRepairs();
+        var pendingRepairs = _sampler.PendingRepairCount();
         var ioOpsRate = _sampler.IoOpsRate();
+        var cpuFreq = _sampler.CpuFrequencyMhz();
+        var cpuTemp = _sampler.CpuTemperatureCelsius();
+        var cachedBytes = _sampler.MemoryCachedBytes();
         var perf = _requestMetrics.Snapshot();
         var currentProcess = Process.GetCurrentProcess();
 
         var metrics = new SystemMetrics(
-            new CpuMetrics(cpuPercent, 0, 0, Environment.ProcessorCount, Environment.ProcessorCount),
-            new MemoryMetrics(usedPercent, availableBytes, totalMemory, managedMemory, managedMemory, 0),
+            new CpuMetrics(cpuPercent, cpuFreq, cpuTemp, Environment.ProcessorCount, Process.GetProcesses().Length),
+            new MemoryMetrics(usedPercent, availableBytes, totalMemory, osUsedBytes, managedMemory, cachedBytes),
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
-            new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast == DateTimeOffset.MinValue ? now : evtLast),
+            new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast),
             new ServiceMetrics(services.Total, services.Running, services.Stopped, services.Failed, services.FailedNames),
             new SecurityMetrics(security.Defender, security.Firewall, security.ActiveThreats, security.SecureBoot, security.LastScan),
-            new SystemIntegrityMetrics(!pendingRepairs, 0, 0, restorePoint, now),
+            new SystemIntegrityMetrics(pendingRepairs == 0, pendingRepairs, (int)_remediationStats.SucceededCount, restorePoint, now),
             new InventoryMetrics(Environment.MachineName, Environment.OSVersion.VersionString, inventory.Manufacturer, inventory.Model, inventory.SerialNumber),
-            new SecurityContextMetrics(Environment.UserName, elevated, elevated, true),
+            new SecurityContextMetrics(Environment.UserName, elevated, elevated, !Environment.UserInteractive),
             new RuntimePerformanceMetrics(perf.Rps, perf.AverageLatencyMs, perf.ErrorRate, currentProcess.Threads.Count,
-                OperatingSystem.IsWindows() ? currentProcess.HandleCount : 0),
+                OperatingSystem.IsWindows() ? currentProcess.HandleCount : _sampler.OpenDescriptorCount()),
             new ResourceMonitoringMetrics(currentProcess.TotalProcessorTime.TotalSeconds, ioOpsRate,
                 GC.CollectionCount(0) + GC.CollectionCount(1) + GC.CollectionCount(2)),
             new ResourcePressureMetrics(
@@ -327,6 +362,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         PotionMetrics.UpdateMemoryUsage(usedPercent);
         PotionMetrics.UpdateDiskAvailable((long)(diskFreeBytes / (1024.0 * 1024.0 * 1024.0)));
         PotionMetrics.UpdateHealthScore(HealthScore(metrics));
+        PotionMetrics.RecordHealthCheckDuration(snapshotWatch.ElapsedMilliseconds);
         return metrics;
     }
 
@@ -336,7 +372,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         return Math.Clamp(1.0 - worst / 100.0, 0.0, 1.0);
     }
 
-    private static PressureLevel ToPressure(double usedPercent) =>
+    internal static PressureLevel ToPressure(double usedPercent) =>
         usedPercent >= 95.0 ? PressureLevel.Critical :
         usedPercent >= 85.0 ? PressureLevel.High :
         usedPercent >= 70.0 ? PressureLevel.Medium :
@@ -354,13 +390,27 @@ internal sealed class SystemMetricsSampler
     private PerformanceCounter? _cpuCounter;
     private PerformanceCounter? _diskReadCounter;
     private PerformanceCounter? _diskWriteCounter;
+    private PerformanceCounter? _cacheBytesCounter;
+    private PerformanceCounter? _ioOpsCounter;
     private bool _windowsCountersTried;
     private long[]? _lastLinuxCpu;
     private double _linuxCpuPercent;
     private (long rx, long tx)? _lastNetTotals;
     private DateTimeOffset _lastNetSampleTime;
     private double _netRxRate;
+
+    // Process-spawning probes (systemctl/journalctl) run inside the hot poll
+    // loop — cache their slowly-changing aggregates for a short TTL so each
+    // poll does not fork three children on Linux.
+    private static readonly TimeSpan SpawnedProbeTtl = TimeSpan.FromSeconds(30);
+    private (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames)? _serviceCountsCache;
+    private DateTimeOffset _serviceCountsAt;
+    private (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt)? _eventCountsCache;
+    private DateTimeOffset _eventCountsAt;
+    private bool? _firewallCache;
+    private DateTimeOffset _firewallAt;
     private double _netTxRate;
+    private (long busy, long total)? _lastMacCpu;
 
     public double CpuUsagePercent()
     {
@@ -382,7 +432,341 @@ internal sealed class SystemMetricsSampler
             return LinuxCpuPercent();
         }
 
+        if (OperatingSystem.IsMacOS())
+        {
+            return MacCpuPercent();
+        }
+
         return 0.0;
+    }
+
+    // Current CPU frequency. Windows exposes it via WMI; Linux via /proc/cpuinfo.
+    // No cheap equivalent exists on macOS — returns 0 there (honest unknown).
+    public double CpuFrequencyMhz()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                using var searcher = new ManagementObjectSearcher("SELECT CurrentClockSpeed FROM Win32_Processor");
+                foreach (var cpu in searcher.Get())
+                {
+                    if (cpu["CurrentClockSpeed"] is uint mhz)
+                    {
+                        return mhz;
+                    }
+                }
+                return 0.0;
+            }
+
+            if (OperatingSystem.IsLinux())
+            {
+                foreach (var line in File.ReadLines("/proc/cpuinfo"))
+                {
+                    if (!line.StartsWith("cpu MHz", StringComparison.Ordinal))
+                    {
+                        continue;
+                    }
+                    var colon = line.IndexOf(':');
+                    if (colon >= 0 && double.TryParse(line[(colon + 1)..].Trim(), out var mhz))
+                    {
+                        return mhz;
+                    }
+                }
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                // hw.cpufrequency reports Hz on Intel Macs; Apple Silicon omits
+                // it — a 0/failure result is the honest "unmeasurable" case.
+                var hz = SysctlUInt64("hw.cpufrequency");
+                if (hz > 0)
+                {
+                    return hz / 1_000_000.0;
+                }
+            }
+        }
+        catch
+        {
+            // fall through to honest unknown
+        }
+        return 0.0;
+    }
+
+    private static ulong SysctlUInt64(string name)
+    {
+        var size = (IntPtr)sizeof(ulong);
+        var value = 0UL;
+        return sysctlbyname(name, ref value, ref size, IntPtr.Zero, (UIntPtr)0) == 0
+            ? value
+            : 0UL;
+    }
+
+    private static string SysctlString(string name)
+    {
+        var size = IntPtr.Zero;
+        if (sysctlbyname(name, IntPtr.Zero, ref size, IntPtr.Zero, UIntPtr.Zero) != 0 ||
+            size == IntPtr.Zero)
+        {
+            return string.Empty;
+        }
+        var buf = Marshal.AllocHGlobal(size);
+        try
+        {
+            return sysctlbyname(name, buf, ref size, IntPtr.Zero, UIntPtr.Zero) == 0
+                ? Marshal.PtrToStringAnsi(buf) ?? string.Empty
+                : string.Empty;
+        }
+        finally
+        {
+            Marshal.FreeHGlobal(buf);
+        }
+    }
+
+    [DllImport("libc")]
+    private static extern int sysctlbyname(string name, ref ulong oldValue, ref IntPtr oldSize, IntPtr newValue, UIntPtr newSize);
+
+    [DllImport("libc")]
+    private static extern int sysctlbyname(string name, IntPtr oldValue, ref IntPtr oldSize, IntPtr newValue, UIntPtr newSize);
+
+    // Package temperature where the OS exposes it for free. Linux thermal_zone
+    // reports millidegrees; the Windows WMI thermal zone reports tenths of
+    // Kelvin. Many systems lack the sensor — 0 means "not measurable".
+    public double CpuTemperatureCelsius()
+    {
+        try
+        {
+            if (OperatingSystem.IsLinux() && File.Exists("/sys/class/thermal/thermal_zone0/temp"))
+            {
+                var raw = File.ReadAllText("/sys/class/thermal/thermal_zone0/temp").Trim();
+                if (double.TryParse(raw, out var millidegrees))
+                {
+                    return millidegrees / 1000.0;
+                }
+            }
+
+            if (OperatingSystem.IsWindows())
+            {
+                using var searcher = new ManagementObjectSearcher(
+                    @"root\WMI", "SELECT CurrentTemperature FROM MSAcpi_ThermalZoneTemperature");
+                foreach (var zone in searcher.Get())
+                {
+                    if (zone["CurrentTemperature"] is uint kelvinX10)
+                    {
+                        return (kelvinX10 - 2732) / 10.0;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // thermal provider often unavailable — fall through to honest unknown
+        }
+        return 0.0;
+    }
+
+    // Open file descriptors — the Unix analogue of the Windows handle count,
+    // useful for catching descriptor leaks. Linux reads /proc/self/fd; macOS
+    // queries proc_pidinfo(PROC_PIDLISTFDS).
+    public int OpenDescriptorCount()
+    {
+        try
+        {
+            if (OperatingSystem.IsLinux() && Directory.Exists("/proc/self/fd"))
+            {
+                return Directory.EnumerateFileSystemEntries("/proc/self/fd").Count();
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                // proc_pidinfo(PROC_PIDLISTFDS) returns a packed proc_fdinfo
+                // array — byte count / entry size = open descriptor count.
+                var pid = (int)Environment.ProcessId;
+                var size = proc_pidinfo(pid, ProcPidListFds, 0, IntPtr.Zero, 0);
+                if (size <= 0)
+                {
+                    return 0;
+                }
+                var buf = Marshal.AllocHGlobal(size);
+                try
+                {
+                    var read = proc_pidinfo(pid, ProcPidListFds, 0, buf, size);
+                    return read > 0 ? read / ProcFdInfoSize : 0;
+                }
+                finally
+                {
+                    Marshal.FreeHGlobal(buf);
+                }
+            }
+        }
+        catch
+        {
+            // fall through to honest unknown
+        }
+        return 0;
+    }
+
+    private const int ProcPidListFds = 1;   // PROC_PIDLISTFDS
+    private const int ProcFdInfoSize = 32;  // sizeof(struct proc_fdinfo)
+
+    [DllImport("libproc")]
+    private static extern int proc_pidinfo(int pid, int flavor, ulong arg, IntPtr buffer, int bufferSize);
+
+    // OS page cache — Windows "Memory\Cache Bytes" perf counter, Linux
+    // /proc/meminfo "Cached:". macOS has no cheap equivalent (honest 0).
+    public long MemoryCachedBytes()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                EnsureWindowsCounters();
+                return (long)(_cacheBytesCounter?.NextValue() ?? 0);
+            }
+            if (OperatingSystem.IsLinux())
+            {
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    if (line.StartsWith("Cached:", StringComparison.Ordinal))
+                    {
+                        return ParseMeminfoKb(line) * 1024L;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // fall through to honest unknown
+        }
+        return 0;
+    }
+
+    // Real OS memory usage — the managed heap is a tiny fraction of RAM and
+    // must not drive pressure alerts or dashboard cards.
+    public (double usedPercent, long freeBytes, long totalBytes, long usedBytes) OsMemoryUsage()
+    {
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                var status = new SamplerMemoryStatusEx { dwLength = (uint)Marshal.SizeOf<SamplerMemoryStatusEx>() };
+                if (SamplerGlobalMemoryStatusEx(ref status))
+                {
+                    var total = (long)status.ullTotalPhys;
+                    var avail = (long)status.ullAvailPhys;
+                    var used = total - avail;
+                    return (total > 0 ? used / (double)total * 100.0 : 0.0, avail, total, used);
+                }
+                return (0.0, 0, 0, 0);
+            }
+
+            if (OperatingSystem.IsLinux())
+            {
+                long memTotal = 0, memAvailable = 0;
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    if (line.StartsWith("MemTotal:", StringComparison.Ordinal))
+                    {
+                        memTotal = ParseMeminfoKb(line);
+                    }
+                    else if (line.StartsWith("MemAvailable:", StringComparison.Ordinal))
+                    {
+                        memAvailable = ParseMeminfoKb(line);
+                    }
+
+                    if (memTotal > 0 && memAvailable > 0)
+                    {
+                        break;
+                    }
+                }
+
+                if (memTotal <= 0)
+                {
+                    return (0.0, 0, 0, 0);
+                }
+
+                var total = memTotal * 1024L;
+                var avail = memAvailable * 1024L;
+                var used = total - avail;
+                return (used / (double)total * 100.0, avail, total, used);
+            }
+
+            if (OperatingSystem.IsMacOS())
+            {
+                // HOST_VM_INFO: page counts; free+inactive is reclaimable
+                // (matches what Activity Monitor treats as available).
+                var port = mach_host_self();
+                var info = new int[HOST_VM_INFO_COUNT];
+                var count = HOST_VM_INFO_COUNT;
+                if (host_statistics(port, HOST_VM_INFO, info, ref count) != KERN_SUCCESS)
+                {
+                    return (0.0, 0, 0, 0);
+                }
+
+                var pageSize = (long)Environment.SystemPageSize;
+                var freePages = (long)(uint)info[0];       // free_count
+                var inactivePages = (long)(uint)info[2];   // inactive_count
+                var total = (long)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes;
+                var avail = (freePages + inactivePages) * pageSize;
+                avail = Math.Min(avail, total);
+                var used = total - avail;
+                return (total > 0 ? used / (double)total * 100.0 : 0.0, avail, total, used);
+            }
+        }
+        catch
+        {
+            // fall through — report zeros rather than fail the poll
+        }
+
+        return (0.0, 0, 0, 0);
+    }
+
+    private static long ParseMeminfoKb(string line)
+    {
+        // "MemTotal:       16384000 kB"
+        var value = 0L;
+        foreach (var part in line.Split(' ', StringSplitOptions.RemoveEmptyEntries))
+        {
+            if (long.TryParse(part, out var parsed))
+            {
+                value = parsed;
+                break;
+            }
+        }
+        return value;
+    }
+
+    private double MacCpuPercent()
+    {
+        // HOST_CPU_LOAD_INFO: cumulative tick counters [user, system, idle, nice]
+        var port = mach_host_self();
+        var info = new int[HOST_CPU_LOAD_INFO_COUNT];
+        var count = HOST_CPU_LOAD_INFO_COUNT;
+        if (host_statistics(port, HOST_CPU_LOAD_INFO, info, ref count) != KERN_SUCCESS)
+        {
+            return 0.0;
+        }
+
+        long user = (uint)info[0];
+        long system = (uint)info[1];
+        long idle = (uint)info[2];
+        long nice = (uint)info[3];
+        var busy = user + system + nice;
+        var total = busy + idle;
+
+        var percent = 0.0;
+        if (_lastMacCpu is { } last)
+        {
+            var dBusy = busy - last.busy;
+            var dTotal = total - last.total;
+            if (dTotal > 0)
+            {
+                percent = Math.Clamp(dBusy / (double)dTotal * 100.0, 0.0, 100.0);
+            }
+        }
+
+        _lastMacCpu = (busy, total);
+        return percent;
     }
 
     public (double usedPercent, double freeBytes, double totalBytes) SystemDriveCapacity()
@@ -473,6 +857,18 @@ internal sealed class SystemMetricsSampler
 
     public (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) ServiceCounts()
     {
+        if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+        {
+            if (_serviceCountsCache is { } cached && DateTimeOffset.UtcNow - _serviceCountsAt < SpawnedProbeTtl)
+            {
+                return cached;
+            }
+            var fresh = OperatingSystem.IsLinux() ? LinuxServiceCounts() : MacServiceCounts();
+            _serviceCountsCache = fresh;
+            _serviceCountsAt = DateTimeOffset.UtcNow;
+            return fresh;
+        }
+
         if (!OperatingSystem.IsWindows())
         {
             return (0, 0, 0, 0, Array.Empty<string>());
@@ -515,9 +911,155 @@ internal sealed class SystemMetricsSampler
         }
     }
 
+    // systemd is the Linux service manager — `list-units --all` reports every
+    // loaded service's sub-state in one shot. Rows are fixed-width:
+    // "UNIT LOAD ACTIVE SUB DESCRIPTION...". A unit in sub-state "failed"
+    // maps to the Windows "stopped but configured for Automatic" failure.
+    private static (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) LinuxServiceCounts()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "systemctl",
+                ArgumentList = { "list-units", "--type=service", "--all", "--no-pager", "--no-legend" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return (0, 0, 0, 0, Array.Empty<string>());
+            }
+            var output = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(10000);
+            return ParseSystemctlServiceLines(output);
+        }
+        catch
+        {
+            return (0, 0, 0, 0, Array.Empty<string>());
+        }
+    }
+
+    internal static (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) ParseSystemctlServiceLines(string output)
+    {
+        var total = 0;
+        var running = 0;
+        var stopped = 0;
+        var failedNames = new List<string>();
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length < 4)
+            {
+                continue;
+            }
+            total++;
+            switch (fields[3])
+            {
+                case "running":
+                    running++;
+                    break;
+                case "failed":
+                    stopped++;
+                    failedNames.Add(fields[0]);
+                    break;
+                default:
+                    stopped++;
+                    break;
+            }
+        }
+        return (total, running, stopped, failedNames.Count, failedNames);
+    }
+
+    // launchd is the macOS service manager — `launchctl list` prints one row
+    // per loaded job: "PID\tLastExitStatus\tLabel". A numeric PID means the
+    // job is running; "-" status means stopped cleanly; a numeric status is
+    // the exit code of a crashed/killed job (= failed).
+    private static (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) MacServiceCounts()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "launchctl",
+                ArgumentList = { "list" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return (0, 0, 0, 0, Array.Empty<string>());
+            }
+            var output = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(10000);
+            return ParseLaunchctlServiceLines(output);
+        }
+        catch
+        {
+            return (0, 0, 0, 0, Array.Empty<string>());
+        }
+    }
+
+    internal static (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) ParseLaunchctlServiceLines(string output)
+    {
+        var total = 0;
+        var running = 0;
+        var stopped = 0;
+        var failedNames = new List<string>();
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var fields = line.Split('\t', StringSplitOptions.TrimEntries);
+            if (fields.Length < 3 || fields[0].Equals("PID", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            total++;
+            if (int.TryParse(fields[0], out _))
+            {
+                running++;
+            }
+            else
+            {
+                stopped++;
+                if (int.TryParse(fields[1], out var exitCode) && exitCode != 0)
+                {
+                    failedNames.Add(fields[2]);
+                }
+            }
+        }
+        return (total, running, stopped, failedNames.Count, failedNames);
+    }
+
     public (bool Defender, bool Firewall, int ActiveThreats, bool SecureBoot, DateTimeOffset LastScan) SecurityState()
     {
         var lastScan = DateTimeOffset.UtcNow;
+        if (OperatingSystem.IsLinux())
+        {
+            // No in-scope AV engine maps to Defender/ActiveThreats/LastScan —
+            // those stay honest false/0. Firewall and SecureBoot are
+            // measurable from sysfs and config files.
+            var linuxFirewall = _firewallCache is { } cachedFw && DateTimeOffset.UtcNow - _firewallAt < SpawnedProbeTtl
+                ? cachedFw
+                : LinuxFirewallEnabled();
+            _firewallCache = linuxFirewall;
+            _firewallAt = DateTimeOffset.UtcNow;
+            return (false, linuxFirewall, 0, LinuxSecureBootEnabled(), lastScan);
+        }
+        if (OperatingSystem.IsMacOS())
+        {
+            var macFirewall = _firewallCache is { } cachedFw && DateTimeOffset.UtcNow - _firewallAt < SpawnedProbeTtl
+                ? cachedFw
+                : MacFirewallEnabled();
+            _firewallCache = macFirewall;
+            _firewallAt = DateTimeOffset.UtcNow;
+            return (false, macFirewall, 0, false, lastScan);
+        }
         if (!OperatingSystem.IsWindows())
         {
             return (false, false, 0, false, lastScan);
@@ -585,8 +1127,119 @@ internal sealed class SystemMetricsSampler
         return (defender, firewall, threats, secureBoot, lastScan);
     }
 
+    // ufw and firewalld are the two dominant Linux firewall managers: ufw
+    // persists its state in /etc/ufw/ufw.conf (ENABLED=yes), firewalld is
+    // asked via systemctl.
+    private static bool LinuxFirewallEnabled()
+    {
+        try
+        {
+            const string ufwConf = "/etc/ufw/ufw.conf";
+            if (File.Exists(ufwConf) && File.ReadAllText(ufwConf)
+                    .Contains("ENABLED=yes", StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "systemctl",
+                ArgumentList = { "is-active", "firewalld", "--quiet" },
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return false;
+            }
+            return proc.WaitForExit(5000) && proc.ExitCode == 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    internal static string ReadSysfs(string path)
+    {
+        try
+        {
+            return File.Exists(path) ? File.ReadAllText(path).Trim() : string.Empty;
+        }
+        catch
+        {
+            return string.Empty;
+        }
+    }
+
+    // macOS Application Firewall state lives in the ALF preferences domain:
+    // globalstate 1/2 = enabled, 0 = off. `defaults read` is the sanctioned
+    // read path (the file itself is a binary plist).
+    private static bool MacFirewallEnabled()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "defaults",
+                ArgumentList = { "read", "/Library/Preferences/com.apple.alf", "globalstate" },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return false;
+            }
+            var output = proc.StandardOutput.ReadToEnd().Trim();
+            proc.WaitForExit(5000);
+            return output is "1" or "2";
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    // SecureBoot state lives in efivars: 4 attribute bytes + 1 value byte.
+    private static bool LinuxSecureBootEnabled()
+    {
+        try
+        {
+            const string path = "/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d2-aa0d-00e098032b8c";
+            if (!File.Exists(path))
+            {
+                return false;
+            }
+            var bytes = File.ReadAllBytes(path);
+            return bytes.Length >= 5 && bytes[4] == 1;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
     public (string Manufacturer, string Model, string SerialNumber) MachineInventory()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            // DMI data is exposed read-only under sysfs (product_serial needs
+            // root on some distros — unreadable leaves an honest empty string).
+            return (ReadSysfs("/sys/class/dmi/id/sys_vendor"),
+                ReadSysfs("/sys/class/dmi/id/product_name"),
+                ReadSysfs("/sys/class/dmi/id/product_serial"));
+        }
+        if (OperatingSystem.IsMacOS())
+        {
+            // hw.model gives the model identifier (e.g. "MacBookPro18,3");
+            // serial requires IOKit — left empty (honest unknown).
+            return ("Apple", SysctlString("hw.model"), string.Empty);
+        }
         if (!OperatingSystem.IsWindows())
         {
             return (string.Empty, string.Empty, string.Empty);
@@ -625,9 +1278,12 @@ internal sealed class SystemMetricsSampler
     {
         try
         {
-            return OperatingSystem.IsWindows() &&
-                new WindowsPrincipal(WindowsIdentity.GetCurrent())
+            if (OperatingSystem.IsWindows())
+            {
+                return new WindowsPrincipal(WindowsIdentity.GetCurrent())
                     .IsInRole(WindowsBuiltInRole.Administrator);
+            }
+            return geteuid() == 0;
         }
         catch
         {
@@ -635,11 +1291,26 @@ internal sealed class SystemMetricsSampler
         }
     }
 
+    [DllImport("libc")]
+    private static extern uint geteuid();
+
     private const int MaxEventsToScan = 5000;
     private static readonly TimeSpan EventWindow = TimeSpan.FromHours(24);
 
     public (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) WindowsEventCounts()
     {
+        if (OperatingSystem.IsLinux())
+        {
+            if (_eventCountsCache is { } cached && DateTimeOffset.UtcNow - _eventCountsAt < SpawnedProbeTtl)
+            {
+                return cached;
+            }
+            var fresh = LinuxEventCounts();
+            _eventCountsCache = fresh;
+            _eventCountsAt = DateTimeOffset.UtcNow;
+            return fresh;
+        }
+
         if (!OperatingSystem.IsWindows())
         {
             return (0, 0, 0, 0, DateTimeOffset.MinValue);
@@ -656,6 +1327,85 @@ internal sealed class SystemMetricsSampler
         {
             return (0, 0, 0, 0, DateTimeOffset.MinValue);
         }
+    }
+
+    // journald is the Linux event log — one `journalctl` call over the same
+    // 24h window yields entries tagged with their syslog priority. Priority
+    // 0-2 (emerg/alert/crit) = Critical, 3 (err) = Errors; Security counts
+    // entries from auth/security units (sudo/sshd/polkit/auditd).
+    private static (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) LinuxEventCounts()
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "journalctl",
+                ArgumentList = { "-o", "short-iso", "--no-pager", "-q", "--since", "-24 hours", "-n", MaxEventsToScan.ToString() },
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            };
+            using var proc = Process.Start(startInfo);
+            if (proc is null)
+            {
+                return (0, 0, 0, 0, DateTimeOffset.MinValue);
+            }
+            var output = proc.StandardOutput.ReadToEnd();
+            proc.WaitForExit(15000);
+            return ParseJournalLines(output);
+        }
+        catch
+        {
+            return (0, 0, 0, 0, DateTimeOffset.MinValue);
+        }
+    }
+
+    // short-iso rows: "2026-09-22T07:30:00+0000 host unit[pid]: message"
+    // journalctl does not emit the numeric priority in this format —
+    // error severity is inferred from well-known markers instead.
+    internal static (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) ParseJournalLines(string output)
+    {
+        var total = 0;
+        var errors = 0;
+        var security = 0;
+        var critical = 0;
+        var lastAt = DateTimeOffset.MinValue;
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var fields = line.Split(' ', 4, StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length < 4)
+            {
+                continue;
+            }
+            total++;
+            var body = fields[3];
+            if (body.Contains("crit", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("emerg", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("panic", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("segfault", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("oom-killer", StringComparison.OrdinalIgnoreCase))
+            {
+                critical++;
+            }
+            else if (body.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("failed", StringComparison.OrdinalIgnoreCase))
+            {
+                errors++;
+            }
+            if (fields[2].Contains("sudo", StringComparison.OrdinalIgnoreCase) ||
+                fields[2].Contains("sshd", StringComparison.OrdinalIgnoreCase) ||
+                fields[2].Contains("polkit", StringComparison.OrdinalIgnoreCase) ||
+                fields[2].Contains("audit", StringComparison.OrdinalIgnoreCase))
+            {
+                security++;
+            }
+            if (DateTimeOffset.TryParse(fields[0], out var at) && at > lastAt)
+            {
+                lastAt = at;
+            }
+        }
+        return (total, errors, security, critical, lastAt);
     }
 
     private static (int Total, int Errors, int Critical, DateTimeOffset LastAt) CountEvents(string logName)
@@ -694,10 +1444,25 @@ internal sealed class SystemMetricsSampler
 
     private (long Ops, DateTimeOffset At)? _lastIoSample;
 
-    // Process I/O ops/sec from /proc/self/io (syscr+syscw delta). Windows has no cheap
-    // per-process I/O counter without instance-name fragility; returns 0 off-Linux.
+    // Process I/O ops/sec — Windows "Process\IO Data Operations/sec" perf
+    // counter (a rate counter — NextValue is already ops/sec); Linux reads
+    // /proc/self/io (syscr+syscw delta). macOS exposes only byte counts —
+    // honest 0 rather than mislabeled units.
     public double IoOpsRate()
     {
+        if (OperatingSystem.IsWindows())
+        {
+            try
+            {
+                EnsureWindowsCounters();
+                return _ioOpsCounter?.NextValue() ?? 0;
+            }
+            catch
+            {
+                return 0;
+            }
+        }
+
         if (!OperatingSystem.IsLinux())
         {
             return 0;
@@ -752,37 +1517,45 @@ internal sealed class SystemMetricsSampler
         }
     }
 
-    /// Pending OS repair/reboot state means the last integrity work has not
-    /// finished committing — the integrity check cannot be reported as passed.
-    public bool HasPendingRepairs()
+    // Number of distinct pending-repair signals the OS reports (CBS reboot
+    // pending, Windows Update reboot required, pending file-renames). The
+    // real count feeds ViolationCount; zero means integrity checks passed.
+    public int PendingRepairCount()
     {
         if (!OperatingSystem.IsWindows())
         {
-            return false;
+            return 0;
         }
 
         try
         {
+            var count = 0;
+
             if (Microsoft.Win32.Registry.LocalMachine
                 .OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\Component Based Servicing\RebootPending") is not null)
             {
-                return true;
+                count++;
             }
 
             if (Microsoft.Win32.Registry.LocalMachine
                 .OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\WindowsUpdate\Auto Update\RebootRequired") is not null)
             {
-                return true;
+                count++;
             }
 
             var pendingRename = Microsoft.Win32.Registry.LocalMachine
                 .OpenSubKey(@"SYSTEM\CurrentControlSet\Control\Session Manager")
                 ?.GetValue("PendingFileRenameOperations");
-            return pendingRename is string[] { Length: > 0 };
+            if (pendingRename is string[] { Length: > 0 })
+            {
+                count++;
+            }
+
+            return count;
         }
         catch
         {
-            return false;
+            return 0;
         }
     }
 
@@ -799,6 +1572,9 @@ internal sealed class SystemMetricsSampler
             _cpuCounter = new PerformanceCounter("Processor", "% Processor Time", "_Total", readOnly: true);
             _diskReadCounter = new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total", readOnly: true);
             _diskWriteCounter = new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total", readOnly: true);
+            _cacheBytesCounter = new PerformanceCounter("Memory", "Cache Bytes", readOnly: true);
+            _ioOpsCounter = new PerformanceCounter("Process", "IO Data Operations/sec",
+                Process.GetCurrentProcess().ProcessName, readOnly: true);
             _ = _cpuCounter.NextValue(); // prime the counter — first sample is always 0
         }
         catch
@@ -806,6 +1582,8 @@ internal sealed class SystemMetricsSampler
             _cpuCounter = null;
             _diskReadCounter = null;
             _diskWriteCounter = null;
+            _cacheBytesCounter = null;
+            _ioOpsCounter = null;
         }
     }
 
@@ -848,4 +1626,70 @@ internal sealed class SystemMetricsSampler
             return _linuxCpuPercent;
         }
     }
+
+    private const int KERN_SUCCESS = 0;
+    private const int HOST_VM_INFO = 2;
+    private const int HOST_VM_INFO_COUNT = 12;
+    private const int HOST_CPU_LOAD_INFO = 3;
+    private const int HOST_CPU_LOAD_INFO_COUNT = 5;
+
+    [DllImport("libc")]
+    private static extern int mach_host_self();
+
+    [DllImport("libc")]
+    private static extern int host_statistics(int host, int flavor, int[] info, ref int count);
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct SamplerMemoryStatusEx
+    {
+        public uint dwLength;
+        public uint dwMemoryLoad;
+        public ulong ullTotalPhys;
+        public ulong ullAvailPhys;
+        public ulong ullTotalPageFile;
+        public ulong ullAvailPageFile;
+        public ulong ullTotalVirtual;
+        public ulong ullAvailVirtual;
+        public ulong ullAvailExtendedVirtual;
+    }
+
+    [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool SamplerGlobalMemoryStatusEx(ref SamplerMemoryStatusEx lpBuffer);
+}
+
+/// <summary>
+/// Process-lifetime remediation execution counts, shared between the
+/// flag-gated executor (writer) and the health monitor (reader) so
+/// SystemIntegrityMetrics reports real repaired counts instead of 0.
+/// </summary>
+public sealed record RemediationTaskCompleted(string TaskName, bool Success, DateTimeOffset At);
+
+public sealed class RemediationExecutionStats
+{
+    private long _executedCount;
+    private long _succeededCount;
+    private long _failedCount;
+    private long _inFlightCount;
+
+    public event EventHandler<RemediationTaskCompleted>? TaskCompleted;
+
+    public long ExecutedCount => Interlocked.Read(ref _executedCount);
+    public long SucceededCount => Interlocked.Read(ref _succeededCount);
+    public long FailedCount => Interlocked.Read(ref _failedCount);
+    public long InFlightCount => Interlocked.Read(ref _inFlightCount);
+
+    public void RecordExecution(bool success, string? taskName = null)
+    {
+        Interlocked.Increment(ref _executedCount);
+        Interlocked.Increment(ref success ? ref _succeededCount : ref _failedCount);
+        if (taskName is not null)
+        {
+            TaskCompleted?.Invoke(this, new RemediationTaskCompleted(taskName, success, DateTimeOffset.UtcNow));
+        }
+    }
+
+    public void IncrementInFlight() => Interlocked.Increment(ref _inFlightCount);
+
+    public void DecrementInFlight() => Interlocked.Decrement(ref _inFlightCount);
 }

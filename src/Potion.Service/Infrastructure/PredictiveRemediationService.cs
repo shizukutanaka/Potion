@@ -10,10 +10,15 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public class PredictiveRemediationService : BackgroundService
 {
+    // Matches AlertCooldown/CorrelationCooldown: a metric that keeps failing its
+    // prediction check re-arms the preventive task only after this interval.
+    private static readonly TimeSpan ScheduleCooldown = TimeSpan.FromMinutes(15);
+
     private readonly ILogger<PredictiveRemediationService> _logger;
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly IRemediationScheduler _remediationScheduler;
     private readonly Dictionary<string, FailurePattern> _failurePatterns;
+    private readonly Dictionary<string, DateTimeOffset> _lastScheduledAt = new();
     private readonly object _lock = new();
 
     public PredictiveRemediationService(
@@ -81,12 +86,23 @@ public class PredictiveRemediationService : BackgroundService
         }
     }
 
-    private async Task SchedulePreventiveRemediation(string metricKey)
+    internal async Task SchedulePreventiveRemediation(string metricKey)
     {
         if (!PreventiveRemediationCommands.TryResolve(metricKey, out var command, out var arguments))
         {
             _logger.LogInformation("No preventive command mapped for {MetricKey}; skipping", metricKey);
             return;
+        }
+
+        lock (_lock)
+        {
+            if (_lastScheduledAt.TryGetValue(metricKey, out var lastAt)
+                && DateTimeOffset.UtcNow - lastAt < ScheduleCooldown)
+            {
+                return;
+            }
+
+            _lastScheduledAt[metricKey] = DateTimeOffset.UtcNow;
         }
 
         // Create a preventive remediation task
@@ -103,7 +119,7 @@ public class PredictiveRemediationService : BackgroundService
         await _remediationScheduler.ScheduleTaskAsync(preventiveTask);
     }
 
-    private class FailurePattern
+    internal sealed class FailurePattern
     {
         private readonly Queue<double> _recentValues = new Queue<double>(20);
         private double _baselineMean;
@@ -111,17 +127,19 @@ public class PredictiveRemediationService : BackgroundService
 
         public bool IsAnomaly(double value)
         {
+            // Evaluate against the PRIOR window: including the candidate in its
+            // own baseline inflates the deviation and masks borderline anomalies.
+            var isAnomaly = _recentValues.Count >= 10
+                && value > _baselineMean + (2 * _baselineStdDev);
+
             _recentValues.Enqueue(value);
             if (_recentValues.Count > 20)
                 _recentValues.Dequeue();
 
-            if (_recentValues.Count < 10)
-                return false; // Need more data
+            if (_recentValues.Count >= 10)
+                UpdateBaseline();
 
-            UpdateBaseline();
-
-            var threshold = _baselineMean + (2 * _baselineStdDev);
-            return value > threshold;
+            return isAnomaly;
         }
 
         private void UpdateBaseline()

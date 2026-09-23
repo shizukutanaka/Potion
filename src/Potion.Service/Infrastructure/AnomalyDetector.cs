@@ -5,8 +5,12 @@ using System.Collections.Concurrent;
 
 namespace Potion.Service.Infrastructure;
 
+public sealed record DetectedAnomaly(string MetricName, double Value, double Score, string AnomalyType, DateTimeOffset At);
+
 public interface IAnomalyDetector : IHostedService
 {
+    event EventHandler<DetectedAnomaly>? AnomalyDetected;
+
     void RecordMetric(string metricName, double value, DateTimeOffset? timestamp = null);
 
     bool IsAnomaly(string metricName, double value);
@@ -21,6 +25,8 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly ConcurrentDictionary<string, AdvancedMetricTimeSeries> _metricHistory = new();
     private Timer? _analysisTimer;
+
+    public event EventHandler<DetectedAnomaly>? AnomalyDetected;
 
     public AnomalyDetector(
         ILogger<AnomalyDetector> logger,
@@ -37,16 +43,16 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
         _logger.LogInformation("Starting advanced ML-based anomaly detector with pattern recognition");
 
         // Analyze metrics every 3 minutes for more responsive detection
-        _analysisTimer = new Timer(AnalyzeMetrics, null, TimeSpan.Zero, TimeSpan.FromMinutes(3));
+        _analysisTimer = new Timer(_ => _ = AnalyzeMetricsAsync(), null, TimeSpan.Zero, TimeSpan.FromMinutes(3));
 
         return Task.CompletedTask;
     }
 
-    private void AnalyzeMetrics(object? state)
+    private async Task AnalyzeMetricsAsync()
     {
         try
         {
-            var currentMetrics = _healthMonitor.GetCurrentMetricsAsync().GetAwaiter().GetResult();
+            var currentMetrics = await _healthMonitor.GetCurrentMetricsAsync();
             foreach (var sample in currentMetrics)
             {
                 RecordMetric(sample.Key, sample.Value);
@@ -71,6 +77,9 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
                     var anomalyType = GetAnomalyType(statisticalAnomaly, patternAnomaly, trendAnomaly);
                     _logger.LogWarning("Advanced anomaly detected in metric {Metric}: value {Value}, score {Score}, type {Type}",
                         metric.Key, latestValue, anomalyScore, anomalyType);
+
+                    AnomalyDetected?.Invoke(this, new DetectedAnomaly(
+                        metric.Key, latestValue, anomalyScore, anomalyType, DateTimeOffset.UtcNow));
 
                     // Enhanced remediation handling
                     HandleAdvancedAnomaly(metric.Key, latestValue, anomalyScore, anomalyType);
@@ -165,20 +174,19 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
 
     private void HandleCpuAnomaly(double score, string anomalyType)
     {
+        // Detection and reporting only — automated remediation lives in the
+        // FeatureFlags:RepairExecutionEnabled tier, which is off by default.
         if (score > 0.8)
         {
-            _logger.LogCritical("Critical CPU anomaly detected - triggering emergency remediation");
-            // Emergency CPU remediation (e.g., kill high CPU processes)
+            _logger.LogCritical("Critical CPU anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else if (score > 0.6)
         {
-            _logger.LogWarning("High CPU anomaly - optimizing CPU usage");
-            // CPU optimization tasks
+            _logger.LogWarning("High CPU anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else
         {
-            _logger.LogInformation("Moderate CPU anomaly - monitoring closely");
-            // Log for monitoring
+            _logger.LogInformation("Moderate CPU anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
     }
 
@@ -186,18 +194,15 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
     {
         if (score > 0.8)
         {
-            _logger.LogCritical("Critical memory anomaly - triggering garbage collection");
-            // Emergency memory cleanup
+            _logger.LogCritical("Critical memory anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else if (score > 0.6)
         {
-            _logger.LogWarning("High memory anomaly - clearing caches");
-            // Memory optimization
+            _logger.LogWarning("High memory anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else
         {
-            _logger.LogInformation("Moderate memory anomaly - monitoring");
-            // Log for monitoring
+            _logger.LogInformation("Moderate memory anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
     }
 
@@ -205,18 +210,15 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
     {
         if (score > 0.8)
         {
-            _logger.LogCritical("Critical disk anomaly - triggering cleanup");
-            // Emergency disk cleanup
+            _logger.LogCritical("Critical disk anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else if (score > 0.6)
         {
-            _logger.LogWarning("High disk anomaly - archiving old files");
-            // Disk optimization
+            _logger.LogWarning("High disk anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else
         {
-            _logger.LogInformation("Moderate disk anomaly - monitoring");
-            // Log for monitoring
+            _logger.LogInformation("Moderate disk anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
     }
 
@@ -224,18 +226,15 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
     {
         if (score > 0.8)
         {
-            _logger.LogCritical("Critical network anomaly - checking connectivity");
-            // Emergency network remediation
+            _logger.LogCritical("Critical network anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else if (score > 0.6)
         {
-            _logger.LogWarning("High network anomaly - optimizing network settings");
-            // Network optimization
+            _logger.LogWarning("High network anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
         else
         {
-            _logger.LogInformation("Moderate network anomaly - monitoring");
-            // Log for monitoring
+            _logger.LogInformation("Moderate network anomaly detected (score {Score}, type {Type})", score, anomalyType);
         }
     }
 
@@ -477,19 +476,12 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
 
         public void UpdateMLModel(double latestValue)
         {
-            // Update pattern buffer
-            _patternBuffer[_patternIndex] = latestValue;
-            _patternIndex = (_patternIndex + 1) % _patternBuffer.Length;
-
-            // Add new pattern periodically
-            if (_count % 20 == 0 && _count > 0)
+            // The pattern buffer/index and periodic pattern capture are already
+            // maintained by AddValue — writing here would double-store every
+            // value. This hook only bounds the stored pattern history.
+            if (Patterns.Count > 10)
             {
-                Patterns.Add((double[])_patternBuffer.Clone());
-                // Keep only recent patterns to prevent memory bloat
-                if (Patterns.Count > 10)
-                {
-                    Patterns.RemoveRange(0, Patterns.Count - 10);
-                }
+                Patterns.RemoveRange(0, Patterns.Count - 10);
             }
         }
 

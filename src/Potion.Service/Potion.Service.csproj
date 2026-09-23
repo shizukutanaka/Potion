@@ -106,6 +106,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="Potion.Service.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="wwwroot\**" CopyToOutputDirectory="PreserveNewest" />
     <None Include="appsettings*.json" CopyToOutputDirectory="PreserveNewest" />
     <None Include="README.md" CopyToOutputDirectory="PreserveNewest" />

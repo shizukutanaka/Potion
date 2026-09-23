@@ -39,15 +39,6 @@ if "%UNINSTALL%"=="true" (
 ) else (
     echo Installing Potion Self-Healing Service...
 
-    REM Check if .NET 8.0 is installed
-    echo Checking .NET 8.0 runtime...
-    dotnet --version >nul 2>&1
-    if !errorlevel! neq 0 (
-        echo Error: .NET 8.0 runtime is not installed
-        echo Please install .NET 8.0 runtime from: https://dotnet.microsoft.com/download/dotnet/8.0
-        exit /b 1
-    )
-
     REM Check administrator privileges
     net session >nul 2>&1
     if !errorlevel! neq 0 (

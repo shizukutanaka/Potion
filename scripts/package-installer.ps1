@@ -154,7 +154,8 @@ function New-InstallationStructure {
         "$env:ProgramData\Potion\telemetry",
         "$env:ProgramData\Potion\state",
         "$env:ProgramData\Potion\backups",
-        "$env:ProgramData\Potion\reports"
+        "$env:ProgramData\Potion\reports",
+        "$env:ProgramData\Potion\certs"
     )
 
     foreach ($dir in $directories) {
@@ -169,7 +170,9 @@ function New-InstallationStructure {
 function Copy-ApplicationFiles {
     Write-Info "Copying application files..."
 
-    $sourcePath = "$PSScriptRoot\..\publish"
+    # The installer runs either from the repo's scripts/ dir (publish output in
+    # ..\publish) or inside a release package (files next to this script).
+    $sourcePath = if (Test-Path "$PSScriptRoot\Potion.Service.exe") { $PSScriptRoot } else { "$PSScriptRoot\..\publish" }
     if (-not (Test-Path $sourcePath)) {
         Write-Error "Application files not found at: $sourcePath"
         Write-Info "Please run: dotnet publish -c Release -o publish"
@@ -213,6 +216,12 @@ function Install-WindowsService {
 
     if ($LASTEXITCODE -eq 0) {
         sc.exe description $ServiceName $ServiceDescription
+        # Without env vars the service boots in the Production environment, whose
+        # Kestrel HTTPS endpoint requires certificate.pfx — a cert the install
+        # cannot provision — and startup fails. Bind HTTP explicitly; operators
+        # add the cert and remove the override when they want HTTPS.
+        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName" -Name Environment `
+            -PropertyType MultiString -Value @("ASPNETCORE_URLS=http://localhost:5000") -Force | Out-Null
         Write-Success "Windows service installed successfully"
     } else {
         Write-Error "Failed to install Windows service: $createResult"
@@ -240,35 +249,6 @@ function Configure-Firewall {
         -Description "Potion Self-Healing Service API endpoints" | Out-Null
 
     Write-Success "Firewall rules configured"
-}
-
-# Configure initial settings
-function Set-InitialConfiguration {
-    Write-Info "Configuring initial settings..."
-
-    $configPath = "$env:ProgramData\Potion\appsettings.json"
-    $defaultConfig = @{
-        "Serilog" = @{
-            "MinimumLevel" = "Information"
-        }
-        "RemediationPolicy" = @{
-            "Enabled" = $true
-            "CommandAllowlist" = @("sfc.exe", "dism.exe", "cleanmgr.exe")
-        }
-        "SecurityAudit" = @{
-            "Enabled" = $true
-            "AuditIntervalHours" = 12
-        }
-        "Telemetry" = @{
-            "Enabled" = $true
-            "RetentionDays" = 90
-        }
-        "Edition" = $Edition
-        "LicenseKey" = ""
-    }
-
-    $defaultConfig | ConvertTo-Json -Depth 10 | Set-Content -Path $configPath -Encoding UTF8
-    Write-Success "Initial configuration created"
 }
 
 # Set proper permissions
@@ -380,10 +360,12 @@ function Show-PostInstallInstructions {
 🔐 Edition: $Edition
 
 Next Steps:
-1. Review configuration: $env:ProgramData\Potion\appsettings.json
+1. Review configuration: $InstallPath\appsettings.json
 2. View logs: $env:ProgramData\Potion\logs
 3. Check service status: Get-Service "$ServiceName"
-4. Access API: https://localhost:5001/api/health
+4. Access API: http://localhost:5000/api/health
+5. HTTPS: place certificate.pfx in $env:ProgramData\Potion\certs, then remove the
+   ASPNETCORE_URLS value from the service's Environment registry key
 
 Commands:
   Start:   Start-Service "$ServiceName"
@@ -391,7 +373,7 @@ Commands:
   Status:  Get-Service "$ServiceName"
   Logs:    Get-Content "`$env:ProgramData\Potion\logs\*.log" -Tail 50
 
-Documentation: https://github.com/your-org/potion-service
+Documentation: https://github.com/shizukutanaka/Potion
 
 "@ "Green"
 }
@@ -408,7 +390,6 @@ function Start-Installation {
 
         New-InstallationStructure
         Copy-ApplicationFiles
-        Set-InitialConfiguration
         Install-WindowsService
         Configure-Firewall
         Set-SecurityPermissions

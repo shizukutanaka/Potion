@@ -17,4 +17,16 @@ var builder = Host.CreateDefaultBuilder(args)
     });
 
 var app = builder.Build();
-app.Run();
+try
+{
+    app.Run();
+}
+catch (Exception ex)
+{
+    Log.Fatal(ex, "Host terminated unexpectedly");
+    throw;
+}
+finally
+{
+    Log.CloseAndFlush();
+}

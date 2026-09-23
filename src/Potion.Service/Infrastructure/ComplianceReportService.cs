@@ -45,6 +45,12 @@ public class ComplianceReportService : IHostedService, IDisposable
             return Task.CompletedTask;
         }
 
+        if (_options.ReportIntervalHours <= 0)
+        {
+            throw new InvalidOperationException(
+                "Compliance:ReportIntervalHours must be a positive number of hours when compliance reporting is enabled.");
+        }
+
         _logger.LogInformation("Starting compliance report service with standards: {Standards}",
             string.Join(", ", _options.Standards));
 
@@ -89,7 +95,7 @@ public class ComplianceReportService : IHostedService, IDisposable
         return report;
     }
 
-    private ComplianceStatus EvaluateCompliance(string standard, SystemHealthSnapshot healthSnapshot)
+    internal ComplianceStatus EvaluateCompliance(string standard, SystemHealthSnapshot healthSnapshot)
     {
         var status = new ComplianceStatus
         {
@@ -121,8 +127,9 @@ public class ComplianceReportService : IHostedService, IDisposable
             status.Checks.Add(new ComplianceCheck
             {
                 CheckName = "Data Minimization",
-                Compliant = true, // Assume minimal data collection
-                Details = "Only necessary system metrics are collected"
+                Compliant = true, // assertion — scope is not automatically measurable
+                Details = "Asserted: the service collects only system metrics; " +
+                    "collection scope should be reviewed when new collectors are added"
             });
         }
 
@@ -156,14 +163,23 @@ public class ComplianceReportService : IHostedService, IDisposable
 
             status.Checks.Add(new ComplianceCheck
             {
-                CheckName = "Access Control",
+                CheckName = "Required Privileges",
                 Compliant = healthSnapshot.Metrics.SecurityContext.CurrentUserIsAdmin,
-                Details = "Running with appropriate privileges"
+                Details = healthSnapshot.Metrics.SecurityContext.CurrentUserIsAdmin
+                    ? "Running elevated — required for system repair functions (SFC/DISM); " +
+                      "PCI-DSS least-privilege must be assessed at the service-account level"
+                    : "Not running elevated — repair functions will fail"
             });
         }
 
-        // Overall compliance is true if all checks pass
-        status.OverallCompliance = status.Checks.All(c => c.Compliant);
+        // Overall compliance requires at least one real check: an unknown or
+        // misspelled standard must not report as vacuously compliant.
+        if (status.Checks.Count == 0)
+        {
+            _logger.LogWarning("No compliance checks are defined for configured standard {Standard}; reporting it as non-compliant", standard);
+        }
+
+        status.OverallCompliance = status.Checks.Count > 0 && status.Checks.All(c => c.Compliant);
 
         return status;
     }

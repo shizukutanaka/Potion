@@ -46,36 +46,42 @@ public sealed class RemediationScheduler : BackgroundService, IRemediationSchedu
 
         await foreach (var task in _queue.Reader.ReadAllAsync(stoppingToken))
         {
-            try
+            // Dispatch each task on its own delay so a task scheduled far in the
+            // future cannot starve the single queue reader behind it.
+            _ = RunTaskWhenDueAsync(task, stoppingToken);
+        }
+    }
+
+    private async Task RunTaskWhenDueAsync(RemediationTask task, CancellationToken stoppingToken)
+    {
+        try
+        {
+            var delay = task.Schedule - DateTime.UtcNow;
+            if (delay > TimeSpan.Zero)
             {
-                var delay = task.Schedule - DateTime.UtcNow;
-                if (delay > TimeSpan.Zero)
+                await Task.Delay(delay, stoppingToken);
+            }
+
+            var descriptor = new RemediationTaskDescriptor(
+                task.Name,
+                new RemediationTaskOption
                 {
-                    await Task.Delay(delay, stoppingToken);
-                }
+                    Name = task.Name,
+                    DisplayName = $"予防修復タスク: {task.Name}",
+                    Command = task.Command,
+                    Arguments = task.Arguments,
+                    Enabled = true,
+                    TimeoutSeconds = 300,
+                });
 
-                var descriptor = new RemediationTaskDescriptor(
-                    task.Name,
-                    new RemediationTaskOption
-                    {
-                        Name = task.Name,
-                        DisplayName = $"予防修復タスク: {task.Name}",
-                        Command = task.Command,
-                        Arguments = task.Arguments,
-                        Enabled = true,
-                        TimeoutSeconds = 300,
-                    });
-
-                await _taskExecutor.ExecuteAsync(descriptor, stoppingToken);
-            }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Scheduled remediation task failed: {TaskName}", task.Name);
-            }
+            await _taskExecutor.ExecuteAsync(descriptor, stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Scheduled remediation task failed: {TaskName}", task.Name);
         }
     }
 }
