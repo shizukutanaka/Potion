@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (ホスト致命的終了時のログ損失を防止)
+
+- **`Program.cs` が `app.Run()` を未保護で実行しており、ホストの致命的例外でクラッシュ原因が記録されず非同期シンクのバッファも損失する標準的ギャップ** — `Log.Fatal` でクラッシュを記録し `Log.CloseAndFlush()` で残留イベントをフラッシュ（Serilog 推奨の try/catch/finally パターン）。`ValidateOnBuild=true`＋`ValidateScopes=true` による起動時DI検証は既に健全と確認
+
 ### Fixed (スクリプト監査＋生成レポートの gitignore 追加)
 
 - **`scripts/` 全体の監査を実施**: `deploy.sh`（k8s適用＋ロールアウト検証＋5実エンドポイントスモーク）と `validate-system.sh`（全実エンドポイント＋webhook 405マップ証明＋SignalR negotiate POST）は現行構成と整合 — 参照先エンドポイントは全て実在
