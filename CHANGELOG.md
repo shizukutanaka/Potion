@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (Collaboration:MaxConcurrentUsers が無視され接続数が無制限だった)
+
+- SignalR ハブが `CollaborationOptions.MaxConcurrentUsers`（既定50）を一度も参照せず、同時接続数に実質上限なし。`CollaborationService.UserConnectedAsync` を bool 返却化し、上限到達時は `Context.Abort()` で接続拒否。拒否接続は `_activeUsers` に未登録のためゴーストセッションも残留しない
+- これでバインド済み全オプションクラスの「定義のみ未読取」プロパティは残り4件（削除候補：MemoryMonitor の `MaxOptimizationAttempts`/`LeakDetectionThresholdMb`、RemediationPolicy の `DebugMode`/`SkipSignatureValidation`）
+
 ### Fixed (MemoryMonitor の5オプションも同様に無視されていた — リークチェックが一度も実行されない等)
 
 - **`LeakCheckIntervalMinutes` が未読取で `CheckMemoryLeaksAsync` がループから一切呼ばれていなかった** — リーク検出機能が実装済みなのに死機能化。間隔設定どおり定期実行し、兆候検出時は警告ログ出力
