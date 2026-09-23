@@ -224,9 +224,16 @@ public sealed class ProcessRunner : IProcessRunner, IDisposable
             FlushRemainingData(outputQueue, outputLock, outputBuffer, ref outputTruncated);
             FlushRemainingData(errorQueue, errorLock, errorBuffer, ref errorTruncated);
 
-            if (!process.HasExited)
+            try
             {
-                TryTerminate(process);
+                if (!process.HasExited)
+                {
+                    TryTerminate(process);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                // Process was never started (e.g. executable not found)
             }
 
             jobHandle?.Dispose();
@@ -359,18 +366,18 @@ public sealed class ProcessRunner : IProcessRunner, IDisposable
 
     private static void TryTerminate(Process process)
     {
-        if (process.HasExited)
-        {
-            return;
-        }
-
         try
         {
+            if (process.HasExited)
+            {
+                return;
+            }
+
             process.Kill(entireProcessTree: true);
         }
         catch (InvalidOperationException)
         {
-            // Process already exited
+            // Process already exited or was never started
         }
         catch (System.ComponentModel.Win32Exception)
         {

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (プロセス起動失敗時の例外マスクとハンドルリーク)
+
+- **`ProcessRunner` で `process.Start()` 失敗時（非Windows で sfc.exe 等の許可済みバイナリが不在という一般ケース）に `process.HasExited` が未起動プロセスで `InvalidOperationException` を投げていた実バグ** — 元の `Win32Exception`（ファイル不在等）をマスクし、finally 内の job handle・CancellationTokenSource の破棄もスキップしていた。`TryTerminate` の `HasExited` チェックを try 内へ移動し、finally のチェックも try で保護 — 元の例外が正しく伝播し、リソースが常に破棄される
+- **ProcessRunner の全監査も完遂** — 並行度セマフォ・タイムアウト検証・`WaitForExitAsync`＋連結CTS・プロセスツリー強制終了・Windows job object によるツリー封じ込め＋メモリ上限・128KB出力切捨て・タイムアウトと呼出しキャンセルの区別は全て正しい設計
+
 ### Improved (タイマーコールバックの sync-over-async ブロッキングを解消)
 
 - **`AnomalyDetector`・`EventCorrelationService` のタイマーコールバックが `GetAwaiter().GetResult()` でスレッドプールスレッドを同期的にブロックしていた** — Timer の `void` シグネチャ上の制約から強制されていた同期ブロッキングを、コードベース確立の fire-and-forget パターン（`_ => _ = MethodAsync()`、例外は非同期メソッド内部で捕捉）へ変更。タイマースレッドは即座に解放され、解析は継続スレッドで実行
