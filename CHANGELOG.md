@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (Linux でシステムメモリ情報が常に0だった)
+
+- **`MemoryMonitor.GetSystemMemoryInfo` が Windows のみ実装で、Linux（k8s コンテナ＝主たるデプロイ先）では `MemoryUsagePercent` が常に0** — `%` 閾値による最適化トリガーが機能不全＋統計のシステムメモリが全て0報告だった。`/proc/meminfo` で実装：物理 = `MemTotal`/`MemAvailable`、仮想はコミット会計へ正直にマップ（`CommitLimit`/`Committed_AS`）。ワーキングセット/プライベートメモリ閾値は従来通り実値 — macOS は等価 API なしで正直に0のまま
+- **MemoryMonitor の全監査も完遂** — GC前後差の実測解放量・Windows `SetProcessWorkingSetSize`/`malloc_trim` 実トリム・正直な「利用不可」報告・リーク検出閾値・履歴1000上限・エラー時1分バックオフは全て健全
+
 ### Fixed (パターンバッファへの値の二重書き込み)
 
 - **`AdvancedMetricTimeSeries.UpdateMLModel` が `AddValue` と同じ `_patternBuffer`/`_patternIndex` を再書き込みしていた実バグ** — `RecordMetric`→`AddValue`（書込み1回目）の後、解析ループ→`UpdateMLModel`（同一値を次スロットへ2回目）で各値が連続2スロットを占有し、20要素バッファが実効10値しか保持できずパターン検出が歪んでいた。パターン追加もインクリメント後の `_count % 20` でずれた境界で二重発火。`UpdateMLModel` は格納パターン履歴の上限化（10件）のみを担うよう修正 — `UpdateTrend`（呼出しなし死メソッド・その中の季節トレンド計算も常時0を返すフィルタバグ）は削除候補

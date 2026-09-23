@@ -525,6 +525,38 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
                            memoryStatus.ullTotalVirtual > 0 ? ((long)memoryStatus.ullTotalVirtual - (long)memoryStatus.ullAvailVirtual) / (double)memoryStatus.ullTotalVirtual * 100 : 0);
                 }
             }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                // /proc/meminfo (kB): physical = MemTotal/MemAvailable;
+                // "virtual" honestly maps to commit accounting = CommitLimit/Committed_AS.
+                var fields = new Dictionary<string, long>(StringComparer.Ordinal);
+                foreach (var line in File.ReadLines("/proc/meminfo"))
+                {
+                    var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                    if (parts.Length >= 2 &&
+                        (parts[0] == "MemTotal:" || parts[0] == "MemAvailable:" ||
+                         parts[0] == "CommitLimit:" || parts[0] == "Committed_AS:") &&
+                        long.TryParse(parts[1], out var kb))
+                    {
+                        fields[parts[0].TrimEnd(':')] = kb * 1024;
+                    }
+                }
+
+                if (fields.TryGetValue("MemTotal", out var totalPhysical) && totalPhysical > 0)
+                {
+                    var availablePhysical = fields.GetValueOrDefault("MemAvailable");
+                    var usedPhysical = totalPhysical - availablePhysical;
+                    var memoryUsagePercent = (double)usedPhysical / totalPhysical * 100;
+
+                    var totalVirtual = fields.GetValueOrDefault("CommitLimit");
+                    var usedVirtual = fields.GetValueOrDefault("Committed_AS");
+                    var availableVirtual = totalVirtual > usedVirtual ? totalVirtual - usedVirtual : 0;
+                    var virtualUsagePercent = totalVirtual > 0 ? (double)usedVirtual / totalVirtual * 100 : 0;
+
+                    return (totalPhysical, availablePhysical, usedPhysical, memoryUsagePercent,
+                            totalVirtual, availableVirtual, usedVirtual, virtualUsagePercent);
+                }
+            }
         }
         catch (Exception ex)
         {
