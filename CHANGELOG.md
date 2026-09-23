@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (予防修復のスケジュール重複抑制へ回帰テストを追加)
+
+- **`PredictiveRemediationService` のスケジュールクールダウン（サイクル144で追加）が未テストだった** — `SchedulePreventiveRemediation` を internal 化（`EvaluateCompliance` と同前例）して回帰テスト4件を追加（マッピング済みメトリクスの実行・同一メトリクスの15分内再発火抑制・異メトリクスの独立スケジュール・未マッピングメトリクスのスキップ）。テスト 163→167件。併せて `RemediationTaskExecutor` の全監査を完遂 — バリデート済みコマンド→実プロセス→exit code 意味論（許可コード or 空リスト時0）→統計/計器/activity の全経路が正確
+
 ### Improved (イベント駆動修復のトリガー評価へ回帰テストを追加)
 
 - **`EventDrivenRemediationService` のルール評価にテストが皆無だった** — 実動作ロジック（コンポーネント一致・severity閾値・カスタム条件・15分アクションクールダウン・`PreventiveRemediationCommands` 未解決時のスキップ）を網羅する回帰テスト6件を追加（マッチ時の実行・閾値未満/未知コンポーネント/条件false/未解決タスク名での非実行・クールダウン内の再発火抑制）。テスト 157→163件

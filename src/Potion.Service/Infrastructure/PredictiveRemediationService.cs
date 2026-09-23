@@ -86,7 +86,7 @@ public class PredictiveRemediationService : BackgroundService
         }
     }
 
-    private async Task SchedulePreventiveRemediation(string metricKey)
+    internal async Task SchedulePreventiveRemediation(string metricKey)
     {
         if (!PreventiveRemediationCommands.TryResolve(metricKey, out var command, out var arguments))
         {
