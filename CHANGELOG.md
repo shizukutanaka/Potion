@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (相関の繰り返し発火をクールダウンで抑制)
+
+- **同一相関が条件持続中に毎ウィンドウ再発火し警告ログが垂れ流しになっていた** — ルール別の最終報告時刻を記録し15分のクールダウンで抑制（報告数のみ CorrelatedEventCount に計上）
+
 ### Removed (死設定オプションの削除)
 
 - **`EventCorrelationOptions.CorrelationRules` を削除** — `List<string>` で構造ルールを表現不能・空 TODO ループで完全に死んだ設定面（組込みルール3件は `InitializeRules` で常駐）

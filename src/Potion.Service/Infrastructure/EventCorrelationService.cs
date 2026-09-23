@@ -33,6 +33,10 @@ public class EventCorrelationService : IHostedService, IDisposable
     private readonly EventCorrelationStats _stats;
     private readonly ConcurrentQueue<SystemEvent> _eventBuffer = new();
     private readonly List<CorrelationRule> _rules = new();
+    // Per-rule last-reported timestamp: a persistent condition would
+    // otherwise re-log the same correlation every window indefinitely.
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _lastCorrelationAt = new();
+    private static readonly TimeSpan CorrelationCooldown = TimeSpan.FromMinutes(15);
     private Timer? _correlationTimer;
 
     public EventCorrelationService(
@@ -160,10 +164,18 @@ public class EventCorrelationService : IHostedService, IDisposable
                 return;
 
             var correlations = FindCorrelations(recentEvents);
-            _stats.CorrelatedEventCount += correlations.Count;
 
             foreach (var correlation in correlations)
             {
+                if (_lastCorrelationAt.TryGetValue(correlation.Rule.Name, out var lastAt)
+                    && now - lastAt < CorrelationCooldown)
+                {
+                    continue;
+                }
+
+                _lastCorrelationAt[correlation.Rule.Name] = now;
+                _stats.CorrelatedEventCount++;
+
                 _logger.LogWarning("Event correlation detected: {Name} - {Description}",
                     correlation.Rule.Name, correlation.Rule.Description);
 
