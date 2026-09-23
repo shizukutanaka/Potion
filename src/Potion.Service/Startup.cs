@@ -225,6 +225,21 @@ public class Startup
         // so without this the potion.* series never reach the /metrics export.
         _ = Infrastructure.PotionMetrics.SystemHealthScore;
 
+        // OWASP baseline headers on every response (API and static files).
+        app.Use(async (context, next) =>
+        {
+            var headers = context.Response.Headers;
+            headers["X-Content-Type-Options"] = "nosniff";
+            headers["X-Frame-Options"] = "DENY";
+            headers["Referrer-Policy"] = "no-referrer";
+            headers["Content-Security-Policy"] =
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+                "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; " +
+                "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; " +
+                "img-src 'self' data:; connect-src 'self'";
+            await next();
+        });
+
         app.UseRequestLocalization();
         app.UseDefaultFiles();
         app.UseStaticFiles();

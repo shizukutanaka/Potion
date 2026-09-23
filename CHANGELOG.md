@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (OWASP セキュリティヘッダを全レスポンスへ付与)
+
+- **HTTP レスポンスにセキュリティヘッダが一切なかった** — `X-Content-Type-Options: nosniff`・`X-Frame-Options: DENY`・`Referrer-Policy: no-referrer`・`Content-Security-Policy` をパイプライン先頭のミドルウェアで全レスポンス（API・静的ファイル双方）に付与。CSP はダッシュボードの実構成に整合（外部 Google Fonts / Font Awesome・インライン onclick/style・同一オリジン fetch 許可）。MIME スニッフィング・クリックジャッキング・リファラ漏洩を構造的に防止。実起動して全ヘッダ＋全アセット 200 を実測検証済み
+
 ### Fixed (README の実態乖離を修正)
 
 - **Quick Start の `sc.exe create` が無スペース構文（`binPath="..."`）で記載** — deploy-windows.ps1 と同じ構文違反をドキュメントでも犯していた → `binPath= "..."` の正規形式へ
