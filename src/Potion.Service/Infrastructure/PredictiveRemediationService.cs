@@ -119,7 +119,7 @@ public class PredictiveRemediationService : BackgroundService
         await _remediationScheduler.ScheduleTaskAsync(preventiveTask);
     }
 
-    private class FailurePattern
+    internal sealed class FailurePattern
     {
         private readonly Queue<double> _recentValues = new Queue<double>(20);
         private double _baselineMean;
@@ -127,17 +127,19 @@ public class PredictiveRemediationService : BackgroundService
 
         public bool IsAnomaly(double value)
         {
+            // Evaluate against the PRIOR window: including the candidate in its
+            // own baseline inflates the deviation and masks borderline anomalies.
+            var isAnomaly = _recentValues.Count >= 10
+                && value > _baselineMean + (2 * _baselineStdDev);
+
             _recentValues.Enqueue(value);
             if (_recentValues.Count > 20)
                 _recentValues.Dequeue();
 
-            if (_recentValues.Count < 10)
-                return false; // Need more data
+            if (_recentValues.Count >= 10)
+                UpdateBaseline();
 
-            UpdateBaseline();
-
-            var threshold = _baselineMean + (2 * _baselineStdDev);
-            return value > threshold;
+            return isAnomaly;
         }
 
         private void UpdateBaseline()
