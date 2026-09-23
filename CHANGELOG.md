@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (disk_cleanup タスクが事前登録なしマシンで無言 no-op だった)
+
+- **`cleanmgr /sagerun:1` は「sageset:1」のレジストリ事前登録（手動 `cleanmgr /sageset:1` 実行）を前提とするため、未登録マシンでは設定済みタスクが何もせず成功扱いで終了していた** — PreventiveRemediationCommands が既に選択している `/verylowdisk`（Windows 10+ の無人クリーンアップ・事前設定不要）へ変更し実効性を確保
+
 ### Fixed (CommandValidator の許可リストバイパス — 任意パスの同名バイナリが検証を通過)
 
 - **修復コマンドの許可リストが「ファイル名一致」で判定していたため、許可エントリ `sfc.exe`/`net.exe` 等のベア名に対し `C:\evil\sfc.exe` や `D:\tmp\net.exe` 等の任意パスに置かれた同名バイナリが `Path.GetFileName` 一致で検証を通過していた** — RepairExecutionEnabled 有効時、許可リストをすり抜ける実行経路になりえた構造的欠陥
