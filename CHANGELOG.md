@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (修復実行経路の ETW イベントを実配線)
+
+- **`PotionEventSource` の 31 イベント中 28 個が発火元ゼロの死計装だった** — `RemediationTaskExecutor` に `RemediationTaskStarted`（開始時・`MaintenanceWindowTag` または "on-demand"）、`RemediationTaskCompleted`（成功完了・所要時間・終了コード）、`RemediationTaskFailed`（非ゼロ終了・例外両経路）を配線。ResiliencePipelines の 3 イベントと合わせ、修復実行・回復力の2経路が ETW で実観測可能に（`IsEnabled()` ガードのためリスナー不在時のオーバーヘッドなし）
+
 ### Fixed (install.cmd が自己完結型 MSI に不要な .NET ランタイム前提チェックで誤ブロック)
 
 - **`setup/install.cmd` が `dotnet --version` の存在を必須前提としてチェックしていた** — `Potion.wxs` のビルドは `--self-contained`（ランタイム同梱）なので .NET 未インストール環境でも MSI は正常動作するのに、チェックがエラー終了させる誤ブロック。管理者権限チェック・MSI インストール・サービス起動確認は保持し、.NET 前提チェックを除去
