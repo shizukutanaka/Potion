@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (appsettings.json に Collaboration セクションを明示)
+
+- **`CollaborationOptions` が `Configuration.GetSection("Collaboration")` でバインドされるのに appsettings に当該セクションが存在せず**、`MaxConcurrentUsers`・`EnableRealTimeAlerts` が調整不可・発見不可だった（デフォルトは動作するが運用者が変更経路を知れない） — 既定値を明示するセクションを追加し、EventCorrelation/Compliance 等と同じ発見可能な構成に揃えた
+
 ### Improved (修復実行経路の ETW イベントを実配線)
 
 - **`PotionEventSource` の 31 イベント中 28 個が発火元ゼロの死計装だった** — `RemediationTaskExecutor` に `RemediationTaskStarted`（開始時・`MaintenanceWindowTag` または "on-demand"）、`RemediationTaskCompleted`（成功完了・所要時間・終了コード）、`RemediationTaskFailed`（非ゼロ終了・例外両経路）を配線。ResiliencePipelines の 3 イベントと合わせ、修復実行・回復力の2経路が ETW で実観測可能に（`IsEnabled()` ガードのためリスナー不在時のオーバーヘッドなし）
