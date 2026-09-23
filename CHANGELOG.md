@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (global.json で .NET SDK の下限を固定)
+
+- **`global.json` が存在せず .NET SDK バージョンが未固定だった** — `{"sdk": {"version": "8.0.100", "rollForward": "latestMajor"}}` を追加。SDK 8 未満の環境では `dotnet` が解決失敗ではなく「要求SDK未満」の明確なエラーを返し、SDK 8/9 以降は従来通り動作（ローカル .NET 9 SDK で検証済み）。`Potion.sln` は src + tests を正しく参照
+
 ### Improved (Dockerfile の NuGet restore レイヤーをキャッシュ化)
 
 - **Dockerfile がソース全コピー後に `dotnet restore` を実行していたため、どの .cs ファイルの変更でも restore レイヤーのキャッシュが失効していた** — csproj 先行コピー→restore→残ソースコピーの標準2段構成へ変更（プロジェクト参照なしを確認済み）。ソース変更のみのビルドで NuGet restore がスキップされ、CI/ローカルの docker build が大幅に高速化
