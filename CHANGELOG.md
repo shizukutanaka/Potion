@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (PerformanceOptimizer の報告値を実測へ正直化)
+
+- **`MemoryFreedBytes` がハードコード推定値（GC実行→10MB・スタンバイ→50MBの捏造）だった** — `GC.GetTotalMemory` 前後差の実測解放量へ変更（MemoryMonitor と同一の実測方式）
+- **非Windows で `CpuUsagePercent` が自プロセス累積CPUをシステムCPUとして報告していた** — PerformanceCounter フォールバックを `ISystemHealthMonitor` の実クロスプラットフォームCPUサンプラーへ置き換え（`ShouldOptimizeAsync` の閾値判定も実システム値へ）
+
 ### Fixed (スケジューラの頭ブロッキングで後続タスクが飢餓)
 
 - **`RemediationScheduler` が単一リーダー内で `Task.Delay` を直列待機していたため、遠い未来にスケジュールされたタスクがキュー全体を占有していた実欠陥** — 後続タスク（高優先度を含む）はそのタスクが発火するまで一切処理されない。タスク毎に独立した遅延ディスパッチへ変更し、各タスクが自身の予定時刻に発火するように（並行実行は RemediationPipeline のバルクヘッド4並列で依然上限管理・優先度順序は未使用のまま別途設計課題として記録）

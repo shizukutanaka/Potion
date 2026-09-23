@@ -60,17 +60,20 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
     private readonly IOptionsMonitor<PerformanceOptimizerOptions> _optionsMonitor;
     private readonly IProcessRunner _processRunner;
     private readonly ICommandValidator _commandValidator;
+    private readonly ISystemHealthMonitor _healthMonitor;
 
     public PerformanceOptimizer(
         ILogger<PerformanceOptimizer> logger,
         IOptionsMonitor<PerformanceOptimizerOptions> optionsMonitor,
         IProcessRunner processRunner,
-        ICommandValidator commandValidator)
+        ICommandValidator commandValidator,
+        ISystemHealthMonitor healthMonitor)
     {
         _logger = logger;
         _optionsMonitor = optionsMonitor;
         _processRunner = processRunner;
         _commandValidator = commandValidator;
+        _healthMonitor = healthMonitor;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -162,9 +165,10 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             // 高メモリ使用率の場合の最適化
             if (beforeStats.MemoryUsageBytes > options.MemoryThresholdBytes)
             {
+                var managedBefore = GC.GetTotalMemory(forceFullCollection: false);
                 var memoryOptimized = await OptimizeMemoryUsageAsync(cancellationToken);
                 actions.AddRange(memoryOptimized);
-                memoryFreed = memoryOptimized.Sum(action => ExtractMemoryFreed(action));
+                memoryFreed = Math.Max(0, managedBefore - GC.GetTotalMemory(forceFullCollection: false));
             }
 
             // 高ディスク使用率の場合の最適化
@@ -239,11 +243,10 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
         }
         catch
         {
-            // PerformanceCounterが利用できない場合はプロセスベースで推定
-            var process = Process.GetCurrentProcess();
-            var cpuUsage = process.TotalProcessorTime.TotalMilliseconds /
-                          (Environment.ProcessorCount * DateTimeOffset.UtcNow.Subtract(process.StartTime).TotalMilliseconds) * 100;
-            return Math.Min(100.0, cpuUsage);
+            // PerformanceCounter is Windows-only; reuse the health monitor's real
+            // cross-platform CPU sampler instead of this process's own CPU time.
+            var metrics = await _healthMonitor.GetCurrentMetricsAsync();
+            return metrics.TryGetValue("CpuUsage", out var cpuUsage) ? cpuUsage : 0;
         }
     }
 
@@ -477,14 +480,4 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
         return (cpuScore + memoryScore + diskScore + processScore) / 4.0;
     }
 
-    private static long ExtractMemoryFreed(string action)
-    {
-        // メモリ解放量を抽出（簡易実装）
-        if (action.Contains("スタンバイメモリを解放"))
-            return 50 * 1024 * 1024; // 50MBとして仮定
-        if (action.Contains("ガベージコレクション"))
-            return 10 * 1024 * 1024; // 10MBとして仮定
-
-        return 0;
-    }
 }
