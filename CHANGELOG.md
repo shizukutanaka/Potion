@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (`.gitattributes` 追加による行末規約の明文化)
+
+- **クロスプラットフォーム開発での行末不整合を予防** — `.gitattributes` を新設： `* text=auto`（リポジトリは LF 正規化）＋ `*.sln`/`*.csproj`/`*.ps1`/`*.wxs` 等 Windows ツール向けは `eol=crlf` チェックアウト、`*.sh`/Web資産/設定形式は `eol=lf` 固定、バイナリ拡張子を明示。Windows 貢献者の CRLF 混入を構造的に防止
+- 現行追跡ファイルは全て LF 正規化済み（renormalize 0件・混在なし）のため既存内容への影響なし。検出されていた CRLF ファイルは全て obj/ 配下の無視対象ビルド残骸（ソース削除済みの `tests/Potion.Service.Benchmarks/` 残骸 husk はローカル除去）
+
 ### Fixed (deploy-windows.ps1 の sc.exe 引数構文違反)
 
 - **`sc.exe` のオプションは `name= value` 形式（`=` 直後に必須スペース）が仕様だが、`binPath="..."`/`start=auto`/`depend=Winmgmt/...` 等でスペースが全欠落** — package-installer.ps1 は正しい `name= value` 形式の一方 deploy-windows.ps1 は違反形式で、環境によってサービス登録が弾かれる可能性があった。`create`/`failure`/`config` 全呼出しを正規構文へ統一

@@ -1,0 +1,40 @@
+# Auto-detect text files and normalize line endings to LF in the repo.
+* text=auto
+
+# Source files: platform-native EOL on checkout (CRLF on Windows, LF elsewhere).
+*.cs      text diff=csharp
+*.sln     text eol=crlf
+*.csproj  text eol=crlf
+*.props   text eol=crlf
+*.targets text eol=crlf
+*.wxs     text eol=crlf
+*.ps1     text eol=crlf
+*.cmd     text eol=crlf
+*.resx    text eol=crlf
+
+# POSIX shell scripts must stay LF or they fail on Linux/macOS.
+*.sh      text eol=lf
+
+# Web assets served to browsers.
+*.html    text eol=lf
+*.js      text eol=lf
+*.css     text eol=lf
+
+# Config/data formats.
+*.json    text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.md      text eol=lf
+Dockerfile text eol=lf
+.dockerignore text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf
+
+# Binary payloads — never normalize.
+*.png  binary
+*.ico  binary
+*.pfx  binary
+*.exe  binary
+*.dll  binary
+*.msi  binary
+*.rtf  binary
