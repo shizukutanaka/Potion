@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (陳腐化した統合コメントの修正)
+
+- **`AutoRecoveryManager` 冒頭の「DistributedSelfHealingService.cs へ統合済み」コメント3件が誤誘導** — そのファイル自体が既削除で参照が宙吊り。実態コメント（フラグ配下の休眠層・機構不在時は正直な失敗）へ
+
 ### Fixed (出力キューの無制限増大を防止)
 
 - **出力トランケーション後もイベントハンドラが全行をキューへ enqueue し続ける設計漏洩** — 128K 超の verbose 出力でワーカー終了後も `ConcurrentQueue` が無制限に肥大。`truncated` フラグで enqueue を停止（worst-case メモリリーク解消）

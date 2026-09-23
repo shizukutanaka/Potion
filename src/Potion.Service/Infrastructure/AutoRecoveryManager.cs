@@ -12,13 +12,9 @@ using Potion.Service.Options;
 
 namespace Potion.Service.Infrastructure;
 
-// AutoRecoveryManager functionality has been integrated into DistributedSelfHealingService.cs
-// to reduce code duplication and improve maintainability.
-// AutoRecoveryManager functionality has been integrated into DistributedSelfHealingService.cs
-// to reduce code duplication and improve maintainability.
-
-// AutoRecoveryManager functionality has been integrated into DistributedSelfHealingService.cs
-// to reduce code duplication and improve maintainability.
+// Dormant flag-gated recovery layer: health checks run on a timer and
+// attempt recovery via RecoveryAction. Actions return honest failure
+// when no restart/failover mechanism exists (no fake successes).
 
 public sealed record ComponentHealth(
     bool IsHealthy,
