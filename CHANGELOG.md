@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (install.cmd が自己完結型 MSI に不要な .NET ランタイム前提チェックで誤ブロック)
+
+- **`setup/install.cmd` が `dotnet --version` の存在を必須前提としてチェックしていた** — `Potion.wxs` のビルドは `--self-contained`（ランタイム同梱）なので .NET 未インストール環境でも MSI は正常動作するのに、チェックがエラー終了させる誤ブロック。管理者権限チェック・MSI インストール・サービス起動確認は保持し、.NET 前提チェックを除去
+- **`setup/PotionSetupUI.cs`（464行 WinForms インストーラUI）が何からも参照されない死資産と確認** — csproj・install.cmd・CI いずれにも含まれず未ビルド — 削除候補へ追加
+
 ### Improved (global.json で .NET SDK の下限を固定)
 
 - **`global.json` が存在せず .NET SDK バージョンが未固定だった** — `{"sdk": {"version": "8.0.100", "rollForward": "latestMajor"}}` を追加。SDK 8 未満の環境では `dotnet` が解決失敗ではなく「要求SDK未満」の明確なエラーを返し、SDK 8/9 以降は従来通り動作（ローカル .NET 9 SDK で検証済み）。`Potion.sln` は src + tests を正しく参照
