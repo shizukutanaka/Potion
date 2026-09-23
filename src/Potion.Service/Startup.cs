@@ -76,6 +76,11 @@ public class Startup
             return ResiliencePipelines.CreateDiagnosticPipeline(logger);
         });
 
+        // The dashboard compares alert severities as strings ("Critical");
+        // serialize enums as names so /api/health responses match the contract.
+        services.ConfigureHttpJsonOptions(o =>
+            o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter()));
+
         services.AddSignalR();
         services.AddHttpClient();
         services.AddSingleton<CollaborationService>();

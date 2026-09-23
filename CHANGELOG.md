@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (アラート深刻度が数値シリアライズでダッシュボード表示が恒常的に不発)
+
+- **`/api/health` が `AlertSeverity` enum を数値で返していたため、ダッシュボードが深刻度判定・アラート描画を全て誤動作させていた実バグ** — JS 側は `severity === 'Critical'`・`severity.toLowerCase()`・CSS クラス名で文字列を期待しており、数値だと `toLowerCase` で例外を投げてアラートが一件も描画されず、深刻度ステータスも常に「Healthy」表示だった。`JsonStringEnumConverter` を HTTP JSON オプションへ登録し、全 enum を名前文字列でシリアライズ（`/api/health/security` の手動 `ToString()` と挙動を統一）。`resourcePressure` 等の enum 項目も文字列化（実機検証済み）
+
 ### Fixed (死んだポリシーバリデータの活性化＋本番設定の整合性修復)
 
 - **`RemediationPolicyOptionsValidators` の3バリデータ（重複タスク名・許可リスト整合・保守ウィンドウ妥当性）に呼出し元がゼロで、設定ミスが実行時まで潜んでいた** — `AddOptions().Validate().ValidateOnStart()` で起動時 fail-fast 検証へ配線（フラグ配下のみ）。`HasUniqueTaskNames` は空タスクで false を返す意味論バグ（空集合は重複なし＝真）を併せて修正
