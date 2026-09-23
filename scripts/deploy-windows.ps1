@@ -80,7 +80,7 @@ Set-Acl $InstallPath $acl
 # Configure Windows Event Log
 Write-Host "📝 Configuring Windows Event Log..." -ForegroundColor Yellow
 
-New-EventLog -LogName Application -Source 'Potion' -ErrorAction SilentlyContinue
+New-EventLog -LogName Application -Source 'Potion Self-Healing Service' -ErrorAction SilentlyContinue
 
 # Install as Windows service
 Write-Host "⚙️ Installing Windows service..." -ForegroundColor Yellow
@@ -230,13 +230,13 @@ Write-Host "Start: Start-Service '$ServiceName'"
 Write-Host "Stop: Stop-Service '$ServiceName'"
 Write-Host "Restart: Restart-Service '$ServiceName'"
 Write-Host "Status: Get-Service '$ServiceName'"
-Write-Host "Logs: Get-EventLog -LogName Application -Source 'Potion'"
+Write-Host "Logs: Get-EventLog -LogName Application -Source 'Potion Self-Healing Service'"
 Write-Host ""
 Write-Host "🌐 API Endpoints:" -ForegroundColor Cyan
 Write-Host "Health: http://localhost:5000/api/health"
 Write-Host "Metrics: http://localhost:5000/api/health/metrics"
 Write-Host "Security: http://localhost:5000/api/health/security"
-Write-Host "Documentation: http://localhost:5000/swagger"
+Write-Host "Prometheus: http://localhost:5000/metrics"
 
 # Generate deployment report
 $reportPath = "$InstallPath\deployment-report.txt"
@@ -252,28 +252,22 @@ Service Status: $((Get-Service $ServiceName).Status)
 Windows Version: $(Get-ComputerInfo | Select-Object -ExpandProperty WindowsProductName) $(Get-ComputerInfo | Select-Object -ExpandProperty WindowsVersion)
 
 Features Deployed:
-- Multi-language support (16 languages)
-- Reactive programming with Rx patterns
-- Functional programming with monads
-- Machine learning anomaly detection
-- Blockchain audit trails
-- Kubernetes integration
-- Chaos engineering
-- GitOps automation
-- Advanced security features
+- System health monitoring with pressure alerts
+- Self-healing remediation execution (policy-gated, flag-gated)
+- Predictive anomaly detection
+- OpenTelemetry + Prometheus metrics (/metrics)
+- SignalR real-time collaboration hub (/collaboration)
+- ETW event source (Potion-Service)
 
 API Endpoints:
-- Health monitoring: /api/health/*
-- Security: /api/health/security/*
-- Observability: /api/health/observability/*
-- Testing: /api/health/testing/*
-- Chaos engineering: /api/health/chaos/*
+- Health monitoring: /api/health, /api/health/metrics
+- Security: /api/health/security, /api/health/security/summary
+- Alert webhook: /api/health/alerts/webhook
 
 Next Steps:
-1. Review logs: Get-EventLog -LogName Application -Source 'Potion'
+1. Review logs: Get-EventLog -LogName Application -Source 'Potion Self-Healing Service'
 2. Check configuration: Get-Content '$InstallPath\appsettings.json'
-3. Verify security: Get-Content '$StatePath\security\latest-audit.json'
-4. Test integration: Invoke-WebRequest http://localhost:5000/api/health/testing/integration
+3. Verify health: Invoke-WebRequest http://localhost:5000/api/health
 "@ | Out-File -FilePath $reportPath
 
 Write-Host ""
@@ -281,4 +275,4 @@ Write-Host "📄 Deployment report generated: $reportPath" -ForegroundColor Gree
 
 Write-Host ""
 Write-Host "🎉 Potion Service deployment completed successfully!" -ForegroundColor Green
-Write-Host "The service is now running with enterprise-grade features and multi-language support." -ForegroundColor Green
+Write-Host "The service is now running." -ForegroundColor Green

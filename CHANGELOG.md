@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (deploy-windows.ps1 の EventLog ソース名不一致と架空参照)
+
+- **EventLog ソースが `'Potion'` で登録される一方、本番 Serilog は `"Potion Self-Healing Service"` を使用** — 未登録ソースへの書込みは「source was not found」エラーとなり EventLog シンクが実質機能不全だった。スクリプトを本番ソース名に合わせ修正
+- **`/swagger`・`/api/health/observability|testing|chaos` 等の不存在エンドポイント参照を実在エンドポイントへ修正**（/api/health・/metrics・/security・/security/summary・/metrics(Prometheus)・/alerts/webhook）
+- **デプロイレポートの架空機能列挙を除去** — 「Rx patterns」「monads」「Blockchain audit trails」「Chaos engineering」「GitOps」は実装なし — 実機能（圧力アラート・フラグ配下修復実行・異常検出・OTel/Prometheus・SignalR・ETW）へ正直化
+
 ### Fixed (build-release.ps1 が不在ファイルのコピーで必ず失敗していた)
 
 - **リリーススクリプトが実在しない8ファイルをコピーしていた** — `EULA.md`/`PRIVACY_POLICY.md`/`QUICK_START.md`/`README_ENTERPRISE.md`/`DEPLOYMENT.md`/`docker-compose.enterprise.yml`（削除済み）が存在せず、`$ErrorActionPreference="Stop"` のためパッケージングが必ず途中失敗していた。実在する README/LICENSE/SECURITY/CHANGELOG と `k8s/deployment.yaml`（実在・保守対象のk8sマニフェスト）へ置き換え
