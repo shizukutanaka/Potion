@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (PerformanceOptimizer の8オプションが定義のみで完全に無視されていた)
+
+- **`Enabled` スイッチが読み取られておらず、管理者が `PerformanceOptimizer:Enabled=false` に設定しても最適化が常時実行されていた** — MemoryMonitor/EventCorrelationService の `if (options.Enabled)` パターンと同様に ExecuteAsync で評価
+- **同様に未配線だった7オプションを接続** — `OptimizationTimeoutSeconds`（最適化実行の連結CTSタイムアウト — 従来は無制限）・`OptimizationDelaySeconds`（ハードコード1000ms→設定値）・`MaxTempFilesToCleanup`（ハードコードTake(100)→設定値）・`MemoryThresholdPercent`（bytes閾値に加え使用率%でも発火 — ShouldOptimizeと内部ゲートの双方）・`EnableForcedGarbageCollection`（強制GCの個別制御）・`EnableNetworkOptimization`（netsh 実行の個別制御）・`EnablePowerOptimization`（powercfg 実行の個別制御）
+
 ### Improved (AnomalyDetector のパターン解析経路の死変数除去)
 
 - `IsPatternAnomaly` で `DetectRecentPattern()` の戻り値を受け取る `recentPattern` ローカルが一度も参照されていなかった — 呼出し自体を除去（副作用のない純粋関数のため挙動不変）。`DetectRecentPattern` はこれで呼出し元ゼロの死メソッド（削除候補へ追加報告）
