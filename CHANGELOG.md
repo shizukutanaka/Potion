@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (spawn パーサーの純粋関数分離＋ユニットテスト)
+
+- **systemctl/launchctl/journalctl の出力パーサーを純粋関数へ分離** — `ParseSystemctlServiceLines`/`ParseLaunchctlServiceLines`/`ParseJournalLines` を internal 化、文字列入力で単体テスト可能に
+- **パーサー回帰テスト6件追加** — sub-state カウント・running/failed 分類・severity マーカー・セキュリティユニット・ヘッダ/空入力の各ケース（119→125）
+
 ### Fixed (MemoryCachedBytes・IoOpsRate の Windows 実測化)
 
 - **`MemoryCachedBytes` が Windows で固定0だった** — `PerformanceCounter("Memory","Cache Bytes")` の実測へ（主対象OSでのキャッシュメモリ可視化）

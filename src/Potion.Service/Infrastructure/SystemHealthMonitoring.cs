@@ -932,39 +932,43 @@ internal sealed class SystemMetricsSampler
             }
             var output = proc.StandardOutput.ReadToEnd();
             proc.WaitForExit(10000);
-
-            var total = 0;
-            var running = 0;
-            var stopped = 0;
-            var failedNames = new List<string>();
-            foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (fields.Length < 4)
-                {
-                    continue;
-                }
-                total++;
-                switch (fields[3])
-                {
-                    case "running":
-                        running++;
-                        break;
-                    case "failed":
-                        stopped++;
-                        failedNames.Add(fields[0]);
-                        break;
-                    default:
-                        stopped++;
-                        break;
-                }
-            }
-            return (total, running, stopped, failedNames.Count, failedNames);
+            return ParseSystemctlServiceLines(output);
         }
         catch
         {
             return (0, 0, 0, 0, Array.Empty<string>());
         }
+    }
+
+    internal static (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) ParseSystemctlServiceLines(string output)
+    {
+        var total = 0;
+        var running = 0;
+        var stopped = 0;
+        var failedNames = new List<string>();
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var fields = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length < 4)
+            {
+                continue;
+            }
+            total++;
+            switch (fields[3])
+            {
+                case "running":
+                    running++;
+                    break;
+                case "failed":
+                    stopped++;
+                    failedNames.Add(fields[0]);
+                    break;
+                default:
+                    stopped++;
+                    break;
+            }
+        }
+        return (total, running, stopped, failedNames.Count, failedNames);
     }
 
     // launchd is the macOS service manager — `launchctl list` prints one row
@@ -991,38 +995,42 @@ internal sealed class SystemMetricsSampler
             }
             var output = proc.StandardOutput.ReadToEnd();
             proc.WaitForExit(10000);
-
-            var total = 0;
-            var running = 0;
-            var stopped = 0;
-            var failedNames = new List<string>();
-            foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var fields = line.Split('\t', StringSplitOptions.TrimEntries);
-                if (fields.Length < 3 || fields[0].Equals("PID", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-                total++;
-                if (int.TryParse(fields[0], out _))
-                {
-                    running++;
-                }
-                else
-                {
-                    stopped++;
-                    if (int.TryParse(fields[1], out var exitCode) && exitCode != 0)
-                    {
-                        failedNames.Add(fields[2]);
-                    }
-                }
-            }
-            return (total, running, stopped, failedNames.Count, failedNames);
+            return ParseLaunchctlServiceLines(output);
         }
         catch
         {
             return (0, 0, 0, 0, Array.Empty<string>());
         }
+    }
+
+    internal static (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames) ParseLaunchctlServiceLines(string output)
+    {
+        var total = 0;
+        var running = 0;
+        var stopped = 0;
+        var failedNames = new List<string>();
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var fields = line.Split('\t', StringSplitOptions.TrimEntries);
+            if (fields.Length < 3 || fields[0].Equals("PID", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+            total++;
+            if (int.TryParse(fields[0], out _))
+            {
+                running++;
+            }
+            else
+            {
+                stopped++;
+                if (int.TryParse(fields[1], out var exitCode) && exitCode != 0)
+                {
+                    failedNames.Add(fields[2]);
+                }
+            }
+        }
+        return (total, running, stopped, failedNames.Count, failedNames);
     }
 
     public (bool Defender, bool Firewall, int ActiveThreats, bool SecureBoot, DateTimeOffset LastScan) SecurityState()
@@ -1342,55 +1350,59 @@ internal sealed class SystemMetricsSampler
             }
             var output = proc.StandardOutput.ReadToEnd();
             proc.WaitForExit(15000);
-
-            var total = 0;
-            var errors = 0;
-            var security = 0;
-            var critical = 0;
-            var lastAt = DateTimeOffset.MinValue;
-            // short-iso rows: "2026-09-22T07:30:00+0000 host unit[pid]: message"
-            // journalctl does not emit the numeric priority in this format —
-            // error severity is inferred from well-known markers instead.
-            foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
-            {
-                var fields = line.Split(' ', 4, StringSplitOptions.RemoveEmptyEntries);
-                if (fields.Length < 4)
-                {
-                    continue;
-                }
-                total++;
-                var body = fields[3];
-                if (body.Contains("crit", StringComparison.OrdinalIgnoreCase) ||
-                    body.Contains("emerg", StringComparison.OrdinalIgnoreCase) ||
-                    body.Contains("panic", StringComparison.OrdinalIgnoreCase) ||
-                    body.Contains("segfault", StringComparison.OrdinalIgnoreCase) ||
-                    body.Contains("oom-killer", StringComparison.OrdinalIgnoreCase))
-                {
-                    critical++;
-                }
-                else if (body.Contains("error", StringComparison.OrdinalIgnoreCase) ||
-                    body.Contains("failed", StringComparison.OrdinalIgnoreCase))
-                {
-                    errors++;
-                }
-                if (fields[2].Contains("sudo", StringComparison.OrdinalIgnoreCase) ||
-                    fields[2].Contains("sshd", StringComparison.OrdinalIgnoreCase) ||
-                    fields[2].Contains("polkit", StringComparison.OrdinalIgnoreCase) ||
-                    fields[2].Contains("audit", StringComparison.OrdinalIgnoreCase))
-                {
-                    security++;
-                }
-                if (DateTimeOffset.TryParse(fields[0], out var at) && at > lastAt)
-                {
-                    lastAt = at;
-                }
-            }
-            return (total, errors, security, critical, lastAt);
+            return ParseJournalLines(output);
         }
         catch
         {
             return (0, 0, 0, 0, DateTimeOffset.MinValue);
         }
+    }
+
+    // short-iso rows: "2026-09-22T07:30:00+0000 host unit[pid]: message"
+    // journalctl does not emit the numeric priority in this format —
+    // error severity is inferred from well-known markers instead.
+    internal static (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) ParseJournalLines(string output)
+    {
+        var total = 0;
+        var errors = 0;
+        var security = 0;
+        var critical = 0;
+        var lastAt = DateTimeOffset.MinValue;
+        foreach (var line in output.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var fields = line.Split(' ', 4, StringSplitOptions.RemoveEmptyEntries);
+            if (fields.Length < 4)
+            {
+                continue;
+            }
+            total++;
+            var body = fields[3];
+            if (body.Contains("crit", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("emerg", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("panic", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("segfault", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("oom-killer", StringComparison.OrdinalIgnoreCase))
+            {
+                critical++;
+            }
+            else if (body.Contains("error", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("failed", StringComparison.OrdinalIgnoreCase))
+            {
+                errors++;
+            }
+            if (fields[2].Contains("sudo", StringComparison.OrdinalIgnoreCase) ||
+                fields[2].Contains("sshd", StringComparison.OrdinalIgnoreCase) ||
+                fields[2].Contains("polkit", StringComparison.OrdinalIgnoreCase) ||
+                fields[2].Contains("audit", StringComparison.OrdinalIgnoreCase))
+            {
+                security++;
+            }
+            if (DateTimeOffset.TryParse(fields[0], out var at) && at > lastAt)
+            {
+                lastAt = at;
+            }
+        }
+        return (total, errors, security, critical, lastAt);
     }
 
     private static (int Total, int Errors, int Critical, DateTimeOffset LastAt) CountEvents(string logName)
