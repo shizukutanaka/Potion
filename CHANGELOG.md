@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (キャンセルの誤リトライ除去 — HealthCheckPipeline も同型)
+
+- **HealthCheckPipeline の CB/Retry が `.Handle<Exception>()` で `OperationCanceledException` を捕捉していた同型欠陥** — シャットダウン要求がリトライされ・CB を誤発火させていた。`e is not OperationCanceledException` で除外
+
 ### Fixed (キャンセルの誤リトライ除去)
 
 - **リトライ戦略が `OperationCanceledException` を再試行対象に含めていた設計欠陥** — キャンセル要求を飲み込み最大3回まで遅延させていた。停止要求は正しく伝播するよう除外

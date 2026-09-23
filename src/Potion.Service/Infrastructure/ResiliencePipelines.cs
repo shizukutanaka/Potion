@@ -202,7 +202,7 @@ public static class ResiliencePipelines
                 BreakDuration = TimeSpan.FromMinutes(5),
                 ShouldHandle = new PredicateBuilder<bool>()
                     .HandleResult(r => !r)
-                    .Handle<Exception>(),
+                    .Handle<Exception>(e => e is not OperationCanceledException),
                 OnOpened = args =>
                 {
                     logger.LogCritical("Health check circuit breaker opened");
@@ -218,7 +218,7 @@ public static class ResiliencePipelines
                 BackoffType = DelayBackoffType.Exponential,
                 ShouldHandle = new PredicateBuilder<bool>()
                     .HandleResult(r => !r)
-                    .Handle<Exception>()
+                    .Handle<Exception>(e => e is not OperationCanceledException)
             })
 
             .Build();
