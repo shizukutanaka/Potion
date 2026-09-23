@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (死んだポリシーバリデータの活性化＋本番設定の整合性修復)
+
+- **`RemediationPolicyOptionsValidators` の3バリデータ（重複タスク名・許可リスト整合・保守ウィンドウ妥当性）に呼出し元がゼロで、設定ミスが実行時まで潜んでいた** — `AddOptions().Validate().ValidateOnStart()` で起動時 fail-fast 検証へ配線（フラグ配下のみ）。`HasUniqueTaskNames` は空タスクで false を返す意味論バグ（空集合は重複なし＝真）を併せて修正
+- **配線直後の実機起動で本番設定の実ミスを捕捉**: `appsettings.Production.json` の `CommandAllowlist` が `ngen.exe` を欠落させており、ベース継承タスク `dotnet_optimization` が許可外コマンドを参照していた（従来は実行時に毎回ブロックされるだけの潜伏状態）— 本番許可リストへ `ngen.exe` を追加して整合
+
 ### Fixed (PerformanceOptimizer の報告値を実測へ正直化)
 
 - **`MemoryFreedBytes` がハードコード推定値（GC実行→10MB・スタンバイ→50MBの捏造）だった** — `GC.GetTotalMemory` 前後差の実測解放量へ変更（MemoryMonitor と同一の実測方式）

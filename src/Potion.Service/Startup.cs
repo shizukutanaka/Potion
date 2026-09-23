@@ -117,7 +117,12 @@ public class Startup
         // "FeatureFlags:RepairExecutionEnabled" flag — disabled by default.
         if (Configuration.GetValue<bool>("FeatureFlags:RepairExecutionEnabled"))
         {
-            services.Configure<RemediationPolicyOptions>(Configuration.GetSection("RemediationPolicy"));
+            services.AddOptions<RemediationPolicyOptions>()
+                .Bind(Configuration.GetSection("RemediationPolicy"))
+                .Validate(RemediationPolicyOptionsValidators.HasUniqueTaskNames, "Remediation policy contains duplicate task names.")
+                .Validate(RemediationPolicyOptionsValidators.CommandsAreAllowlisted, "Remediation policy references commands outside the allowlist.")
+                .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowsAreValid, "Remediation policy contains invalid maintenance windows.")
+                .ValidateOnStart();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<ICommandValidator, CommandValidator>();
             services.AddSingleton<IRemediationTaskExecutor, RemediationTaskExecutor>();
