@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (予防修復タスクの無制限重複スケジュールを抑制)
+
+- **`PredictiveRemediationService` が予測失敗を検出するたび5分毎に同一メトリクスの修復タスクを無制限スケジュールしていた** — デデュープ機構なし（タスク名もタイムスタンプ付きで一意＝スケジューラ側でも重複不可視）。メトリクス別の最終スケジュール時刻を記録し15分クールダウンを適用（AlertCooldown/CorrelationCooldown と同一慣行）。併せて監査：全実行経路がバリデータ経由・FailurePattern のベースラインは限界値あり
+
 ### Fixed (コマンド許可リストが空で fail-open になる欠陥)
 
 - **`CommandValidator` が `CommandAllowlist` 空時にチェック全体をスキップしていた** — セキュリティ制御が設定ミスで無条件許可になる fail-open 設計。ホワイトリスト制御の原則に従い空リストを「未設定＝全拒否（deny by default）」へ変更。実行経路監査も完遂（全プロセス起動がバリデータ経由と確認）

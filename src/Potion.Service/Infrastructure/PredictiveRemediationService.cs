@@ -10,10 +10,15 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public class PredictiveRemediationService : BackgroundService
 {
+    // Matches AlertCooldown/CorrelationCooldown: a metric that keeps failing its
+    // prediction check re-arms the preventive task only after this interval.
+    private static readonly TimeSpan ScheduleCooldown = TimeSpan.FromMinutes(15);
+
     private readonly ILogger<PredictiveRemediationService> _logger;
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly IRemediationScheduler _remediationScheduler;
     private readonly Dictionary<string, FailurePattern> _failurePatterns;
+    private readonly Dictionary<string, DateTimeOffset> _lastScheduledAt = new();
     private readonly object _lock = new();
 
     public PredictiveRemediationService(
@@ -87,6 +92,17 @@ public class PredictiveRemediationService : BackgroundService
         {
             _logger.LogInformation("No preventive command mapped for {MetricKey}; skipping", metricKey);
             return;
+        }
+
+        lock (_lock)
+        {
+            if (_lastScheduledAt.TryGetValue(metricKey, out var lastAt)
+                && DateTimeOffset.UtcNow - lastAt < ScheduleCooldown)
+            {
+                return;
+            }
+
+            _lastScheduledAt[metricKey] = DateTimeOffset.UtcNow;
         }
 
         // Create a preventive remediation task
