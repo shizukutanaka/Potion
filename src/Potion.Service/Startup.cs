@@ -281,13 +281,23 @@ public class Startup
 
                 using (document)
                 {
-                    if (document.RootElement.TryGetProperty("alerts", out var alerts))
+                    if (document.RootElement.TryGetProperty("alerts", out var alerts)
+                        && alerts.ValueKind == JsonValueKind.Array)
                     {
                         foreach (var alert in alerts.EnumerateArray())
                         {
+                            if (alert.ValueKind != JsonValueKind.Object)
+                            {
+                                continue;
+                            }
+
                             var status = alert.TryGetProperty("status", out var s) ? s.GetString() : "unknown";
-                            var name = alert.TryGetProperty("labels", out var l) && l.TryGetProperty("alertname", out var an) ? an.GetString() : "unknown";
-                            var summary = alert.TryGetProperty("annotations", out var a) && a.TryGetProperty("summary", out var sum) ? sum.GetString() : null;
+                            var name = alert.TryGetProperty("labels", out var l)
+                                && l.ValueKind == JsonValueKind.Object
+                                && l.TryGetProperty("alertname", out var an) ? an.GetString() : "unknown";
+                            var summary = alert.TryGetProperty("annotations", out var a)
+                                && a.ValueKind == JsonValueKind.Object
+                                && a.TryGetProperty("summary", out var sum) ? sum.GetString() : null;
 
                             if (status == "resolved")
                             {

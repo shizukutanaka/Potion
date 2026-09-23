@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (webhook の形状異常ペイロードで未処理500)
+
+- **`/api/health/alerts/webhook` が構造的に不正なJSONで未処理例外を返していた** — 匿名エンドポイントで `alerts` が非配列・要素が非オブジェクト・`labels`/`annotations` が非オブジェクトの場合 `JsonElement.EnumerateArray`/`TryGetProperty` が `InvalidOperationException` を投げ500。各階層に `ValueKind` ガードを追加し全形状で200へ（実機4パターン検証済み）
+
 ### Fixed (同一ユーザーの複数接続が相手の切断で除去されるバグ)
 
 - **`CollaborationService._activeUsers` が userId キーだった** — 同一ユーザーが複数接続（複数タブ等）を持つと、片方の切断で `TryRemove(userId)` がユーザー全体を除去し、残った接続がアクティブカウント・ヘルスブロードキャスト対象から外れる実バグ。接続IDキーへ修正し、各接続が独立にカウントされるように（`UserDisconnectedAsync` は Hub の `Context.ConnectionId` を直接使用）
