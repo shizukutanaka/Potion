@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (同一ユーザーの複数接続が相手の切断で除去されるバグ)
+
+- **`CollaborationService._activeUsers` が userId キーだった** — 同一ユーザーが複数接続（複数タブ等）を持つと、片方の切断で `TryRemove(userId)` がユーザー全体を除去し、残った接続がアクティブカウント・ヘルスブロードキャスト対象から外れる実バグ。接続IDキーへ修正し、各接続が独立にカウントされるように（`UserDisconnectedAsync` は Hub の `Context.ConnectionId` を直接使用）
+
 ### Fixed (残りの死SignalR通知経路の活性化)
 
 - **`NotifyAnomalyDetectedAsync`/`NotifyTaskCompletedAsync` に呼出し元ゼロの死経路だった**（異常検出・修復完了が購読クライアントへ届かない）— `AnomalyDetector.AnomalyDetected` イベントと `RemediationExecutionStats.TaskCompleted` イベントを新設し `CollaborationService` が購読・ブロードキャストへ配線。`AnomalyDetector` は hosted 登録を維持したまま注入用シングルトン経路を追加（既存の hosted 登録検証テストを満たす形）

@@ -39,10 +39,9 @@ public class CollaborationHub : Hub
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var userId = Context.UserIdentifier ?? Context.ConnectionId;
-        await _collaborationService.UserDisconnectedAsync(userId);
+        await _collaborationService.UserDisconnectedAsync(Context.ConnectionId);
 
-        _logger.LogInformation("User disconnected: {UserId}", userId);
+        _logger.LogInformation("User disconnected: {ConnectionId}", Context.ConnectionId);
         await base.OnDisconnectedAsync(exception);
     }
 
@@ -149,19 +148,21 @@ public class CollaborationService : IDisposable
             IsActive = true
         };
 
-        _activeUsers[userId] = session;
+        // Keyed by connection: one user may hold several live connections and
+        // each must count independently so one disconnect does not drop the rest.
+        _activeUsers[connectionId] = session;
 
         await BroadcastUserCountAsync();
         await _hubContext.Clients.All.SendAsync("UserConnected", userId);
     }
 
-    public async Task UserDisconnectedAsync(string userId)
+    public async Task UserDisconnectedAsync(string connectionId)
     {
-        if (_activeUsers.TryRemove(userId, out var session))
+        if (_activeUsers.TryRemove(connectionId, out var session))
         {
             session.IsActive = false;
             await BroadcastUserCountAsync();
-            await _hubContext.Clients.All.SendAsync("UserDisconnected", userId);
+            await _hubContext.Clients.All.SendAsync("UserDisconnected", session.UserId);
         }
     }
 
