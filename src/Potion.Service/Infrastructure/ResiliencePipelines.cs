@@ -1,5 +1,4 @@
 using Polly;
-using Polly.Simmy;
 using Polly.CircuitBreaker;
 using Polly.Retry;
 using Polly.Timeout;

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (未使用 `using Polly.Simmy` を除去)
+
+- **ResiliencePipelines.cs の `using Polly.Simmy` が一度も使用されていなかった** — カオス注入戦略を示唆する誤導的なインポートを除去。なお同ファイルの3パイプライン＋3件のDIシングルトン登録は**消費者ゼロの死コード**であることを特定（278行のファイル全体が未呼出し — 削除候補として報告済み、Polly/Polly.RateLimiting パッケージも同クラスタに連動）
+
 ### Improved (OWASP セキュリティヘッダを全レスポンスへ付与)
 
 - **HTTP レスポンスにセキュリティヘッダが一切なかった** — `X-Content-Type-Options: nosniff`・`X-Frame-Options: DENY`・`Referrer-Policy: no-referrer`・`Content-Security-Policy` をパイプライン先頭のミドルウェアで全レスポンス（API・静的ファイル双方）に付与。CSP はダッシュボードの実構成に整合（外部 Google Fonts / Font Awesome・インライン onclick/style・同一オリジン fetch 許可）。MIME スニッフィング・クリックジャッキング・リファラ漏洩を構造的に防止。実起動して全ヘッダ＋全アセット 200 を実測検証済み
