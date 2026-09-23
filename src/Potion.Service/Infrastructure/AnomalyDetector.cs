@@ -1,6 +1,4 @@
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Potion.Service.Options;
 using System.Collections.Concurrent;
 
 namespace Potion.Service.Infrastructure;
@@ -21,7 +19,6 @@ public interface IAnomalyDetector : IHostedService
 public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
 {
     private readonly ILogger<AnomalyDetector> _logger;
-    private readonly PerformanceOptimizerOptions _options;
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly ConcurrentDictionary<string, AdvancedMetricTimeSeries> _metricHistory = new();
     private Timer? _analysisTimer;
@@ -30,11 +27,9 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
 
     public AnomalyDetector(
         ILogger<AnomalyDetector> logger,
-        IOptions<PerformanceOptimizerOptions> options,
         ISystemHealthMonitor healthMonitor)
     {
         _logger = logger;
-        _options = options.Value;
         _healthMonitor = healthMonitor;
     }
 

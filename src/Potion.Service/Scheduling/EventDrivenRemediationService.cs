@@ -1,10 +1,9 @@
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Potion.Service.Infrastructure;
-using Potion.Service.Options;
 using System.Collections.Concurrent;
 using Potion.Service.Remediation;
+using Potion.Service.Options;
 
 namespace Potion.Service.Scheduling;
 
@@ -21,7 +20,6 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
     private readonly ILogger<EventDrivenRemediationService> _logger;
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly IRemediationTaskExecutor _taskExecutor;
-    private readonly IOptionsMonitor<RemediationPolicyOptions> _optionsMonitor;
     private readonly ConcurrentDictionary<string, TriggerRule> _triggerRules = new();
     private readonly ConcurrentDictionary<string, DateTimeOffset> _lastExecutedAt = new();
     private readonly HttpClient _httpClient = new();
@@ -29,13 +27,11 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
     public EventDrivenRemediationService(
         ILogger<EventDrivenRemediationService> logger,
         ISystemHealthMonitor healthMonitor,
-        IRemediationTaskExecutor taskExecutor,
-        IOptionsMonitor<RemediationPolicyOptions> optionsMonitor)
+        IRemediationTaskExecutor taskExecutor)
     {
         _logger = logger;
         _healthMonitor = healthMonitor;
         _taskExecutor = taskExecutor;
-        _optionsMonitor = optionsMonitor;
 
         // デフォルトのトリガールールを初期化
         InitializeDefaultTriggerRules();

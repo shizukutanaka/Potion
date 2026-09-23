@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (未使用の注入依存3件をコンストラクタから除去)
+
+- `EventDrivenRemediationService`・`AutoRecoveryManager` が `IOptionsMonitor<RemediationPolicyOptions>` を、`AnomalyDetector` が `IOptions<PerformanceOptimizerOptions>` を注入されながら一度も参照していなかった — 「設定可能に見えるが実際は設定を無視する」誤解を招く依存を除去し実態を明示。テストのモック引数も追従
+
 ### Fixed (Collaboration:MaxConcurrentUsers が無視され接続数が無制限だった)
 
 - SignalR ハブが `CollaborationOptions.MaxConcurrentUsers`（既定50）を一度も参照せず、同時接続数に実質上限なし。`CollaborationService.UserConnectedAsync` を bool 返却化し、上限到達時は `Context.Abort()` で接続拒否。拒否接続は `_activeUsers` に未登録のためゴーストセッションも残留しない
