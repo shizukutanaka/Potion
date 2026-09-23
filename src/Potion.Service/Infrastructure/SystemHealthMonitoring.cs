@@ -213,6 +213,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
 
     public Task<SystemHealthSnapshot> GetCurrentHealthAsync(CancellationToken cancellationToken)
     {
+        using var activity = PotionActivitySource.StartHealthCheckActivity();
         var metrics = CreateMetrics();
         var snapshot = new SystemHealthSnapshot(metrics, EvaluatePressureAlerts(metrics));
         return Task.FromResult(snapshot);

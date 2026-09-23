@@ -43,6 +43,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         var startUtc = DateTimeOffset.UtcNow;
 
         _commandValidator.EnsureCommandIsAllowed(option.Command);
+        using var activity = PotionActivitySource.StartRemediationActivity(option.Name);
         _logger.LogInformation("Executing remediation task: {TaskName}", option.Name);
 
         _executionStats.IncrementInFlight();
@@ -71,6 +72,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
                 option.Name, duration.TotalMilliseconds, result.ExitCode
             );
 
+            activity?.SetStatus(success ? ActivityStatusCode.Ok : ActivityStatusCode.Error);
             PotionMetrics.RecordRemediationTask(option.Name, success, duration);
             _executionStats.RecordExecution(success, option.Name);
 
@@ -84,6 +86,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         }
         catch (Exception ex)
         {
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
             PotionMetrics.RecordRemediationTask(option.Name, false, DateTimeOffset.UtcNow - startUtc);
             _executionStats.RecordExecution(false, option.Name);
             _logger.LogError(ex, "Remediation task {TaskName} failed with exception", option.Name);

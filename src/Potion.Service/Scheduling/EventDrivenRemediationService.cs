@@ -100,6 +100,7 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
 
     private async Task ExecuteActionAsync(TriggerRule rule, SystemHealthAlert alert)
     {
+        using var activity = PotionActivitySource.StartSelfHealingActivity(alert.Component);
         try
         {
             _logger.LogInformation("トリガー '{TriggerName}' に基づいてアクション '{ActionType}' を実行", rule.Name, rule.Action.Type);

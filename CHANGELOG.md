@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (カスタムOTelスパン3種を実パスへ配線)
+
+- **`PotionActivitySource` の4ヘルパーが呼出し元ゼロで設定済みトレース基盤にカスタムスパンが一切流れなかった** — `StartRemediationActivity`（タスク成否ステータス付き）を実行器へ、`StartHealthCheckActivity` をヘルススナップショット生成へ、`StartSelfHealingActivity` をイベント駆動修復アクションへ配線し、OTLPコンシューマへ実セマンティックテレメトリが到達するように
+- **削除候補として記録**: `DiagnosticReport` 型・`ResiliencePipeline<DiagnosticReport>` 登録・`StartDiagnosticActivity` ヘルパー — 全て生成元ゼロの三重死資産
+
 ### Fixed (45件のデータアノテーションが死属性だった — 一括実効化)
 
 - **`[Required]`/`[Range]`/`[StringLength]`/`[RegularExpression]` の45属性が `ValidateDataAnnotations()` 未呼出しで一切検証されない死属性だった** — 例えば `MemoryMonitor:MonitoringIntervalSeconds=0`（`Range(10,300)` 違反）が `TimeSpan.FromSeconds(0)` のスピンループを引き起こし得た。`MemoryMonitorOptions`・`PerformanceOptimizerOptions` を `AddOptions().ValidateDataAnnotations().ValidateOnStart()` へ昇格、`RemediationPolicyOptions` のチェーンにも追加（ネストした Tasks 要素の属性も再帰検証）。全出荷値が範囲内であることを確認済み — 起動時に設定ミスが fail-fast で検出されるようになった
