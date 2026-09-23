@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (README の実態乖離を修正)
+
+- **Quick Start の `sc.exe create` が無スペース構文（`binPath="..."`）で記載** — deploy-windows.ps1 と同じ構文違反をドキュメントでも犯していた → `binPath= "..."` の正規形式へ
+- **サービス名が架空の `"PotionService"`** → 実インストーラが登録する `"Potion Self-Healing Service"` に統一
+- **前提が `.NET 8.0 runtime`** → ビルドには SDK が必要（self-contained MSI はランタイム不要）に修正
+- **テスト数 `111/111` が陳腐** → 実績 `167/167` に更新（実測確認済み）
+- **インストーラによる `ASPNETCORE_URLS` レジストリ設定と HTTPS 有効化手順（pfx 配置＋レジストリ削除）を追記** — サイクル183の実装と README を同期
+
 ### Improved (`.gitattributes` 追加による行末規約の明文化)
 
 - **クロスプラットフォーム開発での行末不整合を予防** — `.gitattributes` を新設： `* text=auto`（リポジトリは LF 正規化）＋ `*.sln`/`*.csproj`/`*.ps1`/`*.wxs` 等 Windows ツール向けは `eol=crlf` チェックアウト、`*.sh`/Web資産/設定形式は `eol=lf` 固定、バイナリ拡張子を明示。Windows 貢献者の CRLF 混入を構造的に防止

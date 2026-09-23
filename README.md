@@ -16,7 +16,7 @@ A production-grade Windows system automation and monitoring service with autonom
 ### Prerequisites
 
 - Windows Server 2019/2022 or Windows 10 21H2+
-- .NET 8.0 runtime
+- .NET 8.0 SDK or later (build only — the self-contained MSI needs no runtime)
 - Administrator privileges
 
 ### Build & Run
@@ -37,14 +37,16 @@ The service listens on `http://localhost:5000` by default and serves:
 - `GET /metrics` — Prometheus metrics
 - `POST /collaboration/negotiate` — SignalR hub
 
-Production HTTPS requires the certificate configured in `appsettings.Production.json` (`Kestrel:Endpoints:Https:Certificate`); inject the PFX password via the `Kestrel__Endpoints__Https__Certificate__Password` environment variable.
+Production HTTPS requires the certificate configured in `appsettings.Production.json` (`Kestrel:Endpoints:Https:Certificate`) at `C:\ProgramData\Potion\certs\certificate.pfx`; inject the PFX password via the `Kestrel__Endpoints__Https__Certificate__Password` environment variable.
 
 ### Install as Windows Service
 
 ```powershell
-sc.exe create "PotionService" binPath="C:\Path\To\Potion.Service.exe"
-sc.exe start "PotionService"
+sc.exe create "Potion Self-Healing Service" binPath= "C:\Path\To\Potion.Service.exe"
+sc.exe start "Potion Self-Healing Service"
 ```
+
+The packaged installers (`scripts/deploy-windows.ps1`, `scripts/package-installer.ps1`, and the MSI) register the service with `ASPNETCORE_URLS=http://localhost:5000` in the service `Environment` registry value. To enable HTTPS instead, provision `C:\ProgramData\Potion\certs\certificate.pfx`, remove that registry value, and restart the service.
 
 ### Configuration
 
@@ -58,7 +60,7 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 111/111 tests
+dotnet test Potion.sln   # 167/167 tests
 ```
 
 ## License
