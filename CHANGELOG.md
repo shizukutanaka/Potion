@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (スクリプト監査＋生成レポートの gitignore 追加)
+
+- **`scripts/` 全体の監査を実施**: `deploy.sh`（k8s適用＋ロールアウト検証＋5実エンドポイントスモーク）と `validate-system.sh`（全実エンドポイント＋webhook 405マップ証明＋SignalR negotiate POST）は現行構成と整合 — 参照先エンドポイントは全て実在
+- **`validation-report.txt` が gitignore 未登録で誤コミット可能だった衛生欠陥** — 生成物を .gitignore へ追加
+
 ### Fixed (カスタムOTelスパン3種を実パスへ配線)
 
 - **`PotionActivitySource` の4ヘルパーが呼出し元ゼロで設定済みトレース基盤にカスタムスパンが一切流れなかった** — `StartRemediationActivity`（タスク成否ステータス付き）を実行器へ、`StartHealthCheckActivity` をヘルススナップショット生成へ、`StartSelfHealingActivity` をイベント駆動修復アクションへ配線し、OTLPコンシューマへ実セマンティックテレメトリが到達するように
