@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (イベント駆動修復のトリガー評価へ回帰テストを追加)
+
+- **`EventDrivenRemediationService` のルール評価にテストが皆無だった** — 実動作ロジック（コンポーネント一致・severity閾値・カスタム条件・15分アクションクールダウン・`PreventiveRemediationCommands` 未解決時のスキップ）を網羅する回帰テスト6件を追加（マッチ時の実行・閾値未満/未知コンポーネント/条件false/未解決タスク名での非実行・クールダウン内の再発火抑制）。テスト 157→163件
+
 ### Fixed (Linux でシステムメモリ情報が常に0だった)
 
 - **`MemoryMonitor.GetSystemMemoryInfo` が Windows のみ実装で、Linux（k8s コンテナ＝主たるデプロイ先）では `MemoryUsagePercent` が常に0** — `%` 閾値による最適化トリガーが機能不全＋統計のシステムメモリが全て0報告だった。`/proc/meminfo` で実装：物理 = `MemTotal`/`MemAvailable`、仮想はコミット会計へ正直にマップ（`CommitLimit`/`Committed_AS`）。ワーキングセット/プライベートメモリ閾値は従来通り実値 — macOS は等価 API なしで正直に0のまま
