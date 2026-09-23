@@ -173,10 +173,14 @@ public sealed class CommandValidator : ICommandValidator
 
         var fileName = command.Split(' ', '\t')[0];
         var executableName = System.IO.Path.GetFileName(fileName);
+        // An explicit path must match a path-qualified allowlist entry (or the full
+        // command). Bare-name entries trust PATH resolution and must not bless a
+        // binary at an arbitrary location that shares the name (e.g. D:\tmp\net.exe).
+        var hasExplicitPath = fileName.IndexOfAny(new[] { '/', '\\', ':' }) >= 0;
         var isAllowed = allowlist.Any(allowed =>
             string.Equals(allowed, command, StringComparison.OrdinalIgnoreCase) ||
             string.Equals(allowed, fileName, StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(allowed, executableName, StringComparison.OrdinalIgnoreCase));
+            (!hasExplicitPath && string.Equals(allowed, executableName, StringComparison.OrdinalIgnoreCase)));
 
         if (!isAllowed)
         {

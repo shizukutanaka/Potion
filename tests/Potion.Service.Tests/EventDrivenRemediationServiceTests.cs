@@ -2,10 +2,8 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Moq;
 using Potion.Service.Infrastructure;
-using Potion.Service.Options;
 using Potion.Service.Remediation;
 using Potion.Service.Scheduling;
 using Xunit;
@@ -24,13 +22,10 @@ public sealed class EventDrivenRemediationServiceTests
     {
         var monitor = new Mock<ISystemHealthMonitor>();
         var executor = new Mock<IRemediationTaskExecutor>();
-        var options = Mock.Of<IOptionsMonitor<RemediationPolicyOptions>>(
-            m => m.CurrentValue == new RemediationPolicyOptions());
         var service = new EventDrivenRemediationService(
             NullLogger<EventDrivenRemediationService>.Instance,
             monitor.Object,
-            executor.Object,
-            options);
+            executor.Object);
         return (service, monitor, executor);
     }
 

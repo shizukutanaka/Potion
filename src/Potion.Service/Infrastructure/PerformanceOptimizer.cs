@@ -87,10 +87,12 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
                 var options = _optionsMonitor.CurrentValue;
                 var interval = TimeSpan.FromMinutes(options.CheckIntervalMinutes);
 
-                if (await ShouldOptimizeAsync(stoppingToken))
+                if (options.Enabled && await ShouldOptimizeAsync(stoppingToken))
                 {
                     _logger.LogInformation("パフォーマンス最適化を実行します");
-                    await OptimizeAsync(stoppingToken);
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                    timeoutCts.CancelAfter(TimeSpan.FromSeconds(options.OptimizationTimeoutSeconds));
+                    await OptimizeAsync(timeoutCts.Token);
                 }
 
                 await Task.Delay(interval, stoppingToken);
@@ -108,8 +110,14 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
         var stats = await GetStatisticsAsync(cancellationToken);
         var options = _optionsMonitor.CurrentValue;
 
+        var totalMemoryBytes = stats.MemoryUsageBytes + stats.AvailableMemoryBytes;
+        var memoryUsedPercent = totalMemoryBytes > 0
+            ? stats.MemoryUsageBytes / (double)totalMemoryBytes * 100
+            : 0;
+
         return stats.CpuUsagePercent > options.CpuThresholdPercent ||
                stats.MemoryUsageBytes > options.MemoryThresholdBytes ||
+               memoryUsedPercent > options.MemoryThresholdPercent ||
                stats.DiskUsagePercent > options.DiskThresholdPercent ||
                stats.ActiveProcessCount > options.MaxProcessCount;
     }
@@ -163,7 +171,10 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             }
 
             // 高メモリ使用率の場合の最適化
-            if (beforeStats.MemoryUsageBytes > options.MemoryThresholdBytes)
+            var totalBefore = beforeStats.MemoryUsageBytes + beforeStats.AvailableMemoryBytes;
+            var memoryPercentBefore = totalBefore > 0 ? beforeStats.MemoryUsageBytes / (double)totalBefore * 100 : 0;
+            if (beforeStats.MemoryUsageBytes > options.MemoryThresholdBytes ||
+                memoryPercentBefore > options.MemoryThresholdPercent)
             {
                 var managedBefore = GC.GetTotalMemory(forceFullCollection: false);
                 var memoryOptimized = await OptimizeMemoryUsageAsync(cancellationToken);
@@ -189,7 +200,8 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             var additionalOptimized = await RunAdditionalOptimizationsAsync(cancellationToken);
             actions.AddRange(additionalOptimized);
 
-            await Task.Delay(1000, cancellationToken); // 最適化後の安定化を待つ
+            // 最適化後の安定化を待つ
+            await Task.Delay(TimeSpan.FromSeconds(options.OptimizationDelaySeconds), cancellationToken);
 
             var afterStats = await GetStatisticsAsync(cancellationToken);
             var afterScore = CalculatePerformanceScore(afterStats);
@@ -349,9 +361,12 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             }
 
             // ガベージコレクションの強制実行（.NETプロセス向け）
-            GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
-            GC.WaitForPendingFinalizers();
-            actions.Add("ガベージコレクションを実行しました");
+            if (_optionsMonitor.CurrentValue.EnableForcedGarbageCollection)
+            {
+                GC.Collect(GC.MaxGeneration, GCCollectionMode.Forced);
+                GC.WaitForPendingFinalizers();
+                actions.Add("ガベージコレクションを実行しました");
+            }
         }
         catch (Exception ex)
         {
@@ -375,7 +390,7 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
                 {
                     var tempFiles = Directory.GetFiles(tempPath!, "*.*", SearchOption.AllDirectories)
                         .Where(f => File.GetLastWriteTimeUtc(f) < DateTime.UtcNow.AddDays(-1))
-                        .Take(100); // 制限付きで処理
+                        .Take(_optionsMonitor.CurrentValue.MaxTempFilesToCleanup);
 
                     foreach (var tempFile in tempFiles)
                     {
@@ -439,25 +454,32 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             return actions; // netsh/powercfg/WMI は Windows 専用
         }
 
+        var options = _optionsMonitor.CurrentValue;
         try
         {
-            // ネットワーク接続の最適化（allowlist 検証必須）
-            _commandValidator.EnsureCommandIsAllowed("netsh.exe");
-            var result = await _processRunner.RunAsync(new ProcessStartInfo("netsh.exe", "interface tcp set global autotuninglevel=normal"), TimeSpan.FromMinutes(2), cancellationToken);
-            if (result.ExitCode == 0)
+            if (options.EnableNetworkOptimization)
             {
-                actions.Add("ネットワーク設定を最適化しました");
+                // ネットワーク接続の最適化（allowlist 検証必須）
+                _commandValidator.EnsureCommandIsAllowed("netsh.exe");
+                var result = await _processRunner.RunAsync(new ProcessStartInfo("netsh.exe", "interface tcp set global autotuninglevel=normal"), TimeSpan.FromMinutes(2), cancellationToken);
+                if (result.ExitCode == 0)
+                {
+                    actions.Add("ネットワーク設定を最適化しました");
+                }
             }
 
-            // 電源設定の確認（ラップトップの場合）
-            using var batterySearcher = new System.Management.ManagementObjectSearcher("SELECT BatteryStatus FROM Win32_Battery");
-            if (batterySearcher.Get().Count > 0)
+            if (options.EnablePowerOptimization)
             {
-                _commandValidator.EnsureCommandIsAllowed("powercfg.exe");
-                var powerResult = await _processRunner.RunAsync(new ProcessStartInfo("powercfg.exe", "/setactive 381b4222-f694-41f0-9685-ff5bb260df2e"), TimeSpan.FromMinutes(2), cancellationToken);
-                if (powerResult.ExitCode == 0)
+                // 電源設定の確認（ラップトップの場合）
+                using var batterySearcher = new System.Management.ManagementObjectSearcher("SELECT BatteryStatus FROM Win32_Battery");
+                if (batterySearcher.Get().Count > 0)
                 {
-                    actions.Add("電源設定をバランスモードに変更しました");
+                    _commandValidator.EnsureCommandIsAllowed("powercfg.exe");
+                    var powerResult = await _processRunner.RunAsync(new ProcessStartInfo("powercfg.exe", "/setactive 381b4222-f694-41f0-9685-ff5bb260df2e"), TimeSpan.FromMinutes(2), cancellationToken);
+                    if (powerResult.ExitCode == 0)
+                    {
+                        actions.Add("電源設定をバランスモードに変更しました");
+                    }
                 }
             }
         }

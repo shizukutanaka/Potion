@@ -2,6 +2,46 @@
 
 ## Unreleased
 
+### Improved (ServicePaths の生存面にテスト新設 — 起動要パス解決を回帰固定)
+
+- `ServicePaths` はテスト参照ゼロだった（PotionMetrics と並ぶ無テスト生存クラス）。`Base` が Potion 配下の絶対パスで実在、`Logs`/`State`/`Reports` の Ensure 生成・冪等性、`ConfigurationFile` のパス形状を4テストで固定（死パスヘルパー5件は対象外 — 削除候補のまま）
+
+### Improved (未使用の注入依存3件をコンストラクタから除去)
+
+- `EventDrivenRemediationService`・`AutoRecoveryManager` が `IOptionsMonitor<RemediationPolicyOptions>` を、`AnomalyDetector` が `IOptions<PerformanceOptimizerOptions>` を注入されながら一度も参照していなかった — 「設定可能に見えるが実際は設定を無視する」誤解を招く依存を除去し実態を明示。テストのモック引数も追従
+
+### Fixed (Collaboration:MaxConcurrentUsers が無視され接続数が無制限だった)
+
+- SignalR ハブが `CollaborationOptions.MaxConcurrentUsers`（既定50）を一度も参照せず、同時接続数に実質上限なし。`CollaborationService.UserConnectedAsync` を bool 返却化し、上限到達時は `Context.Abort()` で接続拒否。拒否接続は `_activeUsers` に未登録のためゴーストセッションも残留しない
+- これでバインド済み全オプションクラスの「定義のみ未読取」プロパティは残り4件（削除候補：MemoryMonitor の `MaxOptimizationAttempts`/`LeakDetectionThresholdMb`、RemediationPolicy の `DebugMode`/`SkipSignatureValidation`）
+
+### Fixed (MemoryMonitor の5オプションも同様に無視されていた — リークチェックが一度も実行されない等)
+
+- **`LeakCheckIntervalMinutes` が未読取で `CheckMemoryLeaksAsync` がループから一切呼ばれていなかった** — リーク検出機能が実装済みなのに死機能化。間隔設定どおり定期実行し、兆候検出時は警告ログ出力
+- **`OptimizationCooldownSeconds` が未適用で、閾値超過中は毎間隔（30s既定）フルGC+ワーキングセットトリムが連発していた** — GC連発は性能阻害要因のため、クールダウン経過まで最適化を抑止
+- **`HistoryRetentionCount`（既定1000＝ハードコードと同値）・`OptimizationTimeoutSeconds`（従来は最適化に上限なし→連結CTSで実上限化）・`EnableDetailedLogging`（詳細ログの個別制御）も配線
+- 残件（削除候補として報告）： `MaxOptimizationAttempts`（間隔あたり最大回数 — 現在1回/間隔で意味不成立）・`LeakDetectionThresholdMb`（Private/WorkingSet 二閾値検出への写像が不確か）・RemediationPolicyOptions の `DebugMode`・`SkipSignatureValidation`（署名検証は未実装機能 — 安易な接続を避け候補扱い）
+
+### Fixed (PerformanceOptimizer の8オプションが定義のみで完全に無視されていた)
+
+- **`Enabled` スイッチが読み取られておらず、管理者が `PerformanceOptimizer:Enabled=false` に設定しても最適化が常時実行されていた** — MemoryMonitor/EventCorrelationService の `if (options.Enabled)` パターンと同様に ExecuteAsync で評価
+- **同様に未配線だった7オプションを接続** — `OptimizationTimeoutSeconds`（最適化実行の連結CTSタイムアウト — 従来は無制限）・`OptimizationDelaySeconds`（ハードコード1000ms→設定値）・`MaxTempFilesToCleanup`（ハードコードTake(100)→設定値）・`MemoryThresholdPercent`（bytes閾値に加え使用率%でも発火 — ShouldOptimizeと内部ゲートの双方）・`EnableForcedGarbageCollection`（強制GCの個別制御）・`EnableNetworkOptimization`（netsh 実行の個別制御）・`EnablePowerOptimization`（powercfg 実行の個別制御）
+
+### Improved (AnomalyDetector のパターン解析経路の死変数除去)
+
+- `IsPatternAnomaly` で `DetectRecentPattern()` の戻り値を受け取る `recentPattern` ローカルが一度も参照されていなかった — 呼出し自体を除去（副作用のない純粋関数のため挙動不変）。`DetectRecentPattern` はこれで呼出し元ゼロの死メソッド（削除候補へ追加報告）
+
+### Fixed (disk_cleanup タスクが事前登録なしマシンで無言 no-op だった)
+
+- **`cleanmgr /sagerun:1` は「sageset:1」のレジストリ事前登録（手動 `cleanmgr /sageset:1` 実行）を前提とするため、未登録マシンでは設定済みタスクが何もせず成功扱いで終了していた** — PreventiveRemediationCommands が既に選択している `/verylowdisk`（Windows 10+ の無人クリーンアップ・事前設定不要）へ変更し実効性を確保
+
+### Fixed (CommandValidator の許可リストバイパス — 任意パスの同名バイナリが検証を通過)
+
+- **修復コマンドの許可リストが「ファイル名一致」で判定していたため、許可エントリ `sfc.exe`/`net.exe` 等のベア名に対し `C:\evil\sfc.exe` や `D:\tmp\net.exe` 等の任意パスに置かれた同名バイナリが `Path.GetFileName` 一致で検証を通過していた** — RepairExecutionEnabled 有効時、許可リストをすり抜ける実行経路になりえた構造的欠陥
+- **修正**： コマンドの fileName にパス区切り（`/`・`\`・`:` — Unix では `\` が非区切りのため文字判定）を含む場合は「完全コマンド一致」または「パス修飾エントリとの fileName 一致」を要求。ベア名エントリは PATH 解決されるベア名コマンドにのみ適用 — 全実呼出し（sfc.exe/powercfg.exe/netsh.exe/cleanmgr.exe）はベア名のため挙動不変
+- **同一バイパスが設定時検証 `CommandsAreAllowlisted` にも存在し、パス付きタスクが起動時検証を通過して実行時に拒否される不一致状態だった** — 同一規則（ベア名エントリはベア名コマンドのみ）で揃え、誤設定は ValidateOnStart で確実に検出
+- CommandValidator の専用テストを新設（12件）: バイパス4系統の拒否・パス修飾エントリの自己一致・完全コマンド一致・空許可リストの既定拒否・設定時検証のパリティを回帰固定
+
 ### Fixed (deploy-windows.ps1 の sc.exe 引数構文違反)
 
 - **`sc.exe` のオプションは `name= value` 形式（`=` 直後に必須スペース）が仕様だが、`binPath="..."`/`start=auto`/`depend=Winmgmt/...` 等でスペースが全欠落** — package-installer.ps1 は正しい `name= value` 形式の一方 deploy-windows.ps1 は違反形式で、環境によってサービス登録が弾かれる可能性があった。`create`/`failure`/`config` 全呼出しを正規構文へ統一

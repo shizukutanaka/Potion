@@ -7,8 +7,6 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
-using Potion.Service.Options;
 
 namespace Potion.Service.Infrastructure;
 
@@ -46,7 +44,6 @@ public enum RecoveryAction
 public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManager
 {
     private readonly ILogger<AutoRecoveryManager> _logger;
-    private readonly IOptionsMonitor<RemediationPolicyOptions> _options;
     private readonly Dictionary<string, ComponentHealth> _componentHealth = new();
     private readonly ConcurrentDictionary<string, int> _failureCounts = new(StringComparer.OrdinalIgnoreCase);
     private readonly TimeSpan _healthCheckInterval = TimeSpan.FromMinutes(1);
@@ -56,11 +53,9 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
     public event EventHandler<SystemHealthChangedEventArgs>? SystemHealthChanged;
 
     public AutoRecoveryManager(
-        ILogger<AutoRecoveryManager> logger,
-        IOptionsMonitor<RemediationPolicyOptions> options)
+        ILogger<AutoRecoveryManager> logger)
     {
         _logger = logger;
-        _options = options;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)

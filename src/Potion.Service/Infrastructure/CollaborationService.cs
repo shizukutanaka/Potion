@@ -30,7 +30,12 @@ public class CollaborationHub : Hub
     public override async Task OnConnectedAsync()
     {
         var userId = Context.UserIdentifier ?? Context.ConnectionId;
-        await _collaborationService.UserConnectedAsync(userId, Context.ConnectionId);
+        if (!await _collaborationService.UserConnectedAsync(userId, Context.ConnectionId))
+        {
+            _logger.LogWarning("Rejected connection {ConnectionId}: concurrent user limit reached", Context.ConnectionId);
+            Context.Abort();
+            return;
+        }
         await Groups.AddToGroupAsync(Context.ConnectionId, "system-monitors");
 
         _logger.LogInformation("User connected: {UserId}", userId);
@@ -138,8 +143,15 @@ public class CollaborationService : IDisposable
         _healthBroadcastTimer.Dispose();
     }
 
-    public async Task UserConnectedAsync(string userId, string connectionId)
+    public async Task<bool> UserConnectedAsync(string userId, string connectionId)
     {
+        // Rejected connections must never enter _activeUsers: an aborted transport
+        // may not raise OnDisconnectedAsync, which would leak a ghost session.
+        if (_activeUsers.Count >= _options.MaxConcurrentUsers)
+        {
+            return false;
+        }
+
         var session = new UserSession
         {
             UserId = userId,
@@ -154,6 +166,7 @@ public class CollaborationService : IDisposable
 
         await BroadcastUserCountAsync();
         await _hubContext.Clients.All.SendAsync("UserConnected", userId);
+        return true;
     }
 
     public async Task UserDisconnectedAsync(string connectionId)

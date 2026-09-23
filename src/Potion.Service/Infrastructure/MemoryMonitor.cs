@@ -89,6 +89,8 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
     private readonly ILogger<MemoryMonitor> _logger;
     private readonly IOptionsMonitor<MemoryMonitorOptions> _optionsMonitor;
     private readonly ConcurrentDictionary<DateTimeOffset, MemoryStatistics> _memoryHistory = new();
+    private DateTimeOffset _lastOptimizationAt = DateTimeOffset.MinValue;
+    private DateTimeOffset _lastLeakCheckAt = DateTimeOffset.MinValue;
 
     public MemoryMonitor(
         ILogger<MemoryMonitor> logger,
@@ -115,10 +117,10 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
                     var stats = await GetMemoryStatisticsAsync(stoppingToken);
                     _memoryHistory[stats.MeasuredAt] = stats;
 
-                    // 履歴を制限（最新1000件のみ保持）
-                    if (_memoryHistory.Count > 1000)
+                    // 履歴を制限
+                    if (_memoryHistory.Count > options.HistoryRetentionCount)
                     {
-                        var oldestKeys = _memoryHistory.Keys.OrderBy(k => k).Take(_memoryHistory.Count - 1000);
+                        var oldestKeys = _memoryHistory.Keys.OrderBy(k => k).Take(_memoryHistory.Count - options.HistoryRetentionCount);
                         foreach (var key in oldestKeys)
                         {
                             _memoryHistory.TryRemove(key, out _);
@@ -128,9 +130,36 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
                     // メモリ使用率のチェックと最適化
                     if (ShouldOptimizeMemory(stats))
                     {
-                        _logger.LogInformation("メモリ最適化を実行します（使用率: {MemoryUsagePercent:F1}%）",
-                            stats.MemoryUsagePercent);
-                        await OptimizeMemoryAsync(stoppingToken);
+                        if (stats.MeasuredAt - _lastOptimizationAt < TimeSpan.FromSeconds(options.OptimizationCooldownSeconds))
+                        {
+                            _logger.LogDebug("メモリ最適化をスキップします（クールダウン中）");
+                        }
+                        else
+                        {
+                            _logger.LogInformation("メモリ最適化を実行します（使用率: {MemoryUsagePercent:F1}%）",
+                                stats.MemoryUsagePercent);
+                            using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                            timeoutCts.CancelAfter(TimeSpan.FromSeconds(options.OptimizationTimeoutSeconds));
+                            var result = await OptimizeMemoryAsync(timeoutCts.Token);
+                            _lastOptimizationAt = DateTimeOffset.UtcNow;
+                            if (options.EnableDetailedLogging)
+                            {
+                                _logger.LogInformation("メモリ最適化の詳細: {FreedBytes}B解放, {ActionCount}アクション",
+                                    result.MemoryFreedBytes, result.ActionsTaken.Count);
+                            }
+                        }
+                    }
+
+                    // 定期リークチェック
+                    if (stats.MeasuredAt - _lastLeakCheckAt >= TimeSpan.FromMinutes(options.LeakCheckIntervalMinutes))
+                    {
+                        _lastLeakCheckAt = stats.MeasuredAt;
+                        var leakReport = await CheckMemoryLeaksAsync(stoppingToken);
+                        if (leakReport.HasPotentialLeaks)
+                        {
+                            _logger.LogWarning("メモリリークの兆候を検出しました: {ProcessCount}プロセス疑い, 推奨{RecommendationCount}件",
+                                leakReport.SuspiciousProcesses.Count, leakReport.Recommendations.Count);
+                        }
                     }
                 }
 
