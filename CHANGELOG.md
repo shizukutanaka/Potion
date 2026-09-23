@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (ServicePaths の生存面にテスト新設 — 起動要パス解決を回帰固定)
+
+- `ServicePaths` はテスト参照ゼロだった（PotionMetrics と並ぶ無テスト生存クラス）。`Base` が Potion 配下の絶対パスで実在、`Logs`/`State`/`Reports` の Ensure 生成・冪等性、`ConfigurationFile` のパス形状を4テストで固定（死パスヘルパー5件は対象外 — 削除候補のまま）
+
 ### Improved (未使用の注入依存3件をコンストラクタから除去)
 
 - `EventDrivenRemediationService`・`AutoRecoveryManager` が `IOptionsMonitor<RemediationPolicyOptions>` を、`AnomalyDetector` が `IOptions<PerformanceOptimizerOptions>` を注入されながら一度も参照していなかった — 「設定可能に見えるが実際は設定を無視する」誤解を招く依存を除去し実態を明示。テストのモック引数も追従
