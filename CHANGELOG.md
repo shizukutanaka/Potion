@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (インストールしたサービスが certificate.pfx 不在で起動失敗していた)
+
+- **全3インストール経路（deploy-windows.ps1・package-installer.ps1・Potion.wxs MSI）が環境変数未設定でサービスを登録** — ASP.NET は未設定時 Production 環境で起動し、本番 Kestrel の HTTPS エンドポイントは `C:\ProgramData\Potion\certs\certificate.pfx` を必須とするが、いずれの経路も証明書を提供しないためサービスが起動即死していた。サービス `Environment` レジストリへ `ASPNETCORE_URLS=http://localhost:5000` を設定し HTTP バインドを保証（HTTPS は証明書配置＋レジストリ削除で有効化する旨をコメント/案内に明記）
+- **`package-installer.ps1` の `Copy-ApplicationFiles` が `..\publish` のみを参照** — build-release 出力パッケージでは発行物はスクリプト同階層のため、パッケージ内実行が必ず失敗していた。`Potion.Service.exe` 同梱なら `$PSScriptRoot`、それ以外は `..\publish` を選択
+- **`package-installer.ps1` の `Set-InitialConfiguration` がアプリ未読の `ProgramData\Potion\appsettings.json` を架空セクション（SecurityAudit/Telemetry/Edition/LicenseKey）で生成** — 読み込まれない死設定＋実在しないセクション。関数と呼出しを削除
+- **`Potion.wxs` の XML コメントが `--self-contained` を含み非整形式**（コメント内 `--` は XML 仕様違反）→ `-p:PublishSelfContained=true` 表記へ修正し strict XML 化
+- **`package-installer.ps1` の案内表示も修正** — `https://localhost:5001`（証明書前提）→ `http://localhost:5000`、設定確認先を実パス `$InstallPath\appsettings.json`、ドキュメントURLを `your-org` プレースホルダー→実リポジトリへ。`certs` ディレクトリも作成対象に追加
+
 ### Fixed (deploy-windows.ps1 の EventLog ソース名不一致と架空参照)
 
 - **EventLog ソースが `'Potion'` で登録される一方、本番 Serilog は `"Potion Self-Healing Service"` を使用** — 未登録ソースへの書込みは「source was not found」エラーとなり EventLog シンクが実質機能不全だった。スクリプトを本番ソース名に合わせ修正
