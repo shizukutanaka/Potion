@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (コマンド許可リストが空で fail-open になる欠陥)
+
+- **`CommandValidator` が `CommandAllowlist` 空時にチェック全体をスキップしていた** — セキュリティ制御が設定ミスで無条件許可になる fail-open 設計。ホワイトリスト制御の原則に従い空リストを「未設定＝全拒否（deny by default）」へ変更。実行経路監査も完遂（全プロセス起動がバリデータ経由と確認）
+
 ### Fixed (webhook の形状異常ペイロードで未処理500)
 
 - **`/api/health/alerts/webhook` が構造的に不正なJSONで未処理例外を返していた** — 匿名エンドポイントで `alerts` が非配列・要素が非オブジェクト・`labels`/`annotations` が非オブジェクトの場合 `JsonElement.EnumerateArray`/`TryGetProperty` が `InvalidOperationException` を投げ500。各階層に `ValueKind` ガードを追加し全形状で200へ（実機4パターン検証済み）

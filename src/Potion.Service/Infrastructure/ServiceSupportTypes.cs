@@ -163,20 +163,25 @@ public sealed class CommandValidator : ICommandValidator
         }
 
         var allowlist = GetCurrentAllowlist();
-        if (allowlist.Count > 0)
+        if (allowlist.Count == 0)
         {
-            var fileName = command.Split(' ', '\t')[0];
-            var executableName = System.IO.Path.GetFileName(fileName);
-            var isAllowed = allowlist.Any(allowed =>
-                string.Equals(allowed, command, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(allowed, fileName, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(allowed, executableName, StringComparison.OrdinalIgnoreCase));
+            // Deny by default: an empty allowlist means the security control was
+            // never configured, not that every command is trusted.
+            _logger.LogWarning("Blocked command because the remediation allowlist is empty: {Command}", command);
+            throw new InvalidOperationException("Command allowlist is empty; commands are denied by default.");
+        }
 
-            if (!isAllowed)
-            {
-                _logger.LogWarning("Blocked command that is not in the allowlist: {Command}", command);
-                throw new InvalidOperationException("Command is not allowed by the remediation policy allowlist.");
-            }
+        var fileName = command.Split(' ', '\t')[0];
+        var executableName = System.IO.Path.GetFileName(fileName);
+        var isAllowed = allowlist.Any(allowed =>
+            string.Equals(allowed, command, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(allowed, fileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(allowed, executableName, StringComparison.OrdinalIgnoreCase));
+
+        if (!isAllowed)
+        {
+            _logger.LogWarning("Blocked command that is not in the allowlist: {Command}", command);
+            throw new InvalidOperationException("Command is not allowed by the remediation policy allowlist.");
         }
 
         return command;
