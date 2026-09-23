@@ -120,7 +120,6 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
         if (timeSeries.Patterns.Count < 5) return false;
 
         // Check for seasonal patterns, cyclic patterns, etc.
-        var recentPattern = timeSeries.DetectRecentPattern();
         var patternDeviation = timeSeries.CalculatePatternDeviation(value);
 
         return patternDeviation > 0.5; // Threshold for pattern anomaly

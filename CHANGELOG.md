@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (AnomalyDetector のパターン解析経路の死変数除去)
+
+- `IsPatternAnomaly` で `DetectRecentPattern()` の戻り値を受け取る `recentPattern` ローカルが一度も参照されていなかった — 呼出し自体を除去（副作用のない純粋関数のため挙動不変）。`DetectRecentPattern` はこれで呼出し元ゼロの死メソッド（削除候補へ追加報告）
+
 ### Fixed (disk_cleanup タスクが事前登録なしマシンで無言 no-op だった)
 
 - **`cleanmgr /sagerun:1` は「sageset:1」のレジストリ事前登録（手動 `cleanmgr /sageset:1` 実行）を前提とするため、未登録マシンでは設定済みタスクが何もせず成功扱いで終了していた** — PreventiveRemediationCommands が既に選択している `/verylowdisk`（Windows 10+ の無人クリーンアップ・事前設定不要）へ変更し実効性を確保
