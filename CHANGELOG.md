@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (build-release.ps1 が不在ファイルのコピーで必ず失敗していた)
+
+- **リリーススクリプトが実在しない8ファイルをコピーしていた** — `EULA.md`/`PRIVACY_POLICY.md`/`QUICK_START.md`/`README_ENTERPRISE.md`/`DEPLOYMENT.md`/`docker-compose.enterprise.yml`（削除済み）が存在せず、`$ErrorActionPreference="Stop"` のためパッケージングが必ず途中失敗していた。実在する README/LICENSE/SECURITY/CHANGELOG と `k8s/deployment.yaml`（実在・保守対象のk8sマニフェスト）へ置き換え
+- **`$enterpriseDist\deploy` 宛先ディレクトリ未作成バグも修正** — `Copy-Item` は宛先が存在しないと「deploy」という無拡張子ファイルへコピーするため `New-Item` で事前作成
+- **リリースノート生成の架空参照を修正** — 存在しない `api-docs.potion-service.com`/`docs.potion-service.com`/`support@potion-service.com`/`your-org` プレースホルダーと「50+言語」誇大表記を除去し、実ドキュメント・実リポジトリURL（shizukutanaka/Potion）・MITライセンスへ正直化
+
 ### Improved (appsettings.json に Collaboration セクションを明示)
 
 - **`CollaborationOptions` が `Configuration.GetSection("Collaboration")` でバインドされるのに appsettings に当該セクションが存在せず**、`MaxConcurrentUsers`・`EnableRealTimeAlerts` が調整不可・発見不可だった（デフォルトは動作するが運用者が変更経路を知れない） — 既定値を明示するセクションを追加し、EventCorrelation/Compliance 等と同じ発見可能な構成に揃えた

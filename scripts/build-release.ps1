@@ -67,9 +67,8 @@ if ($Edition -in @("Community", "Both")) {
         Copy-Item -Path ".\publish\community\*" -Destination $communityDist -Recurse -Force
         Copy-Item -Path ".\README.md" -Destination $communityDist -Force
         Copy-Item -Path ".\LICENSE" -Destination $communityDist -Force
-        Copy-Item -Path ".\EULA.md" -Destination $communityDist -Force
-        Copy-Item -Path ".\PRIVACY_POLICY.md" -Destination $communityDist -Force
-        Copy-Item -Path ".\QUICK_START.md" -Destination $communityDist -Force
+        Copy-Item -Path ".\SECURITY.md" -Destination $communityDist -Force
+        Copy-Item -Path ".\CHANGELOG.md" -Destination $communityDist -Force
         Copy-Item -Path ".\scripts\package-installer.ps1" -Destination $communityDist -Force
 
         # Create ZIP
@@ -102,13 +101,11 @@ if ($Edition -in @("Enterprise", "Both")) {
         Copy-Item -Path ".\publish\enterprise\*" -Destination $enterpriseDist -Recurse -Force
         Copy-Item -Path ".\README.md" -Destination $enterpriseDist -Force
         Copy-Item -Path ".\LICENSE" -Destination $enterpriseDist -Force
-        Copy-Item -Path ".\EULA.md" -Destination $enterpriseDist -Force
-        Copy-Item -Path ".\PRIVACY_POLICY.md" -Destination $enterpriseDist -Force
-        Copy-Item -Path ".\README_ENTERPRISE.md" -Destination $enterpriseDist -Force
-        Copy-Item -Path ".\DEPLOYMENT.md" -Destination $enterpriseDist -Force
+        Copy-Item -Path ".\SECURITY.md" -Destination $enterpriseDist -Force
+        Copy-Item -Path ".\CHANGELOG.md" -Destination $enterpriseDist -Force
         Copy-Item -Path ".\scripts\package-installer.ps1" -Destination $enterpriseDist -Force
-        Copy-Item -Path ".\kubernetes-enterprise.yml" -Destination "$enterpriseDist\deploy" -Force
-        Copy-Item -Path ".\docker-compose.enterprise.yml" -Destination "$enterpriseDist\deploy" -Force
+        New-Item -ItemType Directory -Path "$enterpriseDist\deploy" -Force | Out-Null
+        Copy-Item -Path ".\k8s\deployment.yaml" -Destination "$enterpriseDist\deploy" -Force
 
         # Create ZIP
         Compress-Archive -Path "$enterpriseDist\*" -DestinationPath "$enterpriseDist.zip" -Force
@@ -137,7 +134,6 @@ $(Get-Date -Format "yyyy-MM-dd")
 - Enterprise Edition: Advanced features with commercial support
 
 ## What's New
-- Multi-language support (50+ languages)
 - Enhanced security features
 - Performance optimizations
 - Comprehensive monitoring and observability
@@ -175,22 +171,18 @@ Get-Service "Potion Self-Healing Service"
 5. Start the service
 
 ## Documentation
-- Quick Start Guide: QUICK_START.md
-- Deployment Guide: DEPLOYMENT.md
+- README.md
 - Security Guide: SECURITY.md
-- API Documentation: https://api-docs.potion-service.com
+- Changelog: CHANGELOG.md
 
 ## Support
-- Community: https://github.com/your-org/potion-service/discussions
-- Enterprise: support@potion-service.com
-- Documentation: https://docs.potion-service.com
+- Issues: https://github.com/shizukutanaka/Potion/issues
 
 ## Checksums
 Verify package integrity using SHA256 checksums provided in .sha256 files.
 
 ## License
-- Community Edition: MIT License
-- Enterprise Edition: Commercial License (see EULA.md)
+- MIT License (see LICENSE)
 
 ---
 **Copyright © 2024 Potion Self-Healing Service. All rights reserved.**
