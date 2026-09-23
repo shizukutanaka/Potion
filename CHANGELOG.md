@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (相関マッチイベントの閾値不適合混入)
+
+- **`MatchedEvents` が型一致のみで判定され閾値不適合イベントも混入していた** — 閾値を実際に満たしたイベントのみへ（`EventSatisfies` 抽出・`count` 演算子は集合レベル扱い）
+
 ### Improved (RequestMetricsTracker・RemediationExecutionStats のユニットテスト)
 
 - **計測カウンタの回帰テスト5件追加** — 窓RPS/平均レイテンシ/5xx率・空窓の0・4xx非エラー・修復実行の成否分離カウント（141→146）

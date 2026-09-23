@@ -221,27 +221,35 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         switch (condition.Operator)
         {
-            case ">":
-                return matchingEvents.Any(e => GetEventValue(e) > condition.Threshold);
-            case "<":
-                return matchingEvents.Any(e => GetEventValue(e) < condition.Threshold);
-            case ">=":
-                return matchingEvents.Any(e => GetEventValue(e) >= condition.Threshold);
-            case "<=":
-                return matchingEvents.Any(e => GetEventValue(e) <= condition.Threshold);
             case "count":
                 return matchingEvents.Count >= condition.Threshold;
             default:
-                return false;
+                return matchingEvents.Any(e => EventSatisfies(condition, e));
         }
+    }
+
+    // A single event satisfies a threshold condition when its numeric value
+    // meets the operator's comparison; "count" is a set-level check and has
+    // no per-event meaning (any event of the type counts as contributing).
+    private static bool EventSatisfies(EventCondition condition, SystemEvent systemEvent)
+    {
+        return condition.Operator switch
+        {
+            ">" => GetEventValue(systemEvent) > condition.Threshold,
+            "<" => GetEventValue(systemEvent) < condition.Threshold,
+            ">=" => GetEventValue(systemEvent) >= condition.Threshold,
+            "<=" => GetEventValue(systemEvent) <= condition.Threshold,
+            "count" => true,
+            _ => false,
+        };
     }
 
     private bool MatchesCondition(SystemEvent systemEvent, List<EventCondition> conditions)
     {
-        return conditions.Any(c => c.EventType == systemEvent.Type);
+        return conditions.Any(c => c.EventType == systemEvent.Type && EventSatisfies(c, systemEvent));
     }
 
-    private double GetEventValue(SystemEvent systemEvent)
+    private static double GetEventValue(SystemEvent systemEvent)
     {
         // Extract numeric value from event data
         if (systemEvent.Data is double d)
