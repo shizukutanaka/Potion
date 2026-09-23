@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (死SignalRブロードキャスト経路の活性化)
+
+- **`BroadcastAlertAsync`/`BroadcastSystemHealthAsync` が呼出しゼロの死経路だった**（アラート・ヘルスが購読クライアントへ一切届かない）— `HealthAlert` イベントからアラートを fire-and-forget でブロードキャスト＋接続ユーザーがいる間は1分間隔でヘルススナップショットを `system-monitors` グループへプッシュ
+- **死オプション `CollaborationOptions.Enabled` を削除**（未バインド・未チェック・Hub は無条件マップ）
+
 ### Fixed (陳腐化した統合コメントの修正)
 
 - **`AutoRecoveryManager` 冒頭の「DistributedSelfHealingService.cs へ統合済み」コメント3件が誤誘導** — そのファイル自体が既削除で参照が宙吊り。実態コメント（フラグ配下の休眠層・機構不在時は正直な失敗）へ

@@ -1,14 +1,15 @@
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using Potion.Service.Infrastructure;
 using System.Collections.Concurrent;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Potion.Service.Hubs;
 
 public class CollaborationOptions
 {
-    public bool Enabled { get; set; } = false;
     public int MaxConcurrentUsers { get; set; } = 50;
     public bool EnableRealTimeAlerts { get; set; } = true;
 }
@@ -76,21 +77,56 @@ public class CollaborationHub : Hub
     }
 }
 
-public class CollaborationService
+public class CollaborationService : IDisposable
 {
     private readonly ILogger<CollaborationService> _logger;
     private readonly CollaborationOptions _options;
     private readonly IHubContext<CollaborationHub> _hubContext;
+    private readonly ISystemHealthMonitor _healthMonitor;
     private readonly ConcurrentDictionary<string, UserSession> _activeUsers = new();
+    private readonly Timer _healthBroadcastTimer;
+    private static readonly TimeSpan HealthBroadcastInterval = TimeSpan.FromMinutes(1);
 
     public CollaborationService(
         ILogger<CollaborationService> logger,
         IOptions<CollaborationOptions> options,
-        IHubContext<CollaborationHub> hubContext)
+        IHubContext<CollaborationHub> hubContext,
+        ISystemHealthMonitor healthMonitor)
     {
         _logger = logger;
         _options = options.Value;
         _hubContext = hubContext;
+        _healthMonitor = healthMonitor;
+        healthMonitor.HealthAlert += (_, alert) =>
+        {
+            // Fire-and-forget: alert fan-out must not block the monitor loop.
+            _ = BroadcastAlertAsync(alert.Component, alert.Message, alert);
+        };
+        _healthBroadcastTimer = new Timer(_ => _ = BroadcastHealthTickAsync(), null,
+            HealthBroadcastInterval, HealthBroadcastInterval);
+    }
+
+    private async Task BroadcastHealthTickAsync()
+    {
+        if (GetActiveUserCount() == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var snapshot = await _healthMonitor.GetCurrentHealthAsync(CancellationToken.None);
+            await BroadcastSystemHealthAsync(snapshot);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast system health to collaboration clients");
+        }
+    }
+
+    public void Dispose()
+    {
+        _healthBroadcastTimer.Dispose();
     }
 
     public async Task UserConnectedAsync(string userId, string connectionId)
