@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボード「warning-events」カードが `undefined` 表示になる実バグ)
+
+- **dashboard.js が `events.warningEventCount` を参照するが、C# `WindowsEventMetrics` に同プロパティが存在しなかった** → ダッシュボードの警告イベント件数カードがリテラル `undefined` を表示。`WarningEventCount` を全採取経路へ追加： Windows `EventLogReader` は `record.Level == 3`（Warning）を計数、Linux `journalctl` パーサは本文の "warn" マーカーで計数、非対象 OS は 0 返却。ジャーナルパーサの回帰テストに警告行フィクスチャ＋アサートを追加
+
 ### Improved (未使用 `using Polly.Simmy` を除去)
 
 - **ResiliencePipelines.cs の `using Polly.Simmy` が一度も使用されていなかった** — カオス注入戦略を示唆する誤導的なインポートを除去。なお同ファイルの3パイプライン＋3件のDIシングルトン登録は**消費者ゼロの死コード**であることを特定（278行のファイル全体が未呼出し — 削除候補として報告済み、Polly/Polly.RateLimiting パッケージも同クラスタに連動）

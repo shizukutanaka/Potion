@@ -69,17 +69,19 @@ public class SystemMetricsSamplerParseTests
             "2026-09-22T07:32:00+0000 host systemd[1]: unit failed to start",
             "2026-09-22T07:33:00+0000 host kernel[0]: oom-killer invoked",
             "2026-09-22T07:34:00+0000 host sudo[55]: session opened",
+            "2026-09-22T07:35:00+0000 host systemd[1]: warning: quota exceeded",
             "short-line");
 
-        var (total, errors, security, critical, lastAt) =
+        var (total, errors, security, critical, warnings, lastAt) =
             SystemMetricsSampler.ParseJournalLines(output);
 
-        Assert.Equal(5, total);
+        Assert.Equal(6, total);
         Assert.Equal(1, critical);   // oom-killer
         Assert.Equal(2, errors);     // error + failed
+        Assert.Equal(1, warnings);   // warning
         Assert.Equal(2, security);   // sshd + sudo
         Assert.Equal(
-            new DateTimeOffset(2026, 9, 22, 7, 34, 0, TimeSpan.Zero), lastAt);
+            new DateTimeOffset(2026, 9, 22, 7, 35, 0, TimeSpan.Zero), lastAt);
     }
 
     [Fact]
