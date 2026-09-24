@@ -1,3 +1,4 @@
+using System.Text;
 using Potion.Tray.Core;
 using Potion.Tray.Core.Checks;
 using Potion.Tray.Core.Repairs;
@@ -2953,6 +2954,87 @@ public class ProcessRunnerTests
     {
         Assert.Equal(string.Empty, SystemProcessRunner.Normalize(null!));
         Assert.Equal(string.Empty, SystemProcessRunner.Normalize(string.Empty));
+    }
+
+    [Fact]
+    public void DecodeDetectsBomlessUtf16Ascii()
+    {
+        const string expected = "Windows Resource Protection found corrupt files.";
+        var bytes = Encoding.Unicode.GetBytes(expected);
+
+        Assert.Equal(expected, ProcessOutputDecoder.Decode(bytes, Encoding.UTF8));
+    }
+
+    [Fact]
+    public void DecodeDetectsBomlessUtf16NonAsciiAndAvoidsTheOldMojibakePath()
+    {
+        const string expected = "Windows リソース保護は、破損したファイルを検出し、修復しました。\r\n詳細は CBS.Log を参照してください。\r\n";
+        var bytes = Encoding.Unicode.GetBytes(expected);
+
+        Assert.Equal(expected, ProcessOutputDecoder.Decode(bytes, Encoding.UTF8));
+        Assert.NotEqual(expected, SystemProcessRunner.Normalize(Encoding.UTF8.GetString(bytes)));
+    }
+
+    [Fact]
+    public void DecodeDoesNotMisdetectBomlessUtf8AsUtf16()
+    {
+        const string expected = "Windows リソース保護は、破損したファイルを検出し、修復しました。\r\n詳細は CBS.Log を参照してください。\r\n";
+
+        Assert.Equal(expected, ProcessOutputDecoder.Decode(Encoding.UTF8.GetBytes(expected), Encoding.UTF8));
+    }
+
+    [Fact]
+    public void DecodeRemovesUtf16AndUtf8Boms()
+    {
+        const string expected = "output";
+        var utf16Le = Encoding.Unicode.GetPreamble()
+            .Concat(Encoding.Unicode.GetBytes(expected))
+            .ToArray();
+        var utf16Be = Encoding.BigEndianUnicode.GetPreamble()
+            .Concat(Encoding.BigEndianUnicode.GetBytes(expected))
+            .ToArray();
+        var utf8 = Encoding.UTF8.GetPreamble()
+            .Concat(Encoding.UTF8.GetBytes(expected))
+            .ToArray();
+
+        Assert.Equal(expected, ProcessOutputDecoder.Decode(utf16Le, Encoding.UTF8));
+        Assert.Equal(expected, ProcessOutputDecoder.Decode(utf16Be, Encoding.UTF8));
+        Assert.Equal(expected, ProcessOutputDecoder.Decode(utf8, Encoding.Unicode));
+    }
+
+    [Fact]
+    public void DecodeUsesFallbackForPlainAsciiAndJapaneseUtf8()
+    {
+        const string ascii = "plain process output";
+        const string japanese = "修復結果を確認しました";
+
+        Assert.Equal(
+            ascii,
+            ProcessOutputDecoder.Decode(Encoding.ASCII.GetBytes(ascii), Encoding.UTF8));
+        Assert.Equal(
+            japanese,
+            ProcessOutputDecoder.Decode(Encoding.UTF8.GetBytes(japanese), Encoding.UTF8));
+    }
+
+    [Fact]
+    public void DecodeAcceptsEmptyAndSingleByteInput()
+    {
+        Assert.Equal(string.Empty, ProcessOutputDecoder.Decode(Array.Empty<byte>(), Encoding.UTF8));
+        Assert.Equal("A", ProcessOutputDecoder.Decode(new byte[] { (byte)'A' }, Encoding.UTF8));
+    }
+
+    [Fact]
+    public async Task ReadBoundedAsyncKeepsUtf16TailAligned()
+    {
+        var text = string.Concat(Enumerable.Repeat("Windows Resource Protection found corrupt files.\r\n", 30_000));
+        using var stream = new MemoryStream(Encoding.Unicode.GetBytes(text));
+
+        var bytes = await ProcessOutputDecoder.ReadBoundedAsync(stream, default);
+        var decoded = ProcessOutputDecoder.Decode(bytes, Encoding.UTF8);
+
+        Assert.True(bytes.Length <= ProcessOutputDecoder.MaxBytes);
+        Assert.DoesNotContain('\uFFFD', decoded);
+        Assert.EndsWith(text[^100..], decoded, StringComparison.Ordinal);
     }
 }
 

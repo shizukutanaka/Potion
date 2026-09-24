@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Text;
 
 namespace Potion.Tray.Core;
 
@@ -53,8 +54,8 @@ public sealed class SystemProcessRunner : IProcessRunner
 
         var started = Stopwatch.GetTimestamp();
         process.Start();
-        var outputTask = process.StandardOutput.ReadToEndAsync(ct);
-        var errorTask = process.StandardError.ReadToEndAsync(ct);
+        var outputTask = ReadOutputAsync(process.StandardOutput.BaseStream, process.StandardOutput.CurrentEncoding, ct);
+        var errorTask = ReadOutputAsync(process.StandardError.BaseStream, process.StandardError.CurrentEncoding, ct);
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);
         timeoutCts.CancelAfter(timeout);
         try
@@ -119,6 +120,9 @@ public sealed class SystemProcessRunner : IProcessRunner
             Stopwatch.GetElapsedTime(started),
             TimedOut: false);
     }
+
+    private static async Task<string> ReadOutputAsync(Stream stream, Encoding fallback, CancellationToken ct) =>
+        ProcessOutputDecoder.Decode(await ProcessOutputDecoder.ReadBoundedAsync(stream, ct), fallback);
 
     public static string OutputTail(string output, int maxLength = 4000)
     {
