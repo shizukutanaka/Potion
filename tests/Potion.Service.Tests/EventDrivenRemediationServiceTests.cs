@@ -1,4 +1,5 @@
 using System;
+using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -22,10 +23,13 @@ public sealed class EventDrivenRemediationServiceTests
     {
         var monitor = new Mock<ISystemHealthMonitor>();
         var executor = new Mock<IRemediationTaskExecutor>();
+        var httpClientFactory = new Mock<IHttpClientFactory>();
+        httpClientFactory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(new HttpClient());
         var service = new EventDrivenRemediationService(
             NullLogger<EventDrivenRemediationService>.Instance,
             monitor.Object,
-            executor.Object);
+            executor.Object,
+            httpClientFactory.Object);
         return (service, monitor, executor);
     }
 

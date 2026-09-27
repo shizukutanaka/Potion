@@ -51,4 +51,19 @@ public sealed class FailurePatternTests
             Assert.False(pattern.IsAnomaly(i == 8 ? 1000 : 50));
         }
     }
+
+    [Fact]
+    public void FlatBaseline_NeverFlagsNoise()
+    {
+        var pattern = new PredictiveRemediationService.FailurePattern();
+
+        // A perfectly flat metric has σ=0; without a zero-variance guard any
+        // nonzero sample would exceed mean + 2σ and falsely trigger remediation.
+        for (var i = 0; i < 19; i++)
+        {
+            Assert.False(pattern.IsAnomaly(0));
+        }
+
+        Assert.False(pattern.IsAnomaly(0.5));
+    }
 }

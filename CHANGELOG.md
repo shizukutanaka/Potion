@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+### Improved (イベント駆動修復の HTTP 送信を IHttpClientFactory へ)
+
+- `EventDrivenRemediationService` が専用の `new HttpClient()` を自前保持・二重 Dispose していたのを、登録済みの `IHttpClientFactory`（`services.AddHttpClient()`）経由に変更 — ハンドラプーリング/DNS 更新が有効化され、送信は共有ハンドラ経由になる
+
+### Improved (共有カウンタ EventCorrelationStats のスレッド安全性)
+
+- 相関タイマースレッドが書き・ヘルスモニタースレッドが読む `CorrelatedEventCount`/`ActiveCorrelationRules` が素の public int フィールドで非同期境界をまたぐ競合になり得た → `RemediationExecutionStats` と同じ Interlocked/Volatile パターンのプロパティ＋内部メソッドへ（`IncrementCorrelated`/`SetActiveRuleCount`）
+
+### Fixed (予測修復がフラットメトリクスの微ノイズで誤発火していた)
+
+- `FailurePattern.IsAnomaly` は σ=0（完全に平坦な系列 — 例： アイドル時の BytesReceivedPerSec≒0）でも `value > mean + 2σ` が常に真となり、最初の非ゼロサンプルで「故障予測」と誤判定して修復をスケジュールしていた → `_baselineStdDev > 0` ガードを追加し、分散ゼロのベースラインでは発火しない設計へ（分散が実在した後のスパイク検出は従来通り機能）。回帰テスト1件追加
+- 併せて `IsFailureLikely` の await なし async を同期メソッド化（無駄な状態機械を除去）
+
+### Fixed (未処理例外のリクエストがエラーレート0として計測されていた)
+
+- `RequestMetricsMiddleware` は `finally` で `Response.StatusCode` を読んでいたが、パイプラインに `UseExceptionHandler` がなく、未処理例外は Kestrel が 500 を書く前にアンワインドするため、クラッシュしたリクエストは status 200 として記録されていた → 例外観測して未設定なら 500 扱いに修正（クライアント中断 `OperationCanceledException` はサーバエラー非計上）。ダッシュボードの error-rate 指標が障害時も正しく上昇するように
+- 回帰テスト5件新設（例外→エラー計上・中断→非エラー・正常・明示500・除外パス）
+
 ### Improved (ServicePaths の生存面にテスト新設 — 起動要パス解決を回帰固定)
 
 - `ServicePaths` はテスト参照ゼロだった（PotionMetrics と並ぶ無テスト生存クラス）。`Base` が Potion 配下の絶対パスで実在、`Logs`/`State`/`Reports` の Ensure 生成・冪等性、`ConfigurationFile` のパス形状を4テストで固定（死パスヘルパー5件は対象外 — 削除候補のまま）

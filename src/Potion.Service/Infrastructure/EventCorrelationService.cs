@@ -50,7 +50,7 @@ public class EventCorrelationService : IHostedService, IDisposable
         _healthMonitor = healthMonitor;
         _stats = stats;
         InitializeRules();
-        _stats.ActiveCorrelationRules = _rules.Count;
+        _stats.SetActiveRuleCount(_rules.Count);
     }
 
     private void InitializeRules()
@@ -186,7 +186,7 @@ public class EventCorrelationService : IHostedService, IDisposable
                 }
 
                 _lastCorrelationAt[correlation.Rule.Name] = now;
-                _stats.CorrelatedEventCount++;
+                _stats.IncrementCorrelated();
 
                 _logger.LogWarning("Event correlation detected: {Name} - {Description}",
                     correlation.Rule.Name, correlation.Rule.Description);
@@ -328,9 +328,16 @@ public class EventCorrelationService : IHostedService, IDisposable
 /// </summary>
 public sealed class EventCorrelationStats
 {
-    public int CorrelatedEventCount;
+    private int _correlatedEventCount;
+    private int _activeCorrelationRules;
 
-    public int ActiveCorrelationRules;
+    public int CorrelatedEventCount => Volatile.Read(ref _correlatedEventCount);
+
+    public int ActiveCorrelationRules => Volatile.Read(ref _activeCorrelationRules);
+
+    internal void IncrementCorrelated() => Interlocked.Increment(ref _correlatedEventCount);
+
+    internal void SetActiveRuleCount(int count) => Volatile.Write(ref _activeCorrelationRules, count);
 }
 
 public class SystemEvent

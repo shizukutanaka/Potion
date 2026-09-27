@@ -61,7 +61,7 @@ public class PredictiveRemediationService : BackgroundService
 
         foreach (var metric in currentMetrics)
         {
-            if (await IsFailureLikely(metric))
+            if (IsFailureLikely(metric))
             {
                 _logger.LogWarning("Predictive remediation triggered for {MetricKey}: {Value}", metric.Key, metric.Value);
 
@@ -71,7 +71,7 @@ public class PredictiveRemediationService : BackgroundService
         }
     }
 
-    private async Task<bool> IsFailureLikely(KeyValuePair<string, double> metric)
+    private bool IsFailureLikely(KeyValuePair<string, double> metric)
     {
         lock (_lock)
         {
@@ -129,7 +129,11 @@ public class PredictiveRemediationService : BackgroundService
         {
             // Evaluate against the PRIOR window: including the candidate in its
             // own baseline inflates the deviation and masks borderline anomalies.
+            // A zero-variance baseline cannot define "anomalous" — without the
+            // stddev > 0 guard a perfectly flat metric (e.g. idle BytesReceivedPerSec
+            // pinned at 0) would flag any nonzero sample as a failure prediction.
             var isAnomaly = _recentValues.Count >= 10
+                && _baselineStdDev > 0.0
                 && value > _baselineMean + (2 * _baselineStdDev);
 
             _recentValues.Enqueue(value);

@@ -77,16 +77,31 @@ public sealed class RequestMetricsMiddleware
     public async Task InvokeAsync(HttpContext context)
     {
         var stopwatch = Stopwatch.StartNew();
+        Exception? failure = null;
         try
         {
             await _next(context);
+        }
+        catch (Exception ex)
+        {
+            failure = ex;
+            throw;
         }
         finally
         {
             stopwatch.Stop();
             if (RequestMetricsTracker.ShouldTrack(context.Request.Path))
             {
-                _tracker.Record(stopwatch.Elapsed.TotalMilliseconds, context.Response.StatusCode);
+                // There is no UseExceptionHandler in this pipeline: an unhandled
+                // exception unwinds while StatusCode is still its default, so
+                // crashed requests must be counted as 500 here or the error rate
+                // silently drops to zero. Client aborts are not server errors.
+                var statusCode = context.Response.StatusCode;
+                if (failure != null && statusCode < 500 && failure is not OperationCanceledException)
+                {
+                    statusCode = 500;
+                }
+                _tracker.Record(stopwatch.Elapsed.TotalMilliseconds, statusCode);
             }
         }
     }

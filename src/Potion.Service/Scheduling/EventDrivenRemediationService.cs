@@ -11,7 +11,7 @@ namespace Potion.Service.Scheduling;
 /// イベント駆動型の修復サービス
 /// 異常検知時に即時修復を実行するトリガー・アクションモデルを実装
 /// </summary>
-public sealed class EventDrivenRemediationService : BackgroundService, IDisposable
+public sealed class EventDrivenRemediationService : BackgroundService
 {
     // Matches AlertCooldown/CorrelationCooldown: a rule whose condition keeps
     // holding re-fires its action only after this interval.
@@ -20,18 +20,20 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
     private readonly ILogger<EventDrivenRemediationService> _logger;
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly IRemediationTaskExecutor _taskExecutor;
+    private readonly IHttpClientFactory _httpClientFactory;
     private readonly ConcurrentDictionary<string, TriggerRule> _triggerRules = new();
     private readonly ConcurrentDictionary<string, DateTimeOffset> _lastExecutedAt = new();
-    private readonly HttpClient _httpClient = new();
 
     public EventDrivenRemediationService(
         ILogger<EventDrivenRemediationService> logger,
         ISystemHealthMonitor healthMonitor,
-        IRemediationTaskExecutor taskExecutor)
+        IRemediationTaskExecutor taskExecutor,
+        IHttpClientFactory httpClientFactory)
     {
         _logger = logger;
         _healthMonitor = healthMonitor;
         _taskExecutor = taskExecutor;
+        _httpClientFactory = httpClientFactory;
 
         // デフォルトのトリガールールを初期化
         InitializeDefaultTriggerRules();
@@ -177,7 +179,7 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
                 "application/json"
             );
 
-            var response = await _httpClient.PostAsync(webhookUrl, content);
+            var response = await _httpClientFactory.CreateClient().PostAsync(webhookUrl, content);
             if (response.IsSuccessStatusCode)
             {
                 _logger.LogInformation("Webhookを正常に送信しました: {WebhookUrl}", webhookUrl);
@@ -248,14 +250,7 @@ public sealed class EventDrivenRemediationService : BackgroundService, IDisposab
     {
         _logger.LogInformation("イベント駆動型修復サービスを停止中");
         _healthMonitor.HealthAlert -= OnHealthAlert;
-        _httpClient.Dispose();
         await base.StopAsync(cancellationToken);
-    }
-
-    public override void Dispose()
-    {
-        _httpClient.Dispose();
-        base.Dispose();
     }
 }
 
