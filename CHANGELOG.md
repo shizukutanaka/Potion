@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (共有カウンタ EventCorrelationStats のスレッド安全性)
+
+- 相関タイマースレッドが書き・ヘルスモニタースレッドが読む `CorrelatedEventCount`/`ActiveCorrelationRules` が素の public int フィールドで非同期境界をまたぐ競合になり得た → `RemediationExecutionStats` と同じ Interlocked/Volatile パターンのプロパティ＋内部メソッドへ（`IncrementCorrelated`/`SetActiveRuleCount`）
+
 ### Fixed (予測修復がフラットメトリクスの微ノイズで誤発火していた)
 
 - `FailurePattern.IsAnomaly` は σ=0（完全に平坦な系列 — 例： アイドル時の BytesReceivedPerSec≒0）でも `value > mean + 2σ` が常に真となり、最初の非ゼロサンプルで「故障予測」と誤判定して修復をスケジュールしていた → `_baselineStdDev > 0` ガードを追加し、分散ゼロのベースラインでは発火しない設計へ（分散が実在した後のスパイク検出は従来通り機能）。回帰テスト1件追加
