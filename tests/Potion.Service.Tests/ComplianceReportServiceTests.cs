@@ -84,4 +84,17 @@ public sealed class ComplianceReportServiceTests
 
         await service.StartAsync(CancellationToken.None);
     }
+
+    [Fact]
+    public async Task StartAsync_IntervalBeyondTimerLimit_ThrowsClearError()
+    {
+        // System.Threading.Timer rejects periods > ~1193h; the service must
+        // surface that as a config error, not a raw ArgumentOutOfRangeException
+        // from inside the Timer constructor.
+        var service = CreateService(new ComplianceOptions { Enabled = true, ReportIntervalHours = 8760 });
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.StartAsync(CancellationToken.None));
+        Assert.Contains("ReportIntervalHours", ex.Message);
+    }
 }

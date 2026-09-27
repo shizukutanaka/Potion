@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (コンプライアンス間隔が Timer 上限超過時に起動クラッシュしていた)
+
+- `Compliance:ReportIntervalHours` が 1193 時間（System.Threading.Timer の最大周期）を超える設定で、ホステッドサービス起動時に Timer コンストラクタ内の ArgumentOutOfRangeException でクラッシュしていた → 起動時バリデーションで明確な設定エラー（InvalidOperationException）として報告するよう修正
+
 ### Fixed (Unix で全プロセス実行が結果取得直前に失敗していた)
 
 - `ProcessRunner.RunAsync` が終了済みプロセスの `PeakWorkingSet64` を無条件に読み、Unix では InvalidOperationException を投げていた（procfs エントリ消失のため） — Linux/macOS での修復コマンド実行が全て失敗扱いになっていた実バグを、best-effort 読取り（0 フォールバック）に修正。実プロセスを使うクロスプラットフォーム回帰テストを追加
