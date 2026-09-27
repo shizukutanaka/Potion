@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (PredictiveRemediationService の予測→スケジュール経路をエンドツーエンドでテスト)
+
+- `AnalyzeAndPredict` を `internal` へ昇格し（`InternalsVisibleTo` 前提・既存パターン踏襲）、モック化したメトリクス系列で実パイプラインを駆動： ベースライン構築10サイクル→スパイク投入で `ScheduleTaskAsync` が解決済みコマンド（`cleanmgr.exe /verylowdisk`・`IsPreventive`・`High`・`Predictive_<key>_` 命名・`Schedule≈+1分`）で1回発火、安定メトリクスでは不発火、連続スパイクはクールダウンで重複抑制、未マッピングメトリクスはログのみでスキップ — `PredictiveRemediationService.cs` 68.0% → 84.0%
+- テスト総数 264 → 268（+4）
+
 ### Improved (イベント駆動修復の webhook 通知経路へテスト追加)
 
 - `SendWebhookAsync`（`ActionType.SendWebhook` ルールのアクション）の全分岐をフェイク `HttpMessageHandler` で固定： アラート JSON ペイロード（alert_id/severity/component/message/timestamp）が対象 URL へ POST される、サーバーエラー応答では警告ログのみで継続、HTTP 例外は捕捉されエラーログへ転記されサービスは継続 — `EventDrivenRemediationService.cs` 79.3% → 91.2%

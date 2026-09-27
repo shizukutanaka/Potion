@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -137,5 +138,95 @@ public sealed class PredictiveRemediationServiceTests
         // mean=1.636, stddev=3.44 -> threshold 8.53 and this would NOT flag.
 
         Assert.True(pattern.IsAnomaly(8.0));
+    }
+
+    private static (PredictiveRemediationService Service, Mock<IRemediationScheduler> Scheduler)
+        PipelineService(string metricKey, params double[] samples)
+    {
+        var scheduler = new Mock<IRemediationScheduler>();
+        var monitor = new Mock<ISystemHealthMonitor>();
+        var index = 0;
+        monitor.Setup(m => m.GetCurrentMetricsAsync())
+            .ReturnsAsync(() => (IReadOnlyDictionary<string, double>)
+                new Dictionary<string, double>
+                {
+                    [metricKey] = samples[Math.Min(index++, samples.Length - 1)]
+                });
+        var service = new PredictiveRemediationService(
+            NullLogger<PredictiveRemediationService>.Instance,
+            monitor.Object,
+            scheduler.Object);
+        return (service, scheduler);
+    }
+
+    private static async Task DriveAsync(PredictiveRemediationService service, int cycles)
+    {
+        for (var i = 0; i < cycles; i++)
+        {
+            await service.AnalyzeAndPredict();
+        }
+    }
+
+    [Fact]
+    public async Task Analyze_BaselineThenSpike_SchedulesPreventiveTask()
+    {
+        // 10 alternating samples build baseline (mean=41, stddev=~1), then a
+        // 95 spike crosses mean + 2σ and the mapped metric resolves to cleanmgr.
+        var (service, scheduler) = PipelineService(
+            "DiskUsage", 40, 42, 40, 42, 40, 42, 40, 42, 40, 42, 95);
+        var before = DateTime.UtcNow;
+
+        await DriveAsync(service, 11);
+
+        scheduler.Verify(
+            s => s.ScheduleTaskAsync(
+                It.Is<RemediationTask>(t =>
+                    t.Command == "cleanmgr.exe"
+                    && t.Arguments == "/verylowdisk"
+                    && t.IsPreventive
+                    && t.Priority == RemediationPriority.High
+                    && t.Name.StartsWith("Predictive_DiskUsage_")
+                    && t.Schedule > before
+                    && t.Schedule <= before.AddMinutes(2)),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Analyze_StableMetrics_NeverSchedules()
+    {
+        var (service, scheduler) = PipelineService("DiskUsage", 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41, 41);
+
+        await DriveAsync(service, 12);
+
+        scheduler.Verify(
+            s => s.ScheduleTaskAsync(It.IsAny<RemediationTask>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task Analyze_RepeatedSpikes_SchedulesOncePerCooldown()
+    {
+        var (service, scheduler) = PipelineService(
+            "DiskUsage", 40, 42, 40, 42, 40, 42, 40, 42, 40, 42, 95, 95, 95);
+
+        await DriveAsync(service, 13);
+
+        scheduler.Verify(
+            s => s.ScheduleTaskAsync(It.IsAny<RemediationTask>(), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task Analyze_UnmappedMetricSpike_SkipsScheduling()
+    {
+        var (service, scheduler) = PipelineService(
+            "NetworkLatency", 40, 42, 40, 42, 40, 42, 40, 42, 40, 42, 95);
+
+        await DriveAsync(service, 11);
+
+        scheduler.Verify(
+            s => s.ScheduleTaskAsync(It.IsAny<RemediationTask>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }

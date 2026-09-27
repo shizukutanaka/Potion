@@ -55,7 +55,7 @@ public class PredictiveRemediationService : BackgroundService
         }
     }
 
-    private async Task AnalyzeAndPredict()
+    internal async Task AnalyzeAndPredict()
     {
         var currentMetrics = await _healthMonitor.GetCurrentMetricsAsync();
 
