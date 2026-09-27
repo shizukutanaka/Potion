@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (プロセス列挙が毎ポーリングで OS ハンドルをリークしていた)
+
+- `Process.GetCurrentProcess()`/`Process.GetProcesses()` が返すオブジェクトは OS ハンドルを保持するが、3ファイル・10箇所で未 Dispose — ヘルスポーリング＋最適化パスで毎回ハンドルがチャーンしていた → 共有 `ProcessUtilities`（CountProcesses/SelectProcesses＋全要素 Dispose＋列挙中の個別プロセス失敗スキップ）を新設し全呼出しを移行、`GetCurrentProcess` 参照箇所は `using` 化
+
 ### Fixed (AnomalyDetector がフラット基線で誤検知していた)
 
 - 分散ゼロの時系列で適応閾値が 0 に潰れ、最初の微小偏差を毎回「異常」として検知していた（アイドル時メトリクスで3分毎に誤警報になる経路）。サイクル239の FailurePattern σ=0 修正と同型 — `IsStatisticalAnomaly`/`CalculateAnomalyScore` で閾値<=0 を非異常扱いに統一し、併せて zero-mean ウィンドウでの `trendFactor` 除算（NaN/Infinity 経路）もガード

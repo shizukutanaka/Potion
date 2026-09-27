@@ -136,7 +136,7 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
         var diskInfo = GetDiskInfo();
 
         // プロセス数の取得
-        var processCount = Process.GetProcesses().Length;
+        var processCount = ProcessUtilities.CountProcesses();
 
         return new PerformanceStatistics(
             cpuUsage,
@@ -311,10 +311,11 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
 
         try
         {
-            // 高負荷プロセスを特定して調整
-            var highCpuProcesses = Process.GetProcesses()
-                .Where(p => p.ProcessName != "System" && p.ProcessName != "Idle")
-                .OrderByDescending(p => p.TotalProcessorTime)
+            // 高負荷プロセスを特定して調整（プロパティ失敗は SelectProcesses 内でスキップ）
+            var highCpuProcesses = ProcessUtilities.SelectProcesses(
+                    p => (p.ProcessName, p.TotalProcessorTime.TotalMinutes),
+                    p => p.ProcessName is not "System" and not "Idle")
+                .OrderByDescending(t => t.Item2)
                 .Take(3)
                 .ToList();
 
@@ -322,14 +323,7 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             // 現在の負荷と一致しないため、優先度変更は対象誤認・悪影響のリスクがある）
             foreach (var process in highCpuProcesses)
             {
-                try
-                {
-                    actions.Add($"高CPUプロセス検出: {process.ProcessName} (累積 {process.TotalProcessorTime.TotalMinutes:F1} 分)");
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "プロセス情報の取得に失敗しました: {ProcessName}", process.ProcessName);
-                }
+                actions.Add($"高CPUプロセス検出: {process.Item1} (累積 {process.Item2:F1} 分)");
             }
         }
         catch (Exception ex)
@@ -349,15 +343,16 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
 
 
             // 高メモリ使用プロセスを特定
-            var highMemoryProcesses = Process.GetProcesses()
-                .Where(p => p.ProcessName != "System" && p.PrivateMemorySize64 > 100 * 1024 * 1024) // 100MB以上
-                .OrderByDescending(p => p.PrivateMemorySize64)
+            var highMemoryProcesses = ProcessUtilities.SelectProcesses(
+                    p => (p.ProcessName, p.PrivateMemorySize64),
+                    p => p.ProcessName != "System" && p.PrivateMemorySize64 > 100 * 1024 * 1024)
+                .OrderByDescending(t => t.Item2)
                 .Take(3)
                 .ToList();
 
             foreach (var process in highMemoryProcesses)
             {
-                actions.Add($"高メモリプロセス検出: {process.ProcessName} ({process.PrivateMemorySize64 / 1024 / 1024}MB)");
+                actions.Add($"高メモリプロセス検出: {process.Item1} ({process.Item2 / 1024 / 1024}MB)");
             }
 
             // ガベージコレクションの強制実行（.NETプロセス向け）
@@ -426,8 +421,8 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
         try
         {
             // 重複起動プロセスの報告（ユーザープロセスの Kill は未保存データを失うため行わない）
-            var processGroups = Process.GetProcesses()
-                .GroupBy(p => p.ProcessName)
+            var processGroups = ProcessUtilities.SelectProcesses(p => p.ProcessName)
+                .GroupBy(name => name)
                 .Where(g => g.Count() > 1)
                 .OrderByDescending(g => g.Count())
                 .Take(5);
