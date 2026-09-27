@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (ConfigTool をソリューションへ組込み)
+
+- `tools/Potion.ConfigTool`（config validate/generate/show/backup/restore CLI）は機能するが**ソリューション未参加で誰もビルドしない**状態 — いつ壊れても気付けない孤立ユーティリティだった → `Potion.sln` へ追加し毎ビルドでコンパイル検証。CA1416 プラットフォーム警告は対象ホストが Windows のため NoWarn（テストプロジェクトと同じ扱い）。`validate` コマンドで実 appsettings.json の検証を実機確認済み
+
 ### Fixed (PerformanceCounter のハンドルリークを解消)
 
 - `SystemMetricsSampler` の Windows カウンタ5個が**一切 Dispose されず**、構築途中で失敗した場合も作成済みカウンタが null 化のみでネイティブハンドルごとリークしていた → `IDisposable` 実装（失敗経路でも作成済み分を解放）＋ `SystemHealthMonitor` も `IDisposable` 化して DI シングルトン破棄時にカウンタを確実解放
