@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (行末コードポリシーが無くシェル/バッチスクリプトが壊れ得た)
+
+- `.gitattributes` が存在せず、Windows で `core.autocrlf=true` のチェックアウトは `deploy.sh`/`validate-system.sh` を CRLF 化（bash が `$'\r'` で破壊）、逆に LF の `install.cmd` は cmd.exe のラベル/goto 解析を壊し得た → `* text=auto`＋`*.sh`/`*.bash` を `eol=lf`、`*.cmd`/`*.bat`/`*.ps1`/`*.wxs` を `eol=crlf`、バイナリ拡張子を `binary` で固定
+
+### Improved (.dockerignore の網羅性を改善)
+
+- ビルドコンテキストが `src/` 以外の全ディレクトリ（tests/tools/k8s/monitoring/setup/scripts/logs）をデーモンへアップロードしていた → 不要なコンテキスト転送を除外（Dockerfile は `src/Potion.Service/` のみ COPY のため挙動不変）
+
 ### Improved (ConfigTool をソリューションへ組込み)
 
 - `tools/Potion.ConfigTool`（config validate/generate/show/backup/restore CLI）は機能するが**ソリューション未参加で誰もビルドしない**状態 — いつ壊れても気付けない孤立ユーティリティだった → `Potion.sln` へ追加し毎ビルドでコンパイル検証。CA1416 プラットフォーム警告は対象ホストが Windows のため NoWarn（テストプロジェクトと同じ扱い）。`validate` コマンドで実 appsettings.json の検証を実機確認済み
