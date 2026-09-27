@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Security (NetworkPolicy が全 Pod へポートを開放していた)
+
+- `k8s/deployment.yaml` の NetworkPolicy ingress 第2ルールが `from: []`（空 = **クラスタ内の全 Pod から 80/443 へ到達可能**）で、直上の「ingress-nginx 名前空間のみ許可」ルールを実質無効化していた → Prometheus スクレイプ用途を `kubernetes.io/metadata.name: monitoring` 名前空間へ限定（コメントで調整方法を明記）
+- 同ポリシー両ルールの `port: 443` はコンテナ未リッスンの死ポート（Ingress が TLS 終端で pod へは平文 :80）→ 除去
+- Dockerfile の `potion` ユーザを `-u 101`/`-g 101` に固定 — マニフェストの `runAsUser: 101`/`fsGroup: 101` と確定的に一致（従来は `useradd -r` の自動採番と fsGroup の偶然で動いていた）
+
 ### Security (監視スタックのイメージタグ固定と CDN サブリソース整合性)
 
 - `docker-compose.yml` の `prom/prometheus:latest`/`prom/alertmanager:latest` は mutable `latest` で再現性なく将来のメジャーアップデートを不意に引き込む → `prometheus:v3.13.3`（LTS）/`alertmanager:v0.34.1` へ固定＋Compose v2 で obsolete 警告が出る `version:` キー除去

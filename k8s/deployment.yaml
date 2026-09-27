@@ -255,21 +255,25 @@ spec:
   - Ingress
   - Egress
   ingress:
+  # Traffic enters through the ingress controller only.
   - from:
     - namespaceSelector:
         matchLabels:
           name: ingress-nginx
     ports:
+    # The container listens on :80 only — the ingress terminates TLS.
     - protocol: TCP
       port: 80
-    - protocol: TCP
-      port: 443
-  - from: []
+  # Prometheus scraping: an empty `from` would open the pod to EVERY pod in
+  # the cluster (it was equivalent to no restriction at all). Scope to the
+  # monitoring namespace — adjust the label if yours differs.
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          kubernetes.io/metadata.name: monitoring
     ports:
     - protocol: TCP
       port: 80
-    - protocol: TCP
-      port: 443
   egress:
   - to: []
     ports:

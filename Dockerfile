@@ -30,7 +30,7 @@ COPY --from=publish /app/publish .
 # Create non-root user for security. Give it a writable HOME so
 # ServicePaths' LocalApplicationData fallback has somewhere to go —
 # without it the service can fail lazily when it first writes state.
-RUN groupadd -r potion && useradd -r -g potion potion \
+RUN groupadd -r -g 101 potion && useradd -r -u 101 -g potion potion \
     && mkdir -p /home/potion /app/logs \
     && chown -R potion:potion /home/potion /app/logs
 ENV HOME=/home/potion
