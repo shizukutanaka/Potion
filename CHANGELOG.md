@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Security (xunit を 2.9.3 へ更新し脆弱な推移的依存を解消)
+
+- テストプロジェクトの推移的依存 `System.Net.Http 4.3.0`（High: GHSA-7jgj-8wvc-jh57）と `System.Text.RegularExpressions 4.3.0`（High: GHSA-cmhx-cq75-c4mj）— いずれも `xunit 2.6.1` が `NETStandard.Library 1.6.1` 経由で引き込んでいた → xunit 2.9.3 へ更新（同系最新安定、依存チェーン刷新で両脆弱性を解消）。`dotnet list package --vulnerable --include-transitive` で全プロジェクトクリーンを確認
+
+### Fixed (xunit アナライザーが暴いた未 await アサーション6件を修正)
+
+- `ProcessRunnerTests` のパラメータ検証テスト6件が `Assert.ThrowsAsync` を `await` せず**アサーションが一度も実行されないまま vacuous パス**していた — xunit 2.9 同梱アナライザーの xUnit2021 が指摘 → 各テストを `async Task` 化し `await` 付与。実際に評価されるようになった全6件がパス（RunAsync の引数検証自体は正しかったことを実証）
+
 ### Security (SignalR SendMessage にメッセージ長上限を追加)
 
 - `CollaborationHub.SendMessage` は匿名クライアントが到達可能で、任意長の文字列を**全接続クライアントへそのままブロードキャスト**していた — 1接続が巨大ペイロードを全員へ増幅送信できる DoS 経路 → 空・空白のみ・2000文字超のメッセージを拒否する上限を追加

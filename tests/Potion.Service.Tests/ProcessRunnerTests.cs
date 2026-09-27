@@ -80,19 +80,19 @@ public class ProcessRunnerTests : IDisposable
     }
 
     [Fact]
-    public void RunAsync_NullStartInfo_ThrowsArgumentNullException()
+    public async Task RunAsync_NullStartInfo_ThrowsArgumentNullException()
     {
         // Arrange
         var timeout = TimeSpan.FromSeconds(10);
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(
+        await Assert.ThrowsAsync<ArgumentNullException>(
             () => _processRunner.RunAsync(null!, timeout, cancellationToken));
     }
 
     [Fact]
-    public void RunAsync_NullFileName_ThrowsArgumentException()
+    public async Task RunAsync_NullFileName_ThrowsArgumentException()
     {
         // Arrange
         var startInfo = new ProcessStartInfo
@@ -104,12 +104,12 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
     [Fact]
-    public void RunAsync_EmptyFileName_ThrowsArgumentException()
+    public async Task RunAsync_EmptyFileName_ThrowsArgumentException()
     {
         // Arrange
         var startInfo = new ProcessStartInfo
@@ -121,12 +121,12 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
     [Fact]
-    public void RunAsync_WhitespaceFileName_ThrowsArgumentException()
+    public async Task RunAsync_WhitespaceFileName_ThrowsArgumentException()
     {
         // Arrange
         var startInfo = new ProcessStartInfo
@@ -138,14 +138,14 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
     [Theory]
     [InlineData(-1)]
     [InlineData(0)]
-    public void RunAsync_InvalidTimeout_ThrowsArgumentOutOfRangeException(int timeoutSeconds)
+    public async Task RunAsync_InvalidTimeout_ThrowsArgumentOutOfRangeException(int timeoutSeconds)
     {
         // Arrange
         var timeout = TimeSpan.FromSeconds(timeoutSeconds);
@@ -157,12 +157,12 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
     [Fact]
-    public void RunAsync_TimeoutTooLong_ThrowsArgumentOutOfRangeException()
+    public async Task RunAsync_TimeoutTooLong_ThrowsArgumentOutOfRangeException()
     {
         // Arrange
         var startInfo = new ProcessStartInfo
@@ -174,7 +174,7 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
