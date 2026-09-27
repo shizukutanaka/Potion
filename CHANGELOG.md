@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (イベント駆動修復の HTTP 送信を IHttpClientFactory へ)
+
+- `EventDrivenRemediationService` が専用の `new HttpClient()` を自前保持・二重 Dispose していたのを、登録済みの `IHttpClientFactory`（`services.AddHttpClient()`）経由に変更 — ハンドラプーリング/DNS 更新が有効化され、送信は共有ハンドラ経由になる
+
 ### Improved (共有カウンタ EventCorrelationStats のスレッド安全性)
 
 - 相関タイマースレッドが書き・ヘルスモニタースレッドが読む `CorrelatedEventCount`/`ActiveCorrelationRules` が素の public int フィールドで非同期境界をまたぐ競合になり得た → `RemediationExecutionStats` と同じ Interlocked/Volatile パターンのプロパティ＋内部メソッドへ（`IncrementCorrelated`/`SetActiveRuleCount`）
