@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (ヘルス変化イベントが毎サイクル発火していた)
+
+- `AutoRecoveryManager.HasHealthChanged` が `ComponentHealth` レコード全体（`ResponseTime` 含む）を等価比較していたため、実際の健全性が不変でも毎サイクル `SystemHealthChanged` を発火していた → IsHealthy/Status/ErrorMessage のみを比較するよう修正。併せて `CheckServiceHostHealth` の `GetCurrentProcess()` が非 Dispose だった軽微なハンドルリークを `using` 化
+
 ### Fixed (SignalR ブロードキャスト失敗が未観測例外になっていた)
 
 - `BroadcastAlertAsync` が内部 catch を持たず、ヘルスアラート／異常検知／タスク完了の3経路から fire-and-forget で呼ばれていた — SignalR 送信失敗が未観測タスク例外（またはイベント発行者スレッドへの同期伝播）になり得た → メソッド内で捕捉して警告ログ化（`BroadcastHealthTickAsync` と同じ契約に統一）
