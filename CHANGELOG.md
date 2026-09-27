@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (テスト品質監査 — 無効テストの実効化)
+
+- 全28テストファイルを無 assertion スキャン：5件の「落ちないことだけを見る」スモークテストを検出。うち `RecordMetrics_ValidOperation_RecordsSuccessfully` は `GetOperationMetrics()` で観測可能なのに未検証だった → TotalCalls/SuccessRate/TotalDuration の実アサートへ強化（実装と突合済み）。残4件は非破壊完了を保証する正当なスモークテストと判定
+- `RequireRateLimiting("webhook")` の named ポリシーが `AddFixedWindowLimiter` で正しく登録済みと確認（未登録ならリクエスト時に例外）
+
 ### Fixed (CONTRIBUTING の検証コマンドが実行不能)
 
 - `dotnet test -k` は存在しないオプション（正しくは `--filter`）→ `--filter "FullyQualifiedName~..."` へ修正・実機検証済み

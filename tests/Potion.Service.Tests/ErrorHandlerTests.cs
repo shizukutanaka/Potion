@@ -225,7 +225,12 @@ public class ErrorHandlerTests : IDisposable
         // Act
         _errorHandler.RecordMetrics(operation, success, duration);
 
-        // Assert - No exception should be thrown
+        // Assert
+        var metrics = _errorHandler.GetOperationMetrics();
+        Assert.True(metrics.TryGetValue(operation, out var m));
+        Assert.Equal(1, m.TotalCalls);
+        Assert.Equal(100, m.SuccessRate);
+        Assert.Equal(duration, m.TotalDuration);
     }
 
     [Fact]
