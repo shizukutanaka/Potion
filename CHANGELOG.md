@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (PerformanceCounter のハンドルリークを解消)
+
+- `SystemMetricsSampler` の Windows カウンタ5個が**一切 Dispose されず**、構築途中で失敗した場合も作成済みカウンタが null 化のみでネイティブハンドルごとリークしていた → `IDisposable` 実装（失敗経路でも作成済み分を解放）＋ `SystemHealthMonitor` も `IDisposable` 化して DI シングルトン破棄時にカウンタを確実解放
+
 ### Fixed (インストーラスクリプトの MSI パスと管理者チェック)
 
 - `install.cmd` が `Potion.msi` を**カレントディレクトリ基準**で参照していたため、別ディレクトリからの実行が msiexec の file-not-found で失敗していた → `%~dp0` でスクリプト隣接の MSI を解決。併せて管理者権限チェックがインストール経路のみにありアンインストールが cryptic な msiexec エラーで落ちていた → チェックを両経路の共通前置へ移動
