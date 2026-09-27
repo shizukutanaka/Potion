@@ -272,12 +272,27 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             return (used, Math.Max(total - used, 0));
         }
 
-        using var searcher = new System.Management.ManagementObjectSearcher(
-            "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
-        var os = searcher.Get().Cast<System.Management.ManagementObject>().First();
-        var totalBytes = Convert.ToInt64(os["TotalVisibleMemorySize"]) * 1024;
-        var freeBytes = Convert.ToInt64(os["FreePhysicalMemory"]) * 1024;
-        return (totalBytes - freeBytes, freeBytes);
+        try
+        {
+            using var searcher = new System.Management.ManagementObjectSearcher(
+                "SELECT TotalVisibleMemorySize, FreePhysicalMemory FROM Win32_OperatingSystem");
+            // WMI can return an empty result set (corrupted repository, limited
+            // privileges) — report honest zeros instead of aborting the whole
+            // optimization pass.
+            var os = searcher.Get().Cast<System.Management.ManagementObject>().FirstOrDefault();
+            if (os is null)
+            {
+                return (0, 0);
+            }
+            var totalBytes = Convert.ToInt64(os["TotalVisibleMemorySize"]) * 1024;
+            var freeBytes = Convert.ToInt64(os["FreePhysicalMemory"]) * 1024;
+            return (totalBytes - freeBytes, freeBytes);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "WMI memory query failed; reporting zeros");
+            return (0, 0);
+        }
     }
 
     private (double UsagePercent, long ReadBytesPerSec, long WriteBytesPerSec) GetDiskInfo()

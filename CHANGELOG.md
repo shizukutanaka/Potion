@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (WMI メモリ照会の失敗が最適化パス全体を中断させていた)
+
+- `PerformanceOptimizer.GetMemoryInfo` の WMI `searcher.Get().First()`/`Convert.ToInt64` が無防御 — WMI 空結果・権限不足・リポジトリ破損で `InvalidOperationException` が `GetStatisticsAsync`（try ブロックの**外**）を抜け最適化パス全てを中断 → `FirstOrDefault`＋try/catch で誠実なゼロ報告へ（他の最適化分類は継続動作）
+
 ### Fixed (ログの ServiceVersion が実バージョンと不一致だった)
 
 - Serilog `Properties.ServiceVersion` が全環境 "1.0.0" でアセンブリ/OTel メーターの 2.0.0 と乖離 — 全ログ行に古いバージョンが刻まれていた → 2.0.0/2.0.0-dev に統一
