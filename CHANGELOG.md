@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Improved (ダッシュボードの設定反映とアクセシビリティ)
+
+- `saveSettings` で自動更新 ON のまま更新間隔を変更しても**旧タイマーが走り続け新間隔はリロードまで無効**だった → タイマーを再起動して即時適用
+- `auto` テーマが OS のダークモード切替を追従しなかった（初回評価のみ）→ `prefers-color-scheme` の `change` リスナで追従
+- ダッシュボード全体に `aria-label` が皆無（966行中0件）— アイコンのみボタン8件・ラベルなし入力/セレクト5件へ追加しスクリーンリーダー対応
+- `index.html` の `dashboard-layout` div が未閉鎖（ブラウザの暗黙修復頼み、254開vs253閉）→ 正規に閉鎖してマークアップ妥当性を回復
+
 ### Fixed (ダッシュボードが API 断時に「Healthy」を表示し続けていた)
 
 - `loadOverviewData` が fetch 失敗時にバッジを最後の正常状態のまま残し、`response.ok` 未検証で 500 応答も握り潰していた — 監視ダッシュボードが到達不能を報告しない逆説 → 非2xx を例外化し、catch 時にバッジを `offline`/`Unreachable` 表示へ（`status-badge.offline` スタイル追加）

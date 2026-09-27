@@ -52,6 +52,15 @@ class PotionDashboard {
         this.setupDragAndDrop();
         this.setupAdvancedSearch();
 
+        // Track OS theme changes while the 'auto' theme is selected.
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (this.theme === 'auto') {
+                    this.applyTheme('auto');
+                }
+            });
+        }
+
         // Restore persisted settings before starting the poller.
         const storedSettings = this.getStoredSettings();
         if (storedSettings.theme) {
@@ -406,10 +415,15 @@ class PotionDashboard {
         // Apply theme
         this.applyTheme(theme);
 
-        // Update auto-refresh
-        if (autoRefresh && !this.autoRefreshTimer) {
+        // Update auto-refresh — restart the timer so a changed interval
+        // applies immediately (the previous code only started one when it
+        // was absent, so interval changes silently waited for a reload).
+        if (autoRefresh) {
+            if (this.autoRefreshTimer) {
+                clearInterval(this.autoRefreshTimer);
+            }
             this.startAutoRefresh();
-        } else if (!autoRefresh && this.autoRefreshTimer) {
+        } else if (this.autoRefreshTimer) {
             clearInterval(this.autoRefreshTimer);
             this.autoRefreshTimer = null;
         }
@@ -423,6 +437,7 @@ class PotionDashboard {
     }
 
     applyTheme(theme) {
+        this.theme = theme;
         const body = document.body;
         body.classList.remove('light-theme', 'dark-theme');
 
