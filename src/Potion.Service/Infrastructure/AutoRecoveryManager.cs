@@ -209,7 +209,11 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
                 return true;
             }
 
-            if (!Equals(previousHealth, currentHealth))
+            // ResponseTime differs on every check, so full record equality
+            // would report a "change" every cycle; compare health fields only.
+            if (previousHealth.IsHealthy != currentHealth.IsHealthy
+                || previousHealth.Status != currentHealth.Status
+                || previousHealth.ErrorMessage != currentHealth.ErrorMessage)
             {
                 return true;
             }
@@ -366,7 +370,7 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
         try
         {
             // プロセスが実行中かチェック
-            var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
+            using var currentProcess = System.Diagnostics.Process.GetCurrentProcess();
             return !currentProcess.HasExited;
         }
         catch
@@ -422,7 +426,7 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
 
             // JSON構文チェック
             var configContent = await File.ReadAllTextAsync(configPath, cancellationToken);
-            System.Text.Json.JsonDocument.Parse(configContent);
+            using var document = System.Text.Json.JsonDocument.Parse(configContent);
             return true;
         }
         catch

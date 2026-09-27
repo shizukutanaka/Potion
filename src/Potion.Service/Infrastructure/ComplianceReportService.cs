@@ -51,6 +51,16 @@ public class ComplianceReportService : IHostedService, IDisposable
                 "Compliance:ReportIntervalHours must be a positive number of hours when compliance reporting is enabled.");
         }
 
+        // Timer periods cannot exceed 4294967294 ms (~1193 hours); a larger
+        // configured interval would crash this hosted service inside the
+        // Timer constructor rather than being reported as a config error.
+        // Compare the raw hours so huge values never reach TimeSpan.FromHours.
+        if (_options.ReportIntervalHours > 1193)
+        {
+            throw new InvalidOperationException(
+                "Compliance:ReportIntervalHours cannot exceed 1193 hours (the maximum System.Threading.Timer period).");
+        }
+
         _logger.LogInformation("Starting compliance report service with standards: {Standards}",
             string.Join(", ", _options.Standards));
 
@@ -212,7 +222,11 @@ public class ComplianceReportService : IHostedService, IDisposable
             WriteIndented = true
         });
 
-        await File.WriteAllTextAsync(filePath, json);
+        // Write-then-move keeps a crash mid-write from leaving a truncated,
+        // corrupt JSON report at the final path (both paths share a volume).
+        var tempPath = filePath + ".tmp";
+        await File.WriteAllTextAsync(tempPath, json);
+        File.Move(tempPath, filePath, overwrite: true);
         _logger.LogInformation("Compliance report saved to {Path}", filePath);
     }
 

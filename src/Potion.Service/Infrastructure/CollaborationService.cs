@@ -183,15 +183,24 @@ public class CollaborationService : IDisposable
     {
         if (!_options.EnableRealTimeAlerts) return;
 
-        await _hubContext.Clients.Group($"alerts-{alertType}").SendAsync("Alert", new
+        // Callers fire-and-forget this method from health-monitor events; a
+        // SignalR send failure must not surface as an unobserved task exception.
+        try
         {
-            Type = alertType,
-            Message = message,
-            Data = data,
-            Timestamp = DateTimeOffset.UtcNow
-        });
+            await _hubContext.Clients.Group($"alerts-{alertType}").SendAsync("Alert", new
+            {
+                Type = alertType,
+                Message = message,
+                Data = data,
+                Timestamp = DateTimeOffset.UtcNow
+            });
 
-        _logger.LogInformation("Broadcasted alert: {Type} - {Message}", alertType, message);
+            _logger.LogInformation("Broadcasted alert: {Type} - {Message}", alertType, message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to broadcast alert {AlertType} to collaboration clients", alertType);
+        }
     }
 
     public async Task BroadcastSystemHealthAsync(object healthData)

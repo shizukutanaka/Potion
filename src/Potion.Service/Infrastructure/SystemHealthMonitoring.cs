@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
+using System.Globalization;
 using System.IO;
 using System.Management;
 using System.Net.NetworkInformation;
@@ -331,10 +332,10 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
         var cpuTemp = _sampler.CpuTemperatureCelsius();
         var cachedBytes = _sampler.MemoryCachedBytes();
         var perf = _requestMetrics.Snapshot();
-        var currentProcess = Process.GetCurrentProcess();
+        using var currentProcess = Process.GetCurrentProcess();
 
         var metrics = new SystemMetrics(
-            new CpuMetrics(cpuPercent, cpuFreq, cpuTemp, Environment.ProcessorCount, Process.GetProcesses().Length),
+            new CpuMetrics(cpuPercent, cpuFreq, cpuTemp, Environment.ProcessorCount, ProcessUtilities.CountProcesses()),
             new MemoryMetrics(usedPercent, availableBytes, totalMemory, osUsedBytes, managedMemory, cachedBytes),
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
@@ -468,7 +469,10 @@ internal sealed class SystemMetricsSampler
                         continue;
                     }
                     var colon = line.IndexOf(':');
-                    if (colon >= 0 && double.TryParse(line[(colon + 1)..].Trim(), out var mhz))
+                    // /proc uses "." decimals regardless of locale; on comma-decimal
+                    // cultures TryParse would treat it as a group separator (2499.988 -> 2499988).
+                    if (colon >= 0 && double.TryParse(line[(colon + 1)..].Trim(),
+                            NumberStyles.Float, CultureInfo.InvariantCulture, out var mhz))
                     {
                         return mhz;
                     }
@@ -539,7 +543,7 @@ internal sealed class SystemMetricsSampler
             if (OperatingSystem.IsLinux() && File.Exists("/sys/class/thermal/thermal_zone0/temp"))
             {
                 var raw = File.ReadAllText("/sys/class/thermal/thermal_zone0/temp").Trim();
-                if (double.TryParse(raw, out var millidegrees))
+                if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var millidegrees))
                 {
                     return millidegrees / 1000.0;
                 }
@@ -1573,8 +1577,9 @@ internal sealed class SystemMetricsSampler
             _diskReadCounter = new PerformanceCounter("PhysicalDisk", "Disk Read Bytes/sec", "_Total", readOnly: true);
             _diskWriteCounter = new PerformanceCounter("PhysicalDisk", "Disk Write Bytes/sec", "_Total", readOnly: true);
             _cacheBytesCounter = new PerformanceCounter("Memory", "Cache Bytes", readOnly: true);
+            using var selfProcess = Process.GetCurrentProcess();
             _ioOpsCounter = new PerformanceCounter("Process", "IO Data Operations/sec",
-                Process.GetCurrentProcess().ProcessName, readOnly: true);
+                selfProcess.ProcessName, readOnly: true);
             _ = _cpuCounter.NextValue(); // prime the counter — first sample is always 0
         }
         catch
@@ -1664,6 +1669,66 @@ internal sealed class SystemMetricsSampler
 /// SystemIntegrityMetrics reports real repaired counts instead of 0.
 /// </summary>
 public sealed record RemediationTaskCompleted(string TaskName, bool Success, DateTimeOffset At);
+
+/// <summary>
+/// Shared helpers for enumerating OS processes: every Process object returned by
+/// Process.GetProcesses()/GetCurrentProcess() owns an OS handle, so snapshots
+/// must dispose them — on the poll loop, undisposed objects churn handles until
+/// finalization. Individual processes may also exit or deny access mid-scan;
+/// those entries are skipped rather than failing the whole snapshot.
+/// </summary>
+internal static class ProcessUtilities
+{
+    public static int CountProcesses()
+    {
+        var processes = Process.GetProcesses();
+        try
+        {
+            return processes.Length;
+        }
+        finally
+        {
+            foreach (var p in processes)
+            {
+                p.Dispose();
+            }
+        }
+    }
+
+    public static List<T> SelectProcesses<T>(Func<Process, T> selector, Func<Process, bool>? filter = null)
+    {
+        var processes = Process.GetProcesses();
+        var results = new List<T>(processes.Length);
+        try
+        {
+            foreach (var p in processes)
+            {
+                try
+                {
+                    if (filter is not null && !filter(p))
+                    {
+                        continue;
+                    }
+
+                    results.Add(selector(p));
+                }
+                catch
+                {
+                    // Process exited or denied access mid-enumeration — skip it.
+                }
+            }
+        }
+        finally
+        {
+            foreach (var p in processes)
+            {
+                p.Dispose();
+            }
+        }
+
+        return results;
+    }
+}
 
 public sealed class RemediationExecutionStats
 {

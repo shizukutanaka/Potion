@@ -2,6 +2,52 @@
 
 ## Unreleased
 
+### Fixed (WMI メモリ照会の失敗が最適化パス全体を中断させていた)
+
+- `PerformanceOptimizer.GetMemoryInfo` の WMI `searcher.Get().First()`/`Convert.ToInt64` が無防御 — WMI 空結果・権限不足・リポジトリ破損で `InvalidOperationException` が `GetStatisticsAsync`（try ブロックの**外**）を抜け最適化パス全てを中断 → `FirstOrDefault`＋try/catch で誠実なゼロ報告へ（他の最適化分類は継続動作）
+
+### Fixed (ログの ServiceVersion が実バージョンと不一致だった)
+
+- Serilog `Properties.ServiceVersion` が全環境 "1.0.0" でアセンブリ/OTel メーターの 2.0.0 と乖離 — 全ログ行に古いバージョンが刻まれていた → 2.0.0/2.0.0-dev に統一
+
+### Fixed (procfs/sysfs のパースがカルチャ依存だった)
+
+- `/proc/cpuinfo` の MHz 行と thermal_zone の `double.TryParse` が現在カルチャで走行 — **コンマ小数点ロケール（de-DE/fr-FR 等）では "2499.988" が 2499988 に化ける**（`.` が桁区切り扱い）→ `NumberStyles.Float + InvariantCulture` へ。/proc・/sys はロケールに関わらず常に `.` 小数点を使う
+
+### Improved (残りのオプション3件にも起動時バリデーションを追加)
+
+- `EventCorrelation`/`Compliance`/`Collaboration` は素の `Configure<T>` で検証なし — `MaxEventsToCorrelate <= 0` は相関バッファを常に空にする**無言の機能停止**、`MaxConcurrentUsers <= 0` は全接続拒否、`ReportIntervalHours` 範囲外はホステッドサービス起動クラッシュだった → `ValidateOnStart` でブート時に明示的エラー化（機能無効時は値を検証しない条件付き検証 — `Enabled: false` で無効化する運用を壊さない）
+
+### Fixed (ファイル I/O の堅牢性欠陥3件)
+
+- 一時ファイルクリーンアップが `GetFiles` で temp ツリー全体を先に materialize し、**1つの読めないサブディレクトリで全体が中断**していた → `EnumerateFiles`+`IgnoreInaccessible` で遅延列挙化（`Take` が実際に歩行を打ち切り、読めない dir はスキップ）
+- コンプライアンスレポートが非アトミック `WriteAllTextAsync` — 書込み中のクラッシュで**切断された壊れた JSON が最終パスに残る** → 同一ボリュームの `.tmp` 書込み→`File.Move(overwrite)` でアトミック化
+- `AutoRecoveryManager` の設定健全性チェックが `JsonDocument.Parse` を **Dispose せず**（プールドバッファのリーク/サイクル）→ `using` 化
+
+### Fixed (プロセス列挙が毎ポーリングで OS ハンドルをリークしていた)
+
+- `Process.GetCurrentProcess()`/`Process.GetProcesses()` が返すオブジェクトは OS ハンドルを保持するが、3ファイル・10箇所で未 Dispose — ヘルスポーリング＋最適化パスで毎回ハンドルがチャーンしていた → 共有 `ProcessUtilities`（CountProcesses/SelectProcesses＋全要素 Dispose＋列挙中の個別プロセス失敗スキップ）を新設し全呼出しを移行、`GetCurrentProcess` 参照箇所は `using` 化
+
+### Fixed (AnomalyDetector がフラット基線で誤検知していた)
+
+- 分散ゼロの時系列で適応閾値が 0 に潰れ、最初の微小偏差を毎回「異常」として検知していた（アイドル時メトリクスで3分毎に誤警報になる経路）。サイクル239の FailurePattern σ=0 修正と同型 — `IsStatisticalAnomaly`/`CalculateAnomalyScore` で閾値<=0 を非異常扱いに統一し、併せて zero-mean ウィンドウでの `trendFactor` 除算（NaN/Infinity 経路）もガード
+
+### Fixed (ヘルス変化イベントが毎サイクル発火していた)
+
+- `AutoRecoveryManager.HasHealthChanged` が `ComponentHealth` レコード全体（`ResponseTime` 含む）を等価比較していたため、実際の健全性が不変でも毎サイクル `SystemHealthChanged` を発火していた → IsHealthy/Status/ErrorMessage のみを比較するよう修正。併せて `CheckServiceHostHealth` の `GetCurrentProcess()` が非 Dispose だった軽微なハンドルリークを `using` 化
+
+### Fixed (SignalR ブロードキャスト失敗が未観測例外になっていた)
+
+- `BroadcastAlertAsync` が内部 catch を持たず、ヘルスアラート／異常検知／タスク完了の3経路から fire-and-forget で呼ばれていた — SignalR 送信失敗が未観測タスク例外（またはイベント発行者スレッドへの同期伝播）になり得た → メソッド内で捕捉して警告ログ化（`BroadcastHealthTickAsync` と同じ契約に統一）
+
+### Fixed (コンプライアンス間隔が Timer 上限超過時に起動クラッシュしていた)
+
+- `Compliance:ReportIntervalHours` が 1193 時間（System.Threading.Timer の最大周期）を超える設定で、ホステッドサービス起動時に Timer コンストラクタ内の ArgumentOutOfRangeException でクラッシュしていた → 起動時バリデーションで明確な設定エラー（InvalidOperationException）として報告するよう修正
+
+### Fixed (Unix で全プロセス実行が結果取得直前に失敗していた)
+
+- `ProcessRunner.RunAsync` が終了済みプロセスの `PeakWorkingSet64` を無条件に読み、Unix では InvalidOperationException を投げていた（procfs エントリ消失のため） — Linux/macOS での修復コマンド実行が全て失敗扱いになっていた実バグを、best-effort 読取り（0 フォールバック）に修正。実プロセスを使うクロスプラットフォーム回帰テストを追加
+
 ### Improved (イベント駆動修復の HTTP 送信を IHttpClientFactory へ)
 
 - `EventDrivenRemediationService` が専用の `new HttpClient()` を自前保持・二重 Dispose していたのを、登録済みの `IHttpClientFactory`（`services.AddHttpClient()`）経由に変更 — ハンドラプーリング/DNS 更新が有効化され、送信は共有ハンドラ経由になる

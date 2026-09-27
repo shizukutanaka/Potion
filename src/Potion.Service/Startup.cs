@@ -84,7 +84,11 @@ public class Startup
         services.AddSignalR();
         services.AddHttpClient();
         services.AddSingleton<CollaborationService>();
-        services.Configure<CollaborationOptions>(Configuration.GetSection("Collaboration"));
+        services.AddOptions<CollaborationOptions>()
+            .Bind(Configuration.GetSection("Collaboration"))
+            .Validate(o => o.MaxConcurrentUsers > 0,
+                "Collaboration:MaxConcurrentUsers must be positive (the hub is always mapped).")
+            .ValidateOnStart();
 
         // Self-healing monitoring loop: observation and reporting only.
         services.AddSingleton<ISystemHealthMonitor, SystemHealthMonitor>();
@@ -119,8 +123,18 @@ public class Startup
             .Bind(Configuration.GetSection(PerformanceOptimizerOptions.SectionName))
             .ValidateDataAnnotations()
             .ValidateOnStart();
-        services.Configure<EventCorrelationOptions>(Configuration.GetSection("EventCorrelation"));
-        services.Configure<ComplianceOptions>(Configuration.GetSection("Compliance"));
+        services.AddOptions<EventCorrelationOptions>()
+            .Bind(Configuration.GetSection("EventCorrelation"))
+            .Validate(o => !o.Enabled || o.CorrelationWindowMinutes > 0,
+                "EventCorrelation:CorrelationWindowMinutes must be positive when enabled.")
+            .Validate(o => !o.Enabled || o.MaxEventsToCorrelate > 0,
+                "EventCorrelation:MaxEventsToCorrelate must be positive when enabled.")
+            .ValidateOnStart();
+        services.AddOptions<ComplianceOptions>()
+            .Bind(Configuration.GetSection("Compliance"))
+            .Validate(o => !o.Enabled || o.ReportIntervalHours is >= 1 and <= 1193,
+                "Compliance:ReportIntervalHours must be 1-1193 hours when enabled (1193 is the maximum System.Threading.Timer period).")
+            .ValidateOnStart();
 
         // Repair-execution tier: these services run OS-level repairs
         // autonomously (service restarts, SFC/DISM, performance tuning), so

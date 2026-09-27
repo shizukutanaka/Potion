@@ -106,6 +106,11 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
         var predictionError = Math.Abs(value - predictedValue);
         var threshold = timeSeries.GetAdaptiveThreshold();
 
+        // A flat baseline yields threshold 0 (or NaN for a zero-mean window),
+        // which would either flag the first noise sample or suppress detection
+        // entirely; only flag once a positive variance has been established.
+        if (!(threshold > 0)) return false;
+
         return predictionError > threshold;
     }
 
@@ -351,7 +356,8 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
             var stdDev = Math.Sqrt(variance);
 
             // Adjust threshold based on trend strength and pattern stability
-            var trendFactor = Math.Min(Math.Abs(_trend) / mean * 3, 2.0);
+            // (mean may be 0 for windows centred at zero — avoid NaN/Infinity)
+            var trendFactor = mean == 0 ? 0.0 : Math.Min(Math.Abs(_trend) / Math.Abs(mean) * 3, 2.0);
             var patternStability = CalculatePatternStability();
 
             return stdDev * (2.0 + trendFactor) / (1.0 + patternStability);
@@ -365,8 +371,9 @@ public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
             var predictionError = Math.Abs(value - predicted);
             var threshold = GetAdaptiveThreshold();
 
-            // Normalized anomaly score (0-1)
-            var baseScore = Math.Min(predictionError / threshold, 1.0);
+            // Normalized anomaly score (0-1); a non-positive threshold means
+            // the baseline carries no variance information, so no score.
+            var baseScore = threshold > 0 ? Math.Min(predictionError / threshold, 1.0) : 0.0;
 
             // Boost score for pattern anomalies
             var patternDeviation = CalculatePatternDeviation(value);

@@ -179,7 +179,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
 
         try
         {
-            var currentProcess = Process.GetCurrentProcess();
+            using var currentProcess = Process.GetCurrentProcess();
 
             // システム全体のメモリ情報
             var systemMemory = GetSystemMemoryInfo();
@@ -312,35 +312,26 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
 
         try
         {
-            var currentProcess = Process.GetCurrentProcess();
+            using var currentProcess = Process.GetCurrentProcess();
             var currentMemory = await GetMemoryStatisticsAsync(cancellationToken);
 
-            // プロセスメモリ使用状況のチェック
-            var processes = Process.GetProcesses()
-                .Where(p => p.Id != currentProcess.Id) // 自プロセスを除外
-                .Where(p => p.WorkingSet64 > 100 * 1024 * 1024) // 100MB以上使用
-                .OrderByDescending(p => p.PrivateMemorySize64)
+            // プロセスメモリ使用状況のチェック（プロセスごとのプロパティ失敗は
+            // SelectProcesses 内でスキップ）
+            var processes = ProcessUtilities.SelectProcesses(
+                    p => new ProcessMemoryInfo(
+                        p.Id,
+                        p.ProcessName,
+                        p.WorkingSet64,
+                        p.PrivateMemorySize64,
+                        p.VirtualMemorySize64,
+                        p.TotalProcessorTime,
+                        p.StartTime),
+                    p => p.Id != currentProcess.Id && p.WorkingSet64 > 100 * 1024 * 1024)
+                .OrderByDescending(info => info.PrivateMemoryBytes)
                 .Take(10)
                 .ToList();
 
-            foreach (var process in processes)
-            {
-                try
-                {
-                    suspiciousProcesses.Add(new ProcessMemoryInfo(
-                        process.Id,
-                        process.ProcessName,
-                        process.WorkingSet64,
-                        process.PrivateMemorySize64,
-                        process.VirtualMemorySize64,
-                        process.TotalProcessorTime,
-                        process.StartTime));
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogDebug(ex, "プロセスメモリ情報の取得に失敗しました: {ProcessName}", process.ProcessName);
-                }
-            }
+            suspiciousProcesses.AddRange(processes);
 
             // メモリリークの兆候をチェック
             var hasPotentialLeaks = suspiciousProcesses.Any(p =>
@@ -445,7 +436,7 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
 
         try
         {
-            var currentProcess = Process.GetCurrentProcess();
+            using var currentProcess = Process.GetCurrentProcess();
             var beforeWorkingSet = currentProcess.WorkingSet64;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))

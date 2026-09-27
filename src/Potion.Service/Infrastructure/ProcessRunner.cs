@@ -240,7 +240,17 @@ public sealed class ProcessRunner : IProcessRunner, IDisposable
             processingCts.Dispose();
         }
 
-        var peakMemory = process.PeakWorkingSet64;
+        // PeakWorkingSet64 throws InvalidOperationException on Unix once the
+        // process has exited (procfs entry is gone); memory telemetry is
+        // best-effort there and must not fail the whole execution result.
+        var peakMemory = 0L;
+        try
+        {
+            peakMemory = process.PeakWorkingSet64;
+        }
+        catch (InvalidOperationException)
+        {
+        }
         var peakMemoryMb = peakMemory / (1024.0 * 1024.0);
         var standardOutput = outputBuffer.ToString();
         var standardError = errorBuffer.ToString();
