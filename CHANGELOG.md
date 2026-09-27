@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (予測修復がフラットメトリクスの微ノイズで誤発火していた)
+
+- `FailurePattern.IsAnomaly` は σ=0（完全に平坦な系列 — 例： アイドル時の BytesReceivedPerSec≒0）でも `value > mean + 2σ` が常に真となり、最初の非ゼロサンプルで「故障予測」と誤判定して修復をスケジュールしていた → `_baselineStdDev > 0` ガードを追加し、分散ゼロのベースラインでは発火しない設計へ（分散が実在した後のスパイク検出は従来通り機能）。回帰テスト1件追加
+- 併せて `IsFailureLikely` の await なし async を同期メソッド化（無駄な状態機械を除去）
+
 ### Fixed (未処理例外のリクエストがエラーレート0として計測されていた)
 
 - `RequestMetricsMiddleware` は `finally` で `Response.StatusCode` を読んでいたが、パイプラインに `UseExceptionHandler` がなく、未処理例外は Kestrel が 500 を書く前にアンワインドするため、クラッシュしたリクエストは status 200 として記録されていた → 例外観測して未設定なら 500 扱いに修正（クライアント中断 `OperationCanceledException` はサーバエラー非計上）。ダッシュボードの error-rate 指標が障害時も正しく上昇するように
