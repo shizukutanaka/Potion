@@ -135,9 +135,9 @@
     <PackageId>Potion.Service</PackageId>
     <Description>Production-grade Windows system automation service with autonomous remediation, monitoring, and security controls</Description>
     <PackageTags>windows-service;self-healing;remediation;monitoring;system-automation;security</PackageTags>
-    <PackageProjectUrl>https://github.com/irosa/Potion</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/shizukutanaka/Potion</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/irosa/Potion.git</RepositoryUrl>
+    <RepositoryUrl>https://github.com/shizukutanaka/Potion.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <Authors>Potion Contributors</Authors>
     <Company>Open Source</Company>

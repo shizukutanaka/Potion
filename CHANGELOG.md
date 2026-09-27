@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (ACL 強化が gMSA/カスタムサービスアカウントのサービスを締め出していた)
+
+- `ServicePaths.HardenDirectory` が許可 SID を LocalSystem/Administrators/LocalService/NetworkService の4つに固定 — **gMSA やカスタムアカウントで動くサービス自身がステートディレクトリから締め出される** Windows 運用時の実欠陥 → `WindowsIdentity.GetCurrent().User` を許可リストへ追加し、サービス実行アカウントの自己アクセスを維持
+
+### Fixed (パッケージメタデータのリポジトリ URL とテスト数のドリフト)
+
+- csproj の `PackageProjectUrl`/`RepositoryUrl` が `github.com/irosa/Potion`（旧オーナー）を指していた → `shizukutanaka/Potion` へ訂正。README のテスト数 `111/111` → 実数 `204/204` へ更新
+
 ### Fixed (行末コードポリシーが無くシェル/バッチスクリプトが壊れ得た)
 
 - `.gitattributes` が存在せず、Windows で `core.autocrlf=true` のチェックアウトは `deploy.sh`/`validate-system.sh` を CRLF 化（bash が `$'\r'` で破壊）、逆に LF の `install.cmd` は cmd.exe のラベル/goto 解析を壊し得た → `* text=auto`＋`*.sh`/`*.bash` を `eol=lf`、`*.cmd`/`*.bat`/`*.ps1`/`*.wxs` を `eol=crlf`、バイナリ拡張子を `binary` で固定
