@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (HTTP パイプラインに例外ハンドラとセキュリティヘッダーを追加)
+
+- 未捕捉例外が Kestrel の空ボディ500になるだけだった → `UseExceptionHandler` で `application/problem+json`（traceId 付き）を返しサーバ側ログへ記録。全応答に `X-Content-Type-Options: nosniff`・`X-Frame-Options: DENY`・`Referrer-Policy: no-referrer` を付与（HTTPS 時のみ HSTS）。CSP はダッシュボードが inline onclick/style に広く依存するため意図的に非適用
+
 ### Fixed (相関条件が非数値イベントを 0 として誤判定し、文字列値をカルチャ依存でパースしていた)
 
 - `EventCorrelationService.GetEventValue` が非数値 `Data`（health.alert の SystemHealthAlert 等）に **0 を返し**、`<`/`<=` 閾値条件を虚偽に充足させていた → `TryGetEventValue` 化して非数値は数値比較を充足しない設計へ。文字列値の `double.TryParse` は現在カルチャで走行し **de-DE 等で "85.5"→855 に化けて閾値超過の誤検知**を起こし得た → `InvariantCulture` へ。回帰テスト4件追加

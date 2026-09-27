@@ -239,6 +239,44 @@ public class Startup
         // so without this the potion.* series never reach the /metrics export.
         _ = Infrastructure.PotionMetrics.SystemHealthScore;
 
+        // Consistent 500 contract: without an exception handler, unhandled
+        // endpoint failures surface as Kestrel's bare empty-body 500.
+        app.UseExceptionHandler(errorApp =>
+        {
+            errorApp.Run(async context =>
+            {
+                var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+                var logger = context.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Potion.UnhandledException");
+                logger.LogError(exception, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
+
+                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                context.Response.ContentType = "application/problem+json";
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    title = "Internal Server Error",
+                    status = 500,
+                    traceId = context.TraceIdentifier,
+                });
+            });
+        });
+
+        // Browser-facing dashboard hardening. No CSP: the dashboard uses inline
+        // onclick/style attributes pervasively, so a useful policy is impossible
+        // without a markup refactor.
+        app.Use(async (context, next) =>
+        {
+            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            context.Response.Headers["X-Frame-Options"] = "DENY";
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            if (context.Request.IsHttps)
+            {
+                context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000";
+            }
+            await next();
+        });
+
         app.UseRequestLocalization();
         app.UseDefaultFiles();
         app.UseStaticFiles();
