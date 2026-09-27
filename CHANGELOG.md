@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (ログの ServiceVersion が実バージョンと不一致だった)
+
+- Serilog `Properties.ServiceVersion` が全環境 "1.0.0" でアセンブリ/OTel メーターの 2.0.0 と乖離 — 全ログ行に古いバージョンが刻まれていた → 2.0.0/2.0.0-dev に統一
+
 ### Fixed (procfs/sysfs のパースがカルチャ依存だった)
 
 - `/proc/cpuinfo` の MHz 行と thermal_zone の `double.TryParse` が現在カルチャで走行 — **コンマ小数点ロケール（de-DE/fr-FR 等）では "2499.988" が 2499988 に化ける**（`.` が桁区切り扱い）→ `NumberStyles.Float + InvariantCulture` へ。/proc・/sys はロケールに関わらず常に `.` 小数点を使う
