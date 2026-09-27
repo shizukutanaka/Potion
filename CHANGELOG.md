@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (MemoryMonitor にユニットテストを追加)
+
+- 稼働中のホステッドサービス MemoryMonitor（624行）にテストが皆無だった → 実OS呼出しを通す契約テスト5件を追加： 統計スナップショットの整合性・GC単独最適化・全アクション有効時の誠実失敗・リークレポート・無効時のクリーン停止
+
 ### Improved (k8s Ingress に認証なし公開の警告を明記)
 
 - Ingress はダッシュボード・`/api/health/security`・`/metrics`・`/collaboration` の**全ルートを匿名のまま公開**する構成 — `potion-service.example.com` ホストのまま本番適用するとホストのセキュリティ態勢が誰でも読める → Ingress annotations へ内部ネットワーク限定か認証プロキシ必須の警告コメントを明記（マニフェスト自体は変更せず、挙動不変）
