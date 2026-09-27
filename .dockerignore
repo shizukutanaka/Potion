@@ -20,3 +20,8 @@ docker-compose*.yml
 .gitattributes
 .dockerignore
 validation-report.txt
+.claude/
+claudedocs/
+helm/
+kubernetes-enterprise.yml
+C*/
