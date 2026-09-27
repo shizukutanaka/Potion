@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (圧力アラート判定とコンプライアンスレポート生成経路へテスト追加)
+
+- `SystemHealthMonitor.EvaluatePressureAlerts`/`EmitPressureAlert` の契約を固定： `ToPressure` 全閾値境界（70/85/95）、ヒステリシス帯（High 発火中は 80% まで低下しても持続）、15分クールダウン中もスナップショットへアラートを継続同梱＋イベントは1回のみ、エピソード安定 AlertId、解消→再発火で新 ID、Critical→Critical severity、コンポーネント独立発火 — `SystemHealthMonitoring.cs` 21.4% → 24.8%（残りは OS サンプラ本体）
+- `ComplianceReportService` の有効化経路を実機駆動： `StartAsync` タイマー即時発火で実レポート JSON が生成され、GDPR "Data Encryption" チェックが Kestrel HTTPS エンドポイント有無に連動（無い場合 OverallCompliance=false）、`ReportIntervalHours <= 0`/`>1193` の設定検証が `InvalidOperationException` を投げる — `ComplianceReportService.cs` 39.9% → 96.5%
+- テスト総数 237 → 256（+19）
+
 ### Improved (AutoRecoveryManager・ErrorHandler の回復判定ロジックへテスト追加)
 
 - `AttemptRecoveryAsync` の契約を固定： コンポーネント→アクションマッピング全5分岐（ServiceHost→RestartService／FileSystem→ClearCache／Configuration→ResetConfiguration／Network→Failover／未知→RestartComponent）、Scheduler の失敗エスカレーション（RestartComponent→RestartService→上限超過で Failover 拒否イベント＋"Max attempts exceeded"）、FileSystem キャッシュディレクトリの実削除・再作成 — `AutoRecoveryManager.cs` 38.2% → 66.4%（残りは PerformHealthCheckCycleAsync ループと Windows 固有チェック）
