@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (未処理例外のリクエストがエラーレート0として計測されていた)
+
+- `RequestMetricsMiddleware` は `finally` で `Response.StatusCode` を読んでいたが、パイプラインに `UseExceptionHandler` がなく、未処理例外は Kestrel が 500 を書く前にアンワインドするため、クラッシュしたリクエストは status 200 として記録されていた → 例外観測して未設定なら 500 扱いに修正（クライアント中断 `OperationCanceledException` はサーバエラー非計上）。ダッシュボードの error-rate 指標が障害時も正しく上昇するように
+- 回帰テスト5件新設（例外→エラー計上・中断→非エラー・正常・明示500・除外パス）
+
 ### Improved (ServicePaths の生存面にテスト新設 — 起動要パス解決を回帰固定)
 
 - `ServicePaths` はテスト参照ゼロだった（PotionMetrics と並ぶ無テスト生存クラス）。`Base` が Potion 配下の絶対パスで実在、`Logs`/`State`/`Reports` の Ensure 生成・冪等性、`ConfigurationFile` のパス形状を4テストで固定（死パスヘルパー5件は対象外 — 削除候補のまま）
