@@ -227,6 +227,26 @@ public class ProcessRunnerTests : IDisposable
     }
 
     [Fact]
+    public async Task RunAsync_EchoOnAnyPlatform_ReturnsResultWithoutThrowing()
+    {
+        // PeakWorkingSet64 throws on Unix after the process exits; the runner
+        // must still return a result there (regression test).
+        var startInfo = OperatingSystem.IsWindows()
+            ? new ProcessStartInfo { FileName = "cmd.exe", Arguments = "/c echo hello" }
+            : new ProcessStartInfo { FileName = "/bin/echo", Arguments = "hello" };
+        startInfo.UseShellExecute = false;
+        startInfo.RedirectStandardOutput = true;
+        startInfo.RedirectStandardError = true;
+        startInfo.CreateNoWindow = true;
+
+        var result = await _processRunner.RunAsync(startInfo, TimeSpan.FromSeconds(10), CancellationToken.None);
+
+        Assert.NotNull(result);
+        Assert.Equal(0, result.ExitCode);
+        Assert.Contains("hello", result.StandardOutput);
+    }
+
+    [Fact]
     public async Task RunAsync_LargeOutput_TruncatesProperly()
     {
         if (!TestEnvironment.IsWindows) return; // cmd.exe は Windows 専用

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (Unix で全プロセス実行が結果取得直前に失敗していた)
+
+- `ProcessRunner.RunAsync` が終了済みプロセスの `PeakWorkingSet64` を無条件に読み、Unix では InvalidOperationException を投げていた（procfs エントリ消失のため） — Linux/macOS での修復コマンド実行が全て失敗扱いになっていた実バグを、best-effort 読取り（0 フォールバック）に修正。実プロセスを使うクロスプラットフォーム回帰テストを追加
+
 ### Improved (イベント駆動修復の HTTP 送信を IHttpClientFactory へ)
 
 - `EventDrivenRemediationService` が専用の `new HttpClient()` を自前保持・二重 Dispose していたのを、登録済みの `IHttpClientFactory`（`services.AddHttpClient()`）経由に変更 — ハンドラプーリング/DNS 更新が有効化され、送信は共有ハンドラ経由になる
