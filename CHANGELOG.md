@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (CONTRIBUTING の検証コマンドが実行不能)
+
+- `dotnet test -k` は存在しないオプション（正しくは `--filter`）→ `--filter "FullyQualifiedName~..."` へ修正・実機検証済み
+- `/p:CollectCoverage=true` は未導入の `coverlet.msbuild` 向け引数で何も出力しない → 導入済み `coverlet.collector` の正規指定 `--collect:"XPlat Code Coverage"` へ修正（cobertura XML 生成を実機確認）
+- `.dockerignore` に `.claude/`・`claudedocs/`・`helm/`・`kubernetes-enterprise.yml`・`C*/`（Serilog パスバグの漏洩残骸）を追加 — ビルドコンテキストから除外
+- 確認： `alertmanager.yml`/`prometheus.yml` の通知先・スクレイプ設定は全て実在エンドポイントと整合、`launchSettings.json` 不要（appsettings の Kestrel セクションが URL を駆動）、`License.rtf` は MIT 免責条項と整合
+
 ### Fixed (ConfigTool の生成テンプレートが縮小済み allowlist と不整合＋restore の危険上書き)
 
 - `generate` の `CommandAllowlist` テンプレートが縮小前の旧リスト（`net.exe`/`wevtutil.exe`/`ipconfig.exe`/`systeminfo.exe` 等の引数悪用可能なコマンドを含む）を吐き出していた → 出荷設定と同じ最小リストへ同期
