@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs">
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util">
   <!-- Build: dotnet publish src/Potion.Service -c Release -r win-x64 -p:PublishSelfContained=true -p:PublishTrimmed=false -o src/Potion.Service/bin/Release/net8.0/win-x64/publish
-       then: wix build setup/Potion.wxs -ext WixToolset.UI.wixext -o Potion.msi -->
+       then: wix build setup/Potion.wxs -ext WixToolset.UI.wixext -ext WixToolset.Util.wixext -o Potion.msi -->
   <Package Name="Potion Self-Healing Service" Manufacturer="Potion" Version="1.0.0" UpgradeCode="12345678-1234-1234-1234-123456789012">
 
     <MajorUpgrade DowngradeErrorMessage="A newer version of Potion is already installed." />
@@ -45,6 +46,16 @@
           Start="auto"
           ErrorControl="normal"
           Type="ownProcess" />
+        <!-- A self-healing service must itself recover: restart on the
+             first three failures, then reset the failure count daily so
+             transient crashes never permanently stop monitoring. -->
+        <util:ServiceConfig
+          ServiceName="Potion Self-Healing Service"
+          FirstAction="restart"
+          SecondAction="restart"
+          ThirdAction="restart"
+          ResetPeriodInDays="1"
+          RestartServiceDelayInSeconds="5" />
         <ServiceControl
           Id="StartServiceControl"
           Name="Potion Self-Healing Service"

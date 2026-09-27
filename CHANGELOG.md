@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (インストールした Windows サービス自身の障害復旧が無かった)
+
+- `Potion.wxs` の `ServiceInstall` に SCM 復旧設定がなく、自己修復サービスがクラッシュすると SCM が再起動しない矛盾 → `util:ServiceConfig` で最初の3障害を5秒後再起動・障害カウンタを1日でリセット（`WixToolset.Util.wixext` の参照をビルド手順コメントへ追記）
+- 監査結果： LocalSystem 既定・`Environment` マルチ文字列レジストリ・`MajorUpgrade` は正規 — データディレクトリの ACL は `ServicePaths.HardenDirectory` のランタイム強化に依存する設計と確認
+
 ### Improved (ダッシュボードの設定反映とアクセシビリティ)
 
 - `saveSettings` で自動更新 ON のまま更新間隔を変更しても**旧タイマーが走り続け新間隔はリロードまで無効**だった → タイマーを再起動して即時適用
