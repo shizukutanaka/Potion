@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (coverage 成果物が git の追跡対象に見えていた)
+
+- `dotnet test --collect:"XPlat Code Coverage"` が生成する `TestResults/` が `.gitignore` 未記載で `git status` に untracked として出現 — 誤コミット経路を塞ぐため `TestResults/` を追加
+- dependabot.yml 健全性確認： nuget（sln はルート）・docker（ルート Dockerfile）・github-actions の3エコシステム週次は整合
+
 ### Improved (例外握り潰しの横断監査 — 1件のみ観測性ギャップを修正)
 
 - 全ソースの catch ブロックを走査：25件中ほぼ全てが「フィルタ付きキャンセル」または「プラットフォーム最良努力（非 Windows で API が投げる等）」の正当パターンと確認。唯一 `AutoRecoveryManager` のコンポーネントヘルスチェックが例外を `ComponentHealth.Error` に記録するのみで**ログに残さず**、ログだけ見る運用では原因を診断不能だった → `LogWarning` 追加
