@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (PredictiveRemediationService の予測判定コアへテスト追加)
+
+- `FailurePattern.IsAnomaly`（予測判定の中核）の契約を固定： ゼロ分散ベースラインでは非発火（アイドル指標の誤検知防止ガード）、10件未満のウォームアップでは非発火、確立分散では `mean + 2σ` 超過のみ発火（境界値は厳密に非発火）、候補値は自身のベースラインから除外（包含すると判定を歪めるリグレッション領域を決定的入力で証明）— `PredictiveRemediationService.cs` 60.2% → 68.0%（残りは5分周期の `ExecuteAsync` ループと `AnalyzeAndPredict` ディスパッチ）
+- テスト総数 256 → 261（+5）
+
 ### Improved (圧力アラート判定とコンプライアンスレポート生成経路へテスト追加)
 
 - `SystemHealthMonitor.EvaluatePressureAlerts`/`EmitPressureAlert` の契約を固定： `ToPressure` 全閾値境界（70/85/95）、ヒステリシス帯（High 発火中は 80% まで低下しても持続）、15分クールダウン中もスナップショットへアラートを継続同梱＋イベントは1回のみ、エピソード安定 AlertId、解消→再発火で新 ID、Critical→Critical severity、コンポーネント独立発火 — `SystemHealthMonitoring.cs` 21.4% → 24.8%（残りは OS サンプラ本体）
