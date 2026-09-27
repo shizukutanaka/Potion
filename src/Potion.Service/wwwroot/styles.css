@@ -288,6 +288,7 @@ h4 { font-size: 16px; }
 .status-badge.warning { background: var(--warning-yellow); color: white; }
 .status-badge.critical { background: var(--error-red); color: white; }
 .status-badge.unknown { background: var(--gray-400); color: white; }
+.status-badge.offline { background: var(--gray-700); color: white; }
 
 /* Health Card */
 .health-score {

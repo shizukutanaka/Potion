@@ -16,6 +16,10 @@ class PotionDashboard {
         this.currentChartRange = '24h';
         // Rolling window of real metric samples collected by the poller.
         this.chartData = [];
+        // Populated by the poller — initialized so the Logs/Alerts views render
+        // empty instead of throwing before the first successful fetch.
+        this.alertsData = [];
+        this.logsData = [];
         this.searchResults = [];
         this.currentSearchCategory = 'all';
         this.currentPage = 1;
@@ -950,6 +954,9 @@ class PotionDashboard {
     async loadOverviewData() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/health`);
+            if (!response.ok) {
+                throw new Error(`GET /api/health -> ${response.status}`);
+            }
             const data = await response.json();
 
             this.lastMetrics = data.metrics;
@@ -963,7 +970,14 @@ class PotionDashboard {
             this.updateEventsOverview(data.metrics.windowsEvents);
 
         } catch (error) {
+            // The badge must not keep reporting the last-known-good state
+            // while the API is unreachable — surface the disconnect.
             console.error('Failed to load overview data:', error);
+            const statusEl = document.getElementById('overall-status');
+            if (statusEl) {
+                statusEl.className = 'status-badge offline';
+                statusEl.textContent = 'Unreachable';
+            }
         }
     }
 

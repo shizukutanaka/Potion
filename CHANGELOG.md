@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (ダッシュボードが API 断時に「Healthy」を表示し続けていた)
+
+- `loadOverviewData` が fetch 失敗時にバッジを最後の正常状態のまま残し、`response.ok` 未検証で 500 応答も握り潰していた — 監視ダッシュボードが到達不能を報告しない逆説 → 非2xx を例外化し、catch 時にバッジを `offline`/`Unreachable` 表示へ（`status-badge.offline` スタイル追加）
+- `alertsData`/`logsData` が未初期化で、初回 fetch 成功前に Logs タブを開くと `this.logsData.filter` で TypeError → コンストラクタで空配列初期化
+
 ### Fixed (Serilog シンクの配列マージで基底の `C:/ProgramData` エラーログが Dev/Container へ漏洩)
 
 - .NET 設定配列は**インデックス単位でマージ**されるため、WriteTo を2件しか定義しない `appsettings.Development.json`/`appsettings.Container.json` は基底の index 2（`C:/ProgramData/Potion/logs/potion-errors-.log` の Error シンク）を継承していた — Unix 開発機では cwd に `C:` ディレクトリ生成、コンテナでは `/app` 直下に無意味な `C:` ツリー → 各環境に明示的な index 2 Error ファイルシンクを追加（`logs/dev-errors-.log` 14日保持／`logs/potion-errors-.log` 30日保持）。Development 起動で `C:` 無生成を実機確認
