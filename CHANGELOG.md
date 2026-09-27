@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (ファイル I/O の堅牢性欠陥3件)
+
+- 一時ファイルクリーンアップが `GetFiles` で temp ツリー全体を先に materialize し、**1つの読めないサブディレクトリで全体が中断**していた → `EnumerateFiles`+`IgnoreInaccessible` で遅延列挙化（`Take` が実際に歩行を打ち切り、読めない dir はスキップ）
+- コンプライアンスレポートが非アトミック `WriteAllTextAsync` — 書込み中のクラッシュで**切断された壊れた JSON が最終パスに残る** → 同一ボリュームの `.tmp` 書込み→`File.Move(overwrite)` でアトミック化
+- `AutoRecoveryManager` の設定健全性チェックが `JsonDocument.Parse` を **Dispose せず**（プールドバッファのリーク/サイクル）→ `using` 化
+
 ### Fixed (プロセス列挙が毎ポーリングで OS ハンドルをリークしていた)
 
 - `Process.GetCurrentProcess()`/`Process.GetProcesses()` が返すオブジェクトは OS ハンドルを保持するが、3ファイル・10箇所で未 Dispose — ヘルスポーリング＋最適化パスで毎回ハンドルがチャーンしていた → 共有 `ProcessUtilities`（CountProcesses/SelectProcesses＋全要素 Dispose＋列挙中の個別プロセス失敗スキップ）を新設し全呼出しを移行、`GetCurrentProcess` 参照箇所は `using` 化

@@ -381,10 +381,16 @@ public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimi
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 var tempPaths = new[] { Path.GetTempPath(), Environment.GetEnvironmentVariable("TEMP") };
+                var cutoff = DateTime.UtcNow.AddDays(-1);
                 foreach (var tempPath in tempPaths.Where(p => !string.IsNullOrEmpty(p)))
                 {
-                    var tempFiles = Directory.GetFiles(tempPath!, "*.*", SearchOption.AllDirectories)
-                        .Where(f => File.GetLastWriteTimeUtc(f) < DateTime.UtcNow.AddDays(-1))
+                    // EnumerateFiles is lazy so Take() bounds the walk, and
+                    // IgnoreInaccessible keeps one unreadable subdirectory
+                    // from aborting the whole cleanup (GetFiles throws
+                    // mid-enumeration and materializes the entire tree).
+                    var tempFiles = Directory.EnumerateFiles(tempPath!, "*.*",
+                            new System.IO.EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true })
+                        .Where(f => File.GetLastWriteTimeUtc(f) < cutoff)
                         .Take(_optionsMonitor.CurrentValue.MaxTempFilesToCleanup);
 
                     foreach (var tempFile in tempFiles)

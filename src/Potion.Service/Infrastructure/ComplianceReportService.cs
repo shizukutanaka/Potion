@@ -222,7 +222,11 @@ public class ComplianceReportService : IHostedService, IDisposable
             WriteIndented = true
         });
 
-        await File.WriteAllTextAsync(filePath, json);
+        // Write-then-move keeps a crash mid-write from leaving a truncated,
+        // corrupt JSON report at the final path (both paths share a volume).
+        var tempPath = filePath + ".tmp";
+        await File.WriteAllTextAsync(tempPath, json);
+        File.Move(tempPath, filePath, overwrite: true);
         _logger.LogInformation("Compliance report saved to {Path}", filePath);
     }
 

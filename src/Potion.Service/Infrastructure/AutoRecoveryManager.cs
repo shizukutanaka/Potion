@@ -426,7 +426,7 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
 
             // JSON構文チェック
             var configContent = await File.ReadAllTextAsync(configPath, cancellationToken);
-            System.Text.Json.JsonDocument.Parse(configContent);
+            using var document = System.Text.Json.JsonDocument.Parse(configContent);
             return true;
         }
         catch
