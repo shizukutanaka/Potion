@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (AnomalyDetector の検知パイプラインへ駆動型テスト追加 — 37% → 86%)
+
+- 常時稼働の異常検知ループ（タイマー駆動 `AnalyzeMetricsAsync`）が未テストだった → `RecordMetric` でベースライン構築＋`GetCurrentMetricsAsync` モック経由でスパイク投入し `AnomalyDetected` イベントを待機する駆動型テストを追加
+- カバー対象： メトリクス別ハンドラ全分岐（CpuUsage/MemoryUsage/DiskUsage/BytesReceivedPerSec/汎用）、Holt-Winters 時系列のパターン・トレンド検知（安定ベースラインでは "Trend"、交互パターン破壊では "Complex" = 3検知系全発火）、300件履歴トリム、安定継続時の非発火
+- `AnomalyDetector.cs` 行カバレッジ 37.4% → 86.4%、テスト総数 213 → 220
+
 ### Fixed (Release ビルドでカバレッジが常に空になる)
 
 - `Potion.Service.csproj` の Release 設定が `PathMap=$(MSBuildProjectDirectory)=/` を無条件適用し、PDB のソースパスが全て `/` に書き換えられて coverlet が行を解決できず cobertura が `lines-valid="0"` の空レポートになっていた → `PathMap` を `ContinuousIntegrationBuild=='true'` のみへ限定（.NET 推奨パターン： CI の決定論的ビルドは維持しつつ、ローカルの Release カバレッジ計測が動作する）
