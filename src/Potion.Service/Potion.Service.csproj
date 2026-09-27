@@ -48,7 +48,9 @@
     <DebugSymbols>false</DebugSymbols>
     <DebugType>portable</DebugType>
     <Optimize>true</Optimize>
-    <PathMap>$(MSBuildProjectDirectory)=/</PathMap>
+    <!-- CI向け決定論的ビルドのみ PathMap を適用する（無条件に設定すると
+         coverlet がソースパスを解決できずカバレッジレポートが空になる） -->
+    <PathMap Condition="'$(ContinuousIntegrationBuild)'=='true'">$(MSBuildProjectDirectory)=/</PathMap>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">

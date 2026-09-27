@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed (Release ビルドでカバレッジが常に空になる)
+
+- `Potion.Service.csproj` の Release 設定が `PathMap=$(MSBuildProjectDirectory)=/` を無条件適用し、PDB のソースパスが全て `/` に書き換えられて coverlet が行を解決できず cobertura が `lines-valid="0"` の空レポートになっていた → `PathMap` を `ContinuousIntegrationBuild=='true'` のみへ限定（.NET 推奨パターン： CI の決定論的ビルドは維持しつつ、ローカルの Release カバレッジ計測が動作する）
+
+### Improved (カバレッジ棚卸し＋最大の実稼働未テスト領域へテスト追加)
+
+- カバレッジ計測で稼働中コードの未テスト経路を特定：`PerformanceOptimizer`（フラグ配線済み・実起動検証済み）が 668行・0% と最大ギャップ → `PerformanceOptimizerTests` 9件追加（閾値評価の全分岐・`PerformanceCounter`→ヘルスモニタへの CPU フォールバック・非 Windows で外部コマンドを実行しない契約を Strict モックで固定）— `PerformanceOptimizer.cs` の行カバレッジ 0% → 61.3%（残りは Windows 専用の netsh/powercfg/tempクリーンアップ経路）
+- テスト総数 204 → 213
+
 ### Fixed (coverage 成果物が git の追跡対象に見えていた)
 
 - `dotnet test --collect:"XPlat Code Coverage"` が生成する `TestResults/` が `.gitignore` 未記載で `git status` に untracked として出現 — 誤コミット経路を塞ぐため `TestResults/` を追加
