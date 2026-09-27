@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (k8s Ingress に認証なし公開の警告を明記)
+
+- Ingress はダッシュボード・`/api/health/security`・`/metrics`・`/collaboration` の**全ルートを匿名のまま公開**する構成 — `potion-service.example.com` ホストのまま本番適用するとホストのセキュリティ態勢が誰でも読める → Ingress annotations へ内部ネットワーク限定か認証プロキシ必須の警告コメントを明記（マニフェスト自体は変更せず、挙動不変）
+
 ### Improved (HTTP パイプラインに例外ハンドラとセキュリティヘッダーを追加)
 
 - 未捕捉例外が Kestrel の空ボディ500になるだけだった → `UseExceptionHandler` で `application/problem+json`（traceId 付き）を返しサーバ側ログへ記録。全応答に `X-Content-Type-Options: nosniff`・`X-Frame-Options: DENY`・`Referrer-Policy: no-referrer` を付与（HTTPS 時のみ HSTS）。CSP はダッシュボードが inline onclick/style に広く依存するため意図的に非適用

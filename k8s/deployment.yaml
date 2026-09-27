@@ -145,6 +145,11 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # WARNING: Potion serves no authentication — every path below (dashboard,
+    # /api/health/security, /metrics, /collaboration) is anonymous. Do NOT
+    # expose this Ingress publicly: restrict to internal networks
+    # (nginx.ingress.kubernetes.io/whitelist-source-range) or place an auth
+    # proxy (oauth2-proxy / basic auth) in front before production use.
 spec:
   tls:
   - hosts:
