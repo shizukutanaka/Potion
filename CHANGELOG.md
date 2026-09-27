@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (例外握り潰しの横断監査 — 1件のみ観測性ギャップを修正)
+
+- 全ソースの catch ブロックを走査：25件中ほぼ全てが「フィルタ付きキャンセル」または「プラットフォーム最良努力（非 Windows で API が投げる等）」の正当パターンと確認。唯一 `AutoRecoveryManager` のコンポーネントヘルスチェックが例外を `ComponentHealth.Error` に記録するのみで**ログに残さず**、ログだけ見る運用では原因を診断不能だった → `LogWarning` 追加
+- helm/（Chart.yaml+values.yaml のみのスタブ）・kubernetes-enterprise.yml は既報の削除候補であることを再確認 — 内容精査の結果、機能的に完成したマニフェスト群ではなくスタブのまま
+
 ### Improved (NuGet ロックファイルで推移依存を完全固定)
 
 - `Directory.Build.props` 新設（`RestorePackagesWithLockFile`）＋3プロジェクトの `packages.lock.json` を生成 — 推移依存までバージョン＋contentHash で固定され、リストアの完全再現とサプライチェーン改竄検知が可能に。CI で `--locked-mode` を有効化すればロック逸脱をビルド失敗にできる
