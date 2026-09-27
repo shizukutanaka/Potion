@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Security (CommandAllowlist を実使用する修復ツールへ最小化)
+
+- 既定のコマンド許可リストに**引数悪用型バイナリ**（`net.exe`/`sc.exe`/`reg.exe`/`wmic.exe`/`wevtutil.exe`/`ipconfig.exe`/`systeminfo.exe`/`tasklist.exe`/`netstat.exe` — `net user … /add` でローカル管理者作成、`wevtutil cl` でログ消去、`wmic process call create` で任意コード実行、`sc config` でサービス乗取りが可能）が未使用のまま残っていた → コード上で実際に参照される修復ツールのみへ縮小：`sfc.exe`・`dism.exe`・`cleanmgr.exe`・`chkdsk.exe`・`ngen.exe`・`powercfg.exe`・`netsh.exe`（後者2つは PerformanceOptimizer の Windows 経路が使用）。設定ミスは依然 `CommandsAreAllowlisted` 検証で起動時に明示的エラーになる
+
 ### Improved (MemoryMonitor にユニットテストを追加)
 
 - 稼働中のホステッドサービス MemoryMonitor（624行）にテストが皆無だった → 実OS呼出しを通す契約テスト5件を追加： 統計スナップショットの整合性・GC単独最適化・全アクション有効時の誠実失敗・リークレポート・無効時のクリーン停止
