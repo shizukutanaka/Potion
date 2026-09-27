@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.Eventing.Reader;
+using System.Globalization;
 using System.IO;
 using System.Management;
 using System.Net.NetworkInformation;
@@ -468,7 +469,10 @@ internal sealed class SystemMetricsSampler
                         continue;
                     }
                     var colon = line.IndexOf(':');
-                    if (colon >= 0 && double.TryParse(line[(colon + 1)..].Trim(), out var mhz))
+                    // /proc uses "." decimals regardless of locale; on comma-decimal
+                    // cultures TryParse would treat it as a group separator (2499.988 -> 2499988).
+                    if (colon >= 0 && double.TryParse(line[(colon + 1)..].Trim(),
+                            NumberStyles.Float, CultureInfo.InvariantCulture, out var mhz))
                     {
                         return mhz;
                     }
@@ -539,7 +543,7 @@ internal sealed class SystemMetricsSampler
             if (OperatingSystem.IsLinux() && File.Exists("/sys/class/thermal/thermal_zone0/temp"))
             {
                 var raw = File.ReadAllText("/sys/class/thermal/thermal_zone0/temp").Trim();
-                if (double.TryParse(raw, out var millidegrees))
+                if (double.TryParse(raw, NumberStyles.Float, CultureInfo.InvariantCulture, out var millidegrees))
                 {
                     return millidegrees / 1000.0;
                 }

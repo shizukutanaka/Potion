@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (procfs/sysfs のパースがカルチャ依存だった)
+
+- `/proc/cpuinfo` の MHz 行と thermal_zone の `double.TryParse` が現在カルチャで走行 — **コンマ小数点ロケール（de-DE/fr-FR 等）では "2499.988" が 2499988 に化ける**（`.` が桁区切り扱い）→ `NumberStyles.Float + InvariantCulture` へ。/proc・/sys はロケールに関わらず常に `.` 小数点を使う
+
 ### Improved (残りのオプション3件にも起動時バリデーションを追加)
 
 - `EventCorrelation`/`Compliance`/`Collaboration` は素の `Configure<T>` で検証なし — `MaxEventsToCorrelate <= 0` は相関バッファを常に空にする**無言の機能停止**、`MaxConcurrentUsers <= 0` は全接続拒否、`ReportIntervalHours` 範囲外はホステッドサービス起動クラッシュだった → `ValidateOnStart` でブート時に明示的エラー化（機能無効時は値を検証しない条件付き検証 — `Enabled: false` で無効化する運用を壊さない）
