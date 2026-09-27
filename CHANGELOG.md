@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (テストスタックを安全側へ更新)
+
+- `Microsoft.NET.Test.Sdk` 17.8.0→17.14.1、`xunit.runner.visualstudio` 2.5.3→2.8.2（xunit 2.x 系の最新ランナー）、`coverlet.collector` 6.0.0→6.0.4、`Moq` 4.20.69→4.20.72 — いずれもメジャー互換のパッチ/マイナー更新。`FluentAssertions` は 8.x でライセンスが有償化するため 6.12.0 を維持、`Microsoft.Extensions.Caching.Memory`/Serilog.Extensions 系の 10.x は .NET 10 向けのため 8/9 系を維持
+
 ### Security (xunit を 2.9.3 へ更新し脆弱な推移的依存を解消)
 
 - テストプロジェクトの推移的依存 `System.Net.Http 4.3.0`（High: GHSA-7jgj-8wvc-jh57）と `System.Text.RegularExpressions 4.3.0`（High: GHSA-cmhx-cq75-c4mj）— いずれも `xunit 2.6.1` が `NETStandard.Library 1.6.1` 経由で引き込んでいた → xunit 2.9.3 へ更新（同系最新安定、依存チェーン刷新で両脆弱性を解消）。`dotnet list package --vulnerable --include-transitive` で全プロジェクトクリーンを確認
