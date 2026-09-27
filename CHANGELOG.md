@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (インストーラスクリプトの MSI パスと管理者チェック)
+
+- `install.cmd` が `Potion.msi` を**カレントディレクトリ基準**で参照していたため、別ディレクトリからの実行が msiexec の file-not-found で失敗していた → `%~dp0` でスクリプト隣接の MSI を解決。併せて管理者権限チェックがインストール経路のみにありアンインストールが cryptic な msiexec エラーで落ちていた → チェックを両経路の共通前置へ移動
+- `deploy.sh` のスモークテストが `sleep 5` 固定待ちに依存し port-forward 起動が遅いと全チェックが失敗していた → `curl --retry-connrefused --retry 5` で接続拒否を自動リトライする堅牢な待機へ
+
 ### Improved (テストスタックを安全側へ更新)
 
 - `Microsoft.NET.Test.Sdk` 17.8.0→17.14.1、`xunit.runner.visualstudio` 2.5.3→2.8.2（xunit 2.x 系の最新ランナー）、`coverlet.collector` 6.0.0→6.0.4、`Moq` 4.20.69→4.20.72 — いずれもメジャー互換のパッチ/マイナー更新。`FluentAssertions` は 8.x でライセンスが有償化するため 6.12.0 を維持、`Microsoft.Extensions.Caching.Memory`/Serilog.Extensions 系の 10.x は .NET 10 向けのため 8/9 系を維持

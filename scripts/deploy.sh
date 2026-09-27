@@ -42,11 +42,12 @@ LOCAL_PORT=18080
 $KUBECTL port-forward -n "$NAMESPACE" "svc/$SERVICE" "$LOCAL_PORT:80" &
 FORWARD_PID=$!
 trap 'kill $FORWARD_PID 2>/dev/null || true' EXIT
-sleep 5
 
 FAILED=0
 for path in /health /api/health /api/health/metrics /api/health/security/summary /metrics; do
-    if curl -fs -m 10 "http://localhost:$LOCAL_PORT$path" -o /dev/null; then
+    # --retry-connrefused covers the port-forward startup race a fixed sleep
+    # would otherwise leave flaky.
+    if curl -fs -m 10 --retry 5 --retry-delay 1 --retry-connrefused "http://localhost:$LOCAL_PORT$path" -o /dev/null; then
         echo "  PASS $path"
     else
         echo "  FAIL $path" >&2
