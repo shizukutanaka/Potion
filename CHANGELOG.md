@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (Serilog シンクの配列マージで基底の `C:/ProgramData` エラーログが Dev/Container へ漏洩)
+
+- .NET 設定配列は**インデックス単位でマージ**されるため、WriteTo を2件しか定義しない `appsettings.Development.json`/`appsettings.Container.json` は基底の index 2（`C:/ProgramData/Potion/logs/potion-errors-.log` の Error シンク）を継承していた — Unix 開発機では cwd に `C:` ディレクトリ生成、コンテナでは `/app` 直下に無意味な `C:` ツリー → 各環境に明示的な index 2 Error ファイルシンクを追加（`logs/dev-errors-.log` 14日保持／`logs/potion-errors-.log` 30日保持）。Development 起動で `C:` 無生成を実機確認
+
 ### Security (NetworkPolicy が全 Pod へポートを開放していた)
 
 - `k8s/deployment.yaml` の NetworkPolicy ingress 第2ルールが `from: []`（空 = **クラスタ内の全 Pod から 80/443 へ到達可能**）で、直上の「ingress-nginx 名前空間のみ許可」ルールを実質無効化していた → Prometheus スクレイプ用途を `kubernetes.io/metadata.name: monitoring` 名前空間へ限定（コメントで調整方法を明記）
