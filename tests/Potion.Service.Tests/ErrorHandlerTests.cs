@@ -427,4 +427,75 @@ public class ErrorHandlerTests : IDisposable
         // Assert - 2回目の呼び出しで成功し、回路遮断器がリセットされる
         Assert.Equal(2, attemptCount);
     }
+
+    [Theory]
+    [InlineData(ErrorType.Security)]
+    [InlineData(ErrorType.Authentication)]
+    public void DetermineRecoveryStrategy_SecurityTypes_FailImmediately(ErrorType errorType)
+    {
+        var strategy = UserFriendlyErrorMessages.DetermineRecoveryStrategy(
+            new InvalidOperationException("x"), errorType, ErrorSeverity.Low);
+
+        Assert.Equal(FailureRecoveryAction.FailImmediately, strategy.Action);
+        Assert.Equal(0, strategy.MaxRetries);
+        Assert.Equal(TimeSpan.Zero, strategy.InitialDelay);
+    }
+
+    [Fact]
+    public void DetermineRecoveryStrategy_CriticalSeverity_EscalatesWithLimitedRetries()
+    {
+        var strategy = UserFriendlyErrorMessages.DetermineRecoveryStrategy(
+            new InvalidOperationException("x"), ErrorType.Internal, ErrorSeverity.Critical);
+
+        Assert.Equal(FailureRecoveryAction.EscalateWithRetry, strategy.Action);
+        Assert.Equal(2, strategy.MaxRetries);
+        Assert.Equal(TimeSpan.FromMinutes(5), strategy.InitialDelay);
+    }
+
+    [Theory]
+    [InlineData(ErrorType.Network, 2, 7)]
+    [InlineData(ErrorType.Temporary, 2, 7)]
+    [InlineData(ErrorType.FileSystem, 5, 4)]
+    [InlineData(ErrorType.Validation, 3, 3)]
+    public void DetermineRecoveryStrategy_RecoverableTypes_RetryWithExpectedBackoff(
+        ErrorType errorType, int expectedDelaySeconds, int expectedMaxRetries)
+    {
+        var strategy = UserFriendlyErrorMessages.DetermineRecoveryStrategy(
+            new InvalidOperationException("x"), errorType, ErrorSeverity.Medium);
+
+        Assert.Equal(FailureRecoveryAction.RetryWithBackoff, strategy.Action);
+        Assert.Equal(TimeSpan.FromSeconds(expectedDelaySeconds), strategy.InitialDelay);
+        Assert.Equal(expectedMaxRetries, strategy.MaxRetries);
+    }
+
+    [Fact]
+    public void DetermineRecoveryStrategy_Configuration_FailsAfterSingleRetry()
+    {
+        var strategy = UserFriendlyErrorMessages.DetermineRecoveryStrategy(
+            new InvalidOperationException("x"), ErrorType.Configuration, ErrorSeverity.Medium);
+
+        Assert.Equal(FailureRecoveryAction.FailAfterRetry, strategy.Action);
+        Assert.Equal(1, strategy.MaxRetries);
+        Assert.Equal(TimeSpan.FromSeconds(30), strategy.InitialDelay);
+    }
+
+    [Fact]
+    public void DetermineRecoveryStrategy_CriticalBeatsRetryableType()
+    {
+        // Security/Authentication check wins over severity, Critical wins over
+        // the retryable-type table — the precedence order is the contract.
+        var strategy = UserFriendlyErrorMessages.DetermineRecoveryStrategy(
+            new InvalidOperationException("x"), ErrorType.Network, ErrorSeverity.Critical);
+
+        Assert.Equal(FailureRecoveryAction.EscalateWithRetry, strategy.Action);
+    }
+
+    [Fact]
+    public void DetermineRecoveryStrategy_SecurityBeatsCritical()
+    {
+        var strategy = UserFriendlyErrorMessages.DetermineRecoveryStrategy(
+            new InvalidOperationException("x"), ErrorType.Security, ErrorSeverity.Critical);
+
+        Assert.Equal(FailureRecoveryAction.FailImmediately, strategy.Action);
+    }
 }

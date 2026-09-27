@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (AutoRecoveryManager・ErrorHandler の回復判定ロジックへテスト追加)
+
+- `AttemptRecoveryAsync` の契約を固定： コンポーネント→アクションマッピング全5分岐（ServiceHost→RestartService／FileSystem→ClearCache／Configuration→ResetConfiguration／Network→Failover／未知→RestartComponent）、Scheduler の失敗エスカレーション（RestartComponent→RestartService→上限超過で Failover 拒否イベント＋"Max attempts exceeded"）、FileSystem キャッシュディレクトリの実削除・再作成 — `AutoRecoveryManager.cs` 38.2% → 66.4%（残りは PerformHealthCheckCycleAsync ループと Windows 固有チェック）
+- `UserFriendlyErrorMessages.DetermineRecoveryStrategy` の優先順位を固定： Security/Authentication → FailImmediately が Critical より優先、Critical → EscalateWithRetry(5分×2)、Network/Temporary → RetryWithBackoff(2s×7)、FileSystem → (5s×4)、Configuration → FailAfterRetry(30s×1)、既定 → (3s×3) — `ErrorHandler.cs` 69.2% → 78.8%
+- テスト総数 220 → 237（+17）
+
 ### Improved (AnomalyDetector の検知パイプラインへ駆動型テスト追加 — 37% → 86%)
 
 - 常時稼働の異常検知ループ（タイマー駆動 `AnalyzeMetricsAsync`）が未テストだった → `RecordMetric` でベースライン構築＋`GetCurrentMetricsAsync` モック経由でスパイク投入し `AnomalyDetected` イベントを待機する駆動型テストを追加
