@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (イベント駆動修復の webhook 通知経路へテスト追加)
+
+- `SendWebhookAsync`（`ActionType.SendWebhook` ルールのアクション）の全分岐をフェイク `HttpMessageHandler` で固定： アラート JSON ペイロード（alert_id/severity/component/message/timestamp）が対象 URL へ POST される、サーバーエラー応答では警告ログのみで継続、HTTP 例外は捕捉されエラーログへ転記されサービスは継続 — `EventDrivenRemediationService.cs` 79.3% → 91.2%
+- 併せてテスト内の xUnit2013 警告（`Assert.Equal(1, coll.Count)` → `Assert.Single`）を解消
+- テスト総数 261 → 264（+3）
+
 ### Improved (PredictiveRemediationService の予測判定コアへテスト追加)
 
 - `FailurePattern.IsAnomaly`（予測判定の中核）の契約を固定： ゼロ分散ベースラインでは非発火（アイドル指標の誤検知防止ガード）、10件未満のウォームアップでは非発火、確立分散では `mean + 2σ` 超過のみ発火（境界値は厳密に非発火）、候補値は自身のベースラインから除外（包含すると判定を歪めるリグレッション領域を決定的入力で証明）— `PredictiveRemediationService.cs` 60.2% → 68.0%（残りは5分周期の `ExecuteAsync` ループと `AnalyzeAndPredict` ディスパッチ）

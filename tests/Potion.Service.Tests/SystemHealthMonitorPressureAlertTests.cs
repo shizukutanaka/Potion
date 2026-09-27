@@ -104,7 +104,7 @@ public sealed class SystemHealthMonitorPressureAlertTests
 
         monitor.EvaluatePressureAlerts(Metrics(90, 10, 10));   // episode opens (High)
         var held = Assert.Single(monitor.EvaluatePressureAlerts(Metrics(82, 10, 10))); // inside 5pt band -> persists
-        Assert.Equal(1, fired.Count);
+        Assert.Single(fired);
         Assert.Equal("cpu", held.Component);
 
         Assert.Empty(monitor.EvaluatePressureAlerts(Metrics(50, 10, 10))); // below band -> cleared
