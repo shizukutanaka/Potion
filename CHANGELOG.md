@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (AnomalyDetector がフラット基線で誤検知していた)
+
+- 分散ゼロの時系列で適応閾値が 0 に潰れ、最初の微小偏差を毎回「異常」として検知していた（アイドル時メトリクスで3分毎に誤警報になる経路）。サイクル239の FailurePattern σ=0 修正と同型 — `IsStatisticalAnomaly`/`CalculateAnomalyScore` で閾値<=0 を非異常扱いに統一し、併せて zero-mean ウィンドウでの `trendFactor` 除算（NaN/Infinity 経路）もガード
+
 ### Fixed (ヘルス変化イベントが毎サイクル発火していた)
 
 - `AutoRecoveryManager.HasHealthChanged` が `ComponentHealth` レコード全体（`ResponseTime` 含む）を等価比較していたため、実際の健全性が不変でも毎サイクル `SystemHealthChanged` を発火していた → IsHealthy/Status/ErrorMessage のみを比較するよう修正。併せて `CheckServiceHostHealth` の `GetCurrentProcess()` が非 Dispose だった軽微なハンドルリークを `using` 化
