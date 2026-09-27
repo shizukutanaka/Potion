@@ -130,7 +130,7 @@ function Install-DotNetRuntime {
     $installerPath = "$env:TEMP\dotnet-install.ps1"
 
     try {
-        Invoke-WebRequest -Uri $dotnetInstallerUrl -OutFile $installerPath -UseBasicParsing
+        Invoke-WebRequest -Uri $dotnetInstallerUrl -OutFile $installerPath -UseBasicParsing -TimeoutSec 60
         & $installerPath -Channel 8.0 -Runtime aspnetcore -InstallDir "C:\Program Files\dotnet"
         Write-Success ".NET Runtime installed successfully"
     } catch {
@@ -216,6 +216,9 @@ function Install-WindowsService {
 
     if ($LASTEXITCODE -eq 0) {
         sc.exe description $ServiceName $ServiceDescription
+        # Recovery: restart on the first three failures, reset the count daily
+        # (same policy as deploy-windows.ps1 and the MSI ServiceConfig).
+        sc.exe failure $ServiceName reset= 86400 actions= restart/60000/restart/60000/restart/60000 | Out-Null
         # Without env vars the service boots in the Production environment, whose
         # Kestrel HTTPS endpoint requires certificate.pfx — a cert the install
         # cannot provision — and startup fails. Bind HTTP explicitly; operators
@@ -244,7 +247,7 @@ function Configure-Firewall {
         -Direction Inbound `
         -Action Allow `
         -Protocol TCP `
-        -LocalPort 5000,5001 `
+        -LocalPort 5000 `
         -Program "$InstallPath\Potion.Service.exe" `
         -Description "Potion Self-Healing Service API endpoints" | Out-Null
 
@@ -259,15 +262,16 @@ function Set-SecurityPermissions {
     $acl = Get-Acl $InstallPath
     $acl.SetAccessRuleProtection($true, $false)
 
-    # Grant Administrators full control
+    # Builtin names are localized (e.g. French 'BUILTIN\Administrateurs') —
+    # resolve by SID so the ACL works on non-English Windows.
     $adminRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-        "BUILTIN\Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+        (New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')), "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
     )
     $acl.AddAccessRule($adminRule)
 
     # Grant SYSTEM full control
     $systemRule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-        "NT AUTHORITY\SYSTEM", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
+        (New-Object System.Security.Principal.SecurityIdentifier('S-1-5-18')), "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow"
     )
     $acl.AddAccessRule($systemRule)
 

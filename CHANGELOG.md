@@ -2,9 +2,17 @@
 
 ## Unreleased
 
+### Fixed (インストール経路の権限付与が非英語 Windows で失敗＋障害復旧ポリシーの3経路不整合)
+
+- `deploy-windows.ps1`/`package-installer.ps1` の ACL 付与が `"Administrators"`/`"BUILTIN\Administrators"` の**ローカライズ済みグループ名**で解決 — フランス語等の非英語 Windows で失敗 → SID（`S-1-5-32-544`/`S-1-5-18`）解決へ
+- 障害復旧ポリシーが3経路で不整合 — WiX `ServiceConfig` 5秒／deploy-windows.ps1 `sc failure` 60秒／package-installer.ps1 **未設定** → 全経路を 60秒×3回・日次リセットへ統一
+- `package-installer.ps1` のファイアウォール規則が未リッスンの 5001 を開放 → 5000 のみへ縮小
+- `Invoke-WebRequest` にタイムアウトなし（deploy: ヘルスチェック、installer: dotnet-install ダウンロード）→ 15秒/60秒を付与
+- 併記（報告のみ）：`build-release.ps1` の `-p:Edition` は参照ゼロの死パラメータ — Community/Enterprise zip はバイナリ同一だがリリースノートが機能差を謳う（エディション制の是非は製品判断事項）
+
 ### Improved (インストールした Windows サービス自身の障害復旧が無かった)
 
-- `Potion.wxs` の `ServiceInstall` に SCM 復旧設定がなく、自己修復サービスがクラッシュすると SCM が再起動しない矛盾 → `util:ServiceConfig` で最初の3障害を5秒後再起動・障害カウンタを1日でリセット（`WixToolset.Util.wixext` の参照をビルド手順コメントへ追記）
+- `Potion.wxs` の `ServiceInstall` に SCM 復旧設定がなく、自己修復サービスがクラッシュすると SCM が再起動しない矛盾 → `util:ServiceConfig` で最初の3障害を60秒後再起動・障害カウンタを1日でリセット（`WixToolset.Util.wixext` の参照をビルド手順コメントへ追記）
 - 監査結果： LocalSystem 既定・`Environment` マルチ文字列レジストリ・`MajorUpgrade` は正規 — データディレクトリの ACL は `ServicePaths.HardenDirectory` のランタイム強化に依存する設計と確認
 
 ### Improved (ダッシュボードの設定反映とアクセシビリティ)

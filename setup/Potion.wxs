@@ -48,14 +48,15 @@
           Type="ownProcess" />
         <!-- A self-healing service must itself recover: restart on the
              first three failures, then reset the failure count daily so
-             transient crashes never permanently stop monitoring. -->
+             transient crashes never permanently stop monitoring. 60s
+             matches the sc.exe failure policy in deploy-windows.ps1. -->
         <util:ServiceConfig
           ServiceName="Potion Self-Healing Service"
           FirstAction="restart"
           SecondAction="restart"
           ThirdAction="restart"
           ResetPeriodInDays="1"
-          RestartServiceDelayInSeconds="5" />
+          RestartServiceDelayInSeconds="60" />
         <ServiceControl
           Id="StartServiceControl"
           Name="Potion Self-Healing Service"
