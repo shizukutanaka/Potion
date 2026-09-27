@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (ServicePaths のパス契約とファイル名サニタイズへテスト追加)
+
+- 全 well-known ディレクトリのオンディスク存在・Base 配下収まり・`ToSafeFileName` の3分岐（無効文字除去・全無効時ランダムhexフォールバック・64文字切詰）・`GetTelemetryFilePath`/`DigestPath`/`TaskStatePath`/監査・スナップショットパスの命名規約を固定 — 敵対的タスク名によるディレクトリエスケープ不可をプラットフォーム非依存で検証（`ServicePaths.cs` 43.8% → 62.5%、残りは Windows 候補パスと ACL 強化）
+- テスト総数 268 → 272（+8）
+
 ### Improved (PredictiveRemediationService の予測→スケジュール経路をエンドツーエンドでテスト)
 
 - `AnalyzeAndPredict` を `internal` へ昇格し（`InternalsVisibleTo` 前提・既存パターン踏襲）、モック化したメトリクス系列で実パイプラインを駆動： ベースライン構築10サイクル→スパイク投入で `ScheduleTaskAsync` が解決済みコマンド（`cleanmgr.exe /verylowdisk`・`IsPreventive`・`High`・`Predictive_<key>_` 命名・`Schedule≈+1分`）で1回発火、安定メトリクスでは不発火、連続スパイクはクールダウンで重複抑制、未マッピングメトリクスはログのみでスキップ — `PredictiveRemediationService.cs` 68.0% → 84.0%
