@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Security (ダッシュボードの HTML インジェクション経路を閉塞)
+
+- `dashboard.js` が API 由来のフィールド（`alert.message`/`alert.component`/`alert.severity`、ログ行の `source`/`eventId`/`message`、通知 `message`、検索結果 `title`/`subtitle`、ポリシー `title`/`description`/`status`/`lastUpdated`、セキュリティコンポーネント名/状態）をエスケープせず `innerHTML`/`insertAdjacentHTML` へ展開していた — アラート文言に含まれる例外メッセージ・サービス表示名等に `<`/`>` があれば描画崩壊、マークアップを含めばオペレーターのブラウザでスクリプト実行の余地があった → `esc()` ヘルパーを追加し全データ展開箇所へ適用。併せて `onchange="dashboard.toggleAlertSelection('${alertId}')"` の属性内 ID 埋め込み（クォートによる属性脱出が可能）を `addEventListener` へ置換
+
 ### Security (CommandAllowlist を実使用する修復ツールへ最小化)
 
 - 既定のコマンド許可リストに**引数悪用型バイナリ**（`net.exe`/`sc.exe`/`reg.exe`/`wmic.exe`/`wevtutil.exe`/`ipconfig.exe`/`systeminfo.exe`/`tasklist.exe`/`netstat.exe` — `net user … /add` でローカル管理者作成、`wevtutil cl` でログ消去、`wmic process call create` で任意コード実行、`sc config` でサービス乗取りが可能）が未使用のまま残っていた → コード上で実際に参照される修復ツールのみへ縮小：`sfc.exe`・`dism.exe`・`cleanmgr.exe`・`chkdsk.exe`・`ngen.exe`・`powercfg.exe`・`netsh.exe`（後者2つは PerformanceOptimizer の Windows 経路が使用）。設定ミスは依然 `CommandsAreAllowlisted` 検証で起動時に明示的エラーになる

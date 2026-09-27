@@ -31,6 +31,16 @@ class PotionDashboard {
         this.init();
     }
 
+    // Escape untrusted text before it enters innerHTML — alert/log fields are
+    // server-generated from component names, exception messages and service
+    // display names, any of which can contain markup.
+    esc(value) {
+        if (value === null || value === undefined) return '';
+        return String(value).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
     async init() {
         this.setupEventListeners();
         this.setupKeyboardNavigation();
@@ -255,9 +265,9 @@ class PotionDashboard {
     showNotification(message, type = 'info', duration = 5000) {
         const notificationId = `notification-${Date.now()}`;
         const notificationHTML = `
-            <div class="notification notification-${type}" id="${notificationId}">
+            <div class="notification notification-${this.esc(type)}" id="${notificationId}">
                 <div class="notification-content">
-                    <span class="notification-message">${message}</span>
+                    <span class="notification-message">${this.esc(message)}</span>
                     <button class="notification-close" onclick="dashboard.closeNotification('${notificationId}')">&times;</button>
                 </div>
             </div>
@@ -832,15 +842,15 @@ class PotionDashboard {
         Object.keys(groupedResults).forEach(category => {
             html += `
                 <div class="search-section">
-                    <h4>${category.charAt(0).toUpperCase() + category.slice(1)}</h4>
+                    <h4>${this.esc(category.charAt(0).toUpperCase() + category.slice(1))}</h4>
                     ${groupedResults[category].map(result => `
                         <div class="search-result-item" onclick="dashboard.navigateToResult('${result.url}')">
                             <div class="search-result-icon">
                                 <i class="fas fa-${result.category === 'alerts' ? 'exclamation-triangle' : result.category === 'logs' ? 'list-alt' : 'chart-line'}"></i>
                             </div>
                             <div class="search-result-content">
-                                <div class="search-result-title">${result.title}</div>
-                                <div class="search-result-subtitle">${result.subtitle}</div>
+                                <div class="search-result-title">${this.esc(result.title)}</div>
+                                <div class="search-result-subtitle">${this.esc(result.subtitle)}</div>
                             </div>
                         </div>
                     `).join('')}
@@ -1104,9 +1114,9 @@ class PotionDashboard {
             item.className = 'security-component';
 
             item.innerHTML = `
-                <span class="component-name">${component.name}</span>
+                <span class="component-name">${this.esc(component.name)}</span>
                 <span class="component-status ${component.status === 'Enabled' || component.status === 'Active' ? 'enabled' : 'disabled'}">
-                    ${component.status}
+                    ${this.esc(component.status)}
                 </span>
             `;
 
@@ -1129,8 +1139,8 @@ class PotionDashboard {
 
             eventItem.innerHTML = `
                 <div class="event-header">
-                    <span class="event-title">${alert.message}</span>
-                    <span class="event-severity ${alert.severity.toLowerCase()}">${alert.severity}</span>
+                    <span class="event-title">${this.esc(alert.message)}</span>
+                    <span class="event-severity ${this.esc((alert.severity || 'info').toLowerCase())}">${this.esc(alert.severity)}</span>
                 </div>
                 <div class="event-time">${new Date(alert.timestamp).toLocaleString('ja-JP')}</div>
             `;
@@ -1165,8 +1175,8 @@ class PotionDashboard {
 
         container.innerHTML = performanceData.map(item =>
             `<div class="metric-item">
-                <span class="metric-name">${item.name}</span>
-                <span class="metric-value">${item.value}</span>
+                <span class="metric-name">${this.esc(item.name)}</span>
+                <span class="metric-value">${this.esc(item.value)}</span>
             </div>`
         ).join('');
     }
@@ -1258,10 +1268,10 @@ class PotionDashboard {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${log.timestamp.toLocaleString('ja-JP')}</td>
-                <td><span class="event-level ${log.level}">${log.level}</span></td>
-                <td>${log.source}</td>
-                <td>${log.eventId}</td>
-                <td>${log.message}</td>
+                <td><span class="event-level ${this.esc(log.level)}">${this.esc(log.level)}</span></td>
+                <td>${this.esc(log.source)}</td>
+                <td>${this.esc(log.eventId)}</td>
+                <td>${this.esc(log.message)}</td>
             `;
             tbody.appendChild(row);
         });
@@ -1370,17 +1380,20 @@ class PotionDashboard {
             const isSelected = this.selectedAlerts.has(alertItem.dataset.alertId);
 
             alertItem.innerHTML = `
-                <input type="checkbox" class="alert-checkbox" ${isSelected ? 'checked' : ''} onchange="dashboard.toggleAlertSelection('${alertItem.dataset.alertId}')">
+                <input type="checkbox" class="alert-checkbox" ${isSelected ? 'checked' : ''}>
                 <div class="alert-header">
-                    <div class="alert-title">${alert.component}: ${alert.message}</div>
-                    <div class="alert-severity ${alert.severity.toLowerCase()}">${alert.severity}</div>
+                    <div class="alert-title">${this.esc(alert.component)}: ${this.esc(alert.message)}</div>
+                    <div class="alert-severity ${this.esc((alert.severity || 'info').toLowerCase())}">${this.esc(alert.severity)}</div>
                 </div>
-                <div class="alert-message">${alert.message}</div>
+                <div class="alert-message">${this.esc(alert.message)}</div>
                 <div class="alert-metadata">
                     <span><i class="fas fa-clock"></i> ${new Date(alert.timestamp).toLocaleString('ja-JP')}</span>
-                    <span><i class="fas fa-tag"></i> ${alert.component}</span>
+                    <span><i class="fas fa-tag"></i> ${this.esc(alert.component)}</span>
                 </div>
             `;
+
+            alertItem.querySelector('.alert-checkbox')
+                .addEventListener('change', () => this.toggleAlertSelection(alertItem.dataset.alertId));
 
             if (isSelected) {
                 alertItem.classList.add('selected');
@@ -1575,17 +1588,17 @@ class PotionDashboard {
 
             policyCard.innerHTML = `
                 <div class="policy-header">
-                    <div class="policy-icon ${policy.status}">
+                    <div class="policy-icon ${this.esc(policy.status)}">
                         <i class="fas fa-shield-alt"></i>
                     </div>
-                    <div class="policy-title">${policy.title}</div>
+                    <div class="policy-title">${this.esc(policy.title)}</div>
                     <div class="policy-status status-lozenge ${policy.status === 'enabled' ? 'success' : policy.status === 'warning' ? 'warning' : 'default'}">
-                        ${policy.status}
+                        ${this.esc(policy.status)}
                     </div>
                 </div>
-                <div class="policy-description">${policy.description}</div>
+                <div class="policy-description">${this.esc(policy.description)}</div>
                 <div style="margin-top: var(--space-2); font-size: 11px; color: var(--text-muted);">
-                    Last updated: ${policy.lastUpdated}
+                    Last updated: ${this.esc(policy.lastUpdated)}
                 </div>
             `;
 
