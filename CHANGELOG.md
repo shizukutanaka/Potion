@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (ConfigTool の生成テンプレートが縮小済み allowlist と不整合＋restore の危険上書き)
+
+- `generate` の `CommandAllowlist` テンプレートが縮小前の旧リスト（`net.exe`/`wevtutil.exe`/`ipconfig.exe`/`systeminfo.exe` 等の引数悪用可能なコマンドを含む）を吐き出していた → 出荷設定と同じ最小リストへ同期
+- `restore` がバックアップを**JSON パース検証せず**そのまま本番設定へ `overwrite:true` で上書き（壊れたバックアップでサービスを起動不能化し得た）→ 事前に JSON 妥当性を検証、不正なら非破壊で拒否
+- `restore` が現行設定を保存せず破壊的に上書き → `<config>.prerestore-<ts>.bak` へ自動退避
+- `backup` の出力先が利用者の MyDocuments 直下（権限が散らばる）→ ACL 強化済みの `ServicePaths.ConfigBackups` 配下へ
+- 全経路を実機検証： validate / generate→validate / backup / restore(正常・異常JSON拒否) が全て成功
+
 ### Fixed (インストール経路の権限付与が非英語 Windows で失敗＋障害復旧ポリシーの3経路不整合)
 
 - `deploy-windows.ps1`/`package-installer.ps1` の ACL 付与が `"Administrators"`/`"BUILTIN\Administrators"` の**ローカライズ済みグループ名**で解決 — フランス語等の非英語 Windows で失敗 → SID（`S-1-5-32-544`/`S-1-5-18`）解決へ

@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Potion.Service.Infrastructure;
 using Potion.Service.Options;
 
 namespace Potion.ConfigTool;
@@ -165,10 +166,13 @@ class Program
                 MaxConcurrency = 2,
                 SchedulerIntervalSeconds = 300,
                 ScheduleJitterSeconds = 60,
+                // Keep this list in sync with the shipped appsettings.json —
+                // argument-abusable binaries (net/sc/reg/wmic/wevtutil/…)
+                // were removed from the defaults on purpose.
                 CommandAllowlist = new[]
                 {
-                    "sfc.exe", "dism.exe", "cleanmgr.exe", "chkdsk.exe", "wevtutil.exe",
-                    "powercfg.exe", "net.exe", "netsh.exe", "ipconfig.exe", "systeminfo.exe", "ngen.exe"
+                    "sfc.exe", "dism.exe", "cleanmgr.exe", "chkdsk.exe", "ngen.exe",
+                    "powercfg.exe", "netsh.exe"
                 },
                 MaintenanceWindows = new[]
                 {
@@ -307,8 +311,8 @@ class Program
 
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
             var backupPath = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments),
-                $"Potion_config_backup_{timestamp}.json");
+                ServicePaths.ConfigBackups,
+                $"appsettings_{timestamp}.json");
 
             File.Copy(configPath, backupPath);
 
@@ -334,10 +338,21 @@ class Program
                 return 1;
             }
 
+            // Refuse to overwrite live config with a corrupt backup.
+            JsonDocument.Parse(File.ReadAllText(backupPath)).Dispose();
+
             var destinationDir = Path.GetDirectoryName(configPath);
             if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))
             {
                 Directory.CreateDirectory(destinationDir);
+            }
+
+            // Preserve the current config before the destructive overwrite.
+            if (File.Exists(configPath))
+            {
+                var preRestore = $"{configPath}.prerestore-{DateTime.Now:yyyyMMdd_HHmmss}.bak";
+                File.Copy(configPath, preRestore);
+                Console.WriteLine($"  Current config preserved to: {preRestore}");
             }
 
             File.Copy(backupPath, configPath, true);
