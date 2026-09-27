@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (残りのオプション3件にも起動時バリデーションを追加)
+
+- `EventCorrelation`/`Compliance`/`Collaboration` は素の `Configure<T>` で検証なし — `MaxEventsToCorrelate <= 0` は相関バッファを常に空にする**無言の機能停止**、`MaxConcurrentUsers <= 0` は全接続拒否、`ReportIntervalHours` 範囲外はホステッドサービス起動クラッシュだった → `ValidateOnStart` でブート時に明示的エラー化（機能無効時は値を検証しない条件付き検証 — `Enabled: false` で無効化する運用を壊さない）
+
 ### Fixed (ファイル I/O の堅牢性欠陥3件)
 
 - 一時ファイルクリーンアップが `GetFiles` で temp ツリー全体を先に materialize し、**1つの読めないサブディレクトリで全体が中断**していた → `EnumerateFiles`+`IgnoreInaccessible` で遅延列挙化（`Take` が実際に歩行を打ち切り、読めない dir はスキップ）
