@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (相関条件が非数値イベントを 0 として誤判定し、文字列値をカルチャ依存でパースしていた)
+
+- `EventCorrelationService.GetEventValue` が非数値 `Data`（health.alert の SystemHealthAlert 等）に **0 を返し**、`<`/`<=` 閾値条件を虚偽に充足させていた → `TryGetEventValue` 化して非数値は数値比較を充足しない設計へ。文字列値の `double.TryParse` は現在カルチャで走行し **de-DE 等で "85.5"→855 に化けて閾値超過の誤検知**を起こし得た → `InvariantCulture` へ。回帰テスト4件追加
+
 ### Fixed (WMI メモリ照会の失敗が最適化パス全体を中断させていた)
 
 - `PerformanceOptimizer.GetMemoryInfo` の WMI `searcher.Get().First()`/`Convert.ToInt64` が無防御 — WMI 空結果・権限不足・リポジトリ破損で `InvalidOperationException` が `GetStatisticsAsync`（try ブロックの**外**）を抜け最適化パス全てを中断 → `FirstOrDefault`＋try/catch で誠実なゼロ報告へ（他の最適化分類は継続動作）
