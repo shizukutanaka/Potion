@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (NuGet ロックファイルで推移依存を完全固定)
+
+- `Directory.Build.props` 新設（`RestorePackagesWithLockFile`）＋3プロジェクトの `packages.lock.json` を生成 — 推移依存までバージョン＋contentHash で固定され、リストアの完全再現とサプライチェーン改竄検知が可能に。CI で `--locked-mode` を有効化すればロック逸脱をビルド失敗にできる
+
 ### Improved (テスト品質監査 — 無効テストの実効化)
 
 - 全28テストファイルを無 assertion スキャン：5件の「落ちないことだけを見る」スモークテストを検出。うち `RecordMetrics_ValidOperation_RecordsSuccessfully` は `GetOperationMetrics()` で観測可能なのに未検証だった → TotalCalls/SuccessRate/TotalDuration の実アサートへ強化（実装と突合済み）。残4件は非破壊完了を保証する正当なスモークテストと判定

@@ -1,0 +1,9 @@
+<Project>
+  <!-- NuGet lock files pin every transitive dependency + content hash, so
+       restores are byte-for-byte reproducible and a poisoned upstream
+       package fails instead of silently changing. Regenerate the lock
+       files by running 'dotnet restore' with the force-evaluate option. -->
+  <PropertyGroup>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+  </PropertyGroup>
+</Project>
