@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Security (SignalR SendMessage にメッセージ長上限を追加)
+
+- `CollaborationHub.SendMessage` は匿名クライアントが到達可能で、任意長の文字列を**全接続クライアントへそのままブロードキャスト**していた — 1接続が巨大ペイロードを全員へ増幅送信できる DoS 経路 → 空・空白のみ・2000文字超のメッセージを拒否する上限を追加
+
 ### Security (ダッシュボードの HTML インジェクション経路を閉塞)
 
 - `dashboard.js` が API 由来のフィールド（`alert.message`/`alert.component`/`alert.severity`、ログ行の `source`/`eventId`/`message`、通知 `message`、検索結果 `title`/`subtitle`、ポリシー `title`/`description`/`status`/`lastUpdated`、セキュリティコンポーネント名/状態）をエスケープせず `innerHTML`/`insertAdjacentHTML` へ展開していた — アラート文言に含まれる例外メッセージ・サービス表示名等に `<`/`>` があれば描画崩壊、マークアップを含めばオペレーターのブラウザでスクリプト実行の余地があった → `esc()` ヘルパーを追加し全データ展開箇所へ適用。併せて `onchange="dashboard.toggleAlertSelection('${alertId}')"` の属性内 ID 埋め込み（クォートによる属性脱出が可能）を `addEventListener` へ置換
