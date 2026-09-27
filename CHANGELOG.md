@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (SignalR ブロードキャスト失敗が未観測例外になっていた)
+
+- `BroadcastAlertAsync` が内部 catch を持たず、ヘルスアラート／異常検知／タスク完了の3経路から fire-and-forget で呼ばれていた — SignalR 送信失敗が未観測タスク例外（またはイベント発行者スレッドへの同期伝播）になり得た → メソッド内で捕捉して警告ログ化（`BroadcastHealthTickAsync` と同じ契約に統一）
+
 ### Fixed (コンプライアンス間隔が Timer 上限超過時に起動クラッシュしていた)
 
 - `Compliance:ReportIntervalHours` が 1193 時間（System.Threading.Timer の最大周期）を超える設定で、ホステッドサービス起動時に Timer コンストラクタ内の ArgumentOutOfRangeException でクラッシュしていた → 起動時バリデーションで明確な設定エラー（InvalidOperationException）として報告するよう修正
