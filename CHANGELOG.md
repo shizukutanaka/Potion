@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Security (監視スタックのイメージタグ固定と CDN サブリソース整合性)
+
+- `docker-compose.yml` の `prom/prometheus:latest`/`prom/alertmanager:latest` は mutable `latest` で再現性なく将来のメジャーアップデートを不意に引き込む → `prometheus:v3.13.3`（LTS）/`alertmanager:v0.34.1` へ固定＋Compose v2 で obsolete 警告が出る `version:` キー除去
+- ダッシュボードの Font Awesome CDN リンクに `integrity`（sha384 SRI）+`crossorigin="anonymous"` を付与 — cdnjs 改竄時に運用コンソールへの CSS インジェクションをブラウザが拒否
+
 ### Fixed (ACL 強化が gMSA/カスタムサービスアカウントのサービスを締め出していた)
 
 - `ServicePaths.HardenDirectory` が許可 SID を LocalSystem/Administrators/LocalService/NetworkService の4つに固定 — **gMSA やカスタムアカウントで動くサービス自身がステートディレクトリから締め出される** Windows 運用時の実欠陥 → `WindowsIdentity.GetCurrent().User` を許可リストへ追加し、サービス実行アカウントの自己アクセスを維持
