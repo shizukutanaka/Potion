@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (ブートストラップ失敗も Serilog へ記録するよう hardened)
+
+- `Program.cs`：`builder.Build()` が try の外にあり、DI 検証（`ValidateOnBuild`）や設定エラーでの Build 失敗が `Log.Fatal`/`CloseAndFlush` をスキップして生例外のみで終了していた → Build を try 内へ移動し、起動失敗も Fatal ログ＋フラッシュ経路を通るよう統一
+
 ### Improved (Performance タブの CPU 0.0% 表示を調査 — バグなし)
 
 - ブラウザ検証で Overview 34.1%・Performance 0.0% の不整合を調査：`cpu.usagePercent` のバインドは全箇所で同一、差は `MacCpuPercent` のデルタサンプリング仕様（`host_statistics` 累積カウンタの前回差分 — 初回/間隔空きは正直に0を返す）による正常なウォームアップ。Windows `NextValue`/Linux `/proc/stat` も同方式のため意図的動作と確認

@@ -16,9 +16,9 @@ var builder = Host.CreateDefaultBuilder(args)
         webBuilder.UseStartup<Startup>();
     });
 
-var app = builder.Build();
 try
 {
+    var app = builder.Build();
     app.Run();
 }
 catch (Exception ex)
