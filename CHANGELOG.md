@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (favicon 追加 — /favicon.ico の自動リクエストが毎回404になっていた)
+
+- index.html にインライン SVG favicon を追加（`img-src 'self' data:` の CSP 内で data URI が許可されているため追加ファイル不要・追加リクエストも発生しない）
+- 全 src/href 参照アセットと CSS `url()` アセットは存在確認済み（missing なし）
+
 ### Audit (フロント fetch URL↔サーバルート一致を監査 — 変更不要を確認)
 
 - dashboard.js の `fetch()` は `/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary` の4件のみ・全て Startup.cs の登録ルートと一致（`/api/health/alerts/webhook` は alertmanager 宛に登録済み）
