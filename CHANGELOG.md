@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (リモートブランチ棚卸し — マージ済み33本を削除)
+
+- リモートブランチ57本のうち、**マージ済みPR(#5–#37・#55–#59)の head ブランチ33本を削除** — squash マージで tip が main に含まれないため `git branch --merged` では検出できず、PR の head ref とマージ状態を1件ずつ突合して確認
+- 判明: PR #38–#54 は closed-未マージ（#55/#56 統合PRに集約済み）のためブランチは保持 — 削除はマージ済みのみに限定
+- 残り: 統合済み closed-未マージ17本 + chore/hygiene ブランチ3本 + 旧 tray-self-healing + 現行ブランチ — リモート57→24本
+
 ### Security (コマンド別引数許可リスト — 許可済みバイナリの任意引数を遮断)
 
 - 文字レベル検証（`"`・制御文字拒否）だけでは、許可済み `net.exe` に `user badguy /add` のような合法だが悪意ある引数が通過していた — `CommandArgumentAllowlist`（`Dictionary<string, List<string>>`）を追加し、マップに列挙されたコマンドはリスト内の引数文字列との完全一致のみ許可
