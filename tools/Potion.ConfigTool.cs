@@ -48,10 +48,9 @@ class Program
 
     static ParsedArgs ParseArgs(string[] args)
     {
-        var configPath = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "Potion",
-            "appsettings.json");
+        // Same file the service loads as its external override layer
+        // (Program.cs AddJsonFile): {Base}/config/appsettings.json.
+        var configPath = ServicePaths.ConfigurationFile;
         string? positional = null;
 
         for (var i = 1; i < args.Length; i++)
@@ -82,7 +81,7 @@ class Program
         Console.WriteLine("  help                   - Show this help message");
         Console.WriteLine();
         Console.WriteLine("Options:");
-        Console.WriteLine("  --config, -c <path>    - Path to appsettings.json (default: %ProgramData%\\Potion\\appsettings.json)");
+        Console.WriteLine($"  --config, -c <path>    - Path to appsettings.json (default: {ServicePaths.ConfigurationFile})");
         Console.WriteLine();
     }
 

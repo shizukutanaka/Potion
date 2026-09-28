@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (外部設定ファイルを実際に読み込む — ConfigTool の配線を完成)
+
+- `Program.cs` に `AddJsonFile(ServicePaths.ConfigurationFile, optional: true, reloadOnChange: true)` を追加：`ServicePaths.ConfigurationFile`（`{Base}/config/appsettings.json`）が宣言だけ存在し、どこからも読まれていなかった — 運用者がインストール先を触らずに設定を上書きできる外部レイヤが実稼働
+- `Potion.ConfigTool` の既定パスが `%ProgramData%\Potion\appsettings.json` で `ServicePaths.ConfigurationFile`（`{Base}\config\appsettings.json`）と**不一致**だった — ツールが書いた設定をサービスが読まない二重の断絶を修正（ツールは既に Potion.Service を参照しているため定数を共用）
+- 実機検証： `{Base}/config/appsettings.json` に `Kestrel:Endpoints:Http:Url=http://127.0.0.1:5198` を書いて起動 → バンドル設定の 5000 ではなく **5198 で listen** することを確認（`/health` 200）
+
 ### Security (NuGet ロックファイルを CI ビルドで強制 — サプライチェーン固定)
 
 - `Directory.Build.props` に `RestoreLockedMode`（`ContinuousIntegrationBuild=true` 条件）を追加：`packages.lock.json` は生成されるだけでは何も強制せず、改竄・追加された依存もサイレントにロックを更新していた。CI ビルドではロックと `PackageReference` が不一致なら**リストア失敗**になり、汚染パッケージの混入を防ぐ。ローカルでは引き続き通常リストアで更新可能

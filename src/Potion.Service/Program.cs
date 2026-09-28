@@ -1,10 +1,15 @@
 using Potion.Service;
+using Potion.Service.Infrastructure;
 using Serilog;
 
 var builder = Host.CreateDefaultBuilder(args)
     .UseWindowsService()
     .UseSerilog((context, loggerConfiguration) =>
         loggerConfiguration.ReadFrom.Configuration(context.Configuration))
+    .ConfigureAppConfiguration((_, config) =>
+        // Operator-managed overrides live outside the install directory so an
+        // upgrade cannot wipe them; ConfigTool writes to this same path.
+        config.AddJsonFile(ServicePaths.ConfigurationFile, optional: true, reloadOnChange: true))
     .UseContentRoot(AppContext.BaseDirectory)
     .UseServiceProviderFactory(new DefaultServiceProviderFactory(new ServiceProviderOptions
     {
