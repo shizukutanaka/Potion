@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (死 NuGet パッケージ2件と追跡外すべきファイル)
+
+- `Microsoft.Data.SqlClient`：唯一の消費者 `DatabaseOptimizationService`（サイクル336で除去済み）が消え、コード内の利用ゼロを確認してパッケージ参照を除去
+- テストプロジェクトの `Microsoft.Extensions.Caching.Memory`：`IMemoryCache` の利用はサイクル334の i18n 除去で消失 — テスト側でも未使用を確認して除去
+- `.claude/settings.local.json`：ローカルツール設定が git 追跡対象になっていた → `git rm --cached` で追跡解除 + `.gitignore` に `.claude/` を追加（環境差分の混入防止）
+- 検証： restore/build 0警告・299/299 テスト全パス
+
 ### Removed (死 public メンバー2件を除去)
 
 - `IMemoryMonitor.StartMonitoringAsync` + 実装：呼出し元ゼロで、実体は「監視ループは ExecuteAsync が既に実行中」のコメントどおり**ログを書くだけの no-op スタブ** — インターフェース契約と実装の双方から除去

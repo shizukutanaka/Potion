@@ -100,7 +100,6 @@
     <!-- Web API -->
 
     <!-- Security / Data -->
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.3" />
 
     <!-- Analysis Libraries -->
 
