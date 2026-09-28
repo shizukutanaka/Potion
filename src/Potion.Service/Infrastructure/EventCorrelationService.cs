@@ -150,7 +150,7 @@ public class EventCorrelationService : IHostedService, IDisposable
         RecordEvent("health.alert", alert, alert.Timestamp, "health-monitor");
     }
 
-    private async Task ProcessEventCorrelationsAsync()
+    internal async Task ProcessEventCorrelationsAsync()
     {
         try
         {

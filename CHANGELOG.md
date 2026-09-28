@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (EventCorrelationService の相関パイプラインをほぼ完全カバー)
+
+- `ProcessEventCorrelationsAsync` を internal 昇格（既存 `InternalsVisibleTo` パターン）し駆動型テストを追加： メトリクスフィード→イベント化→相関発火のエンドツーエンド（`CpuUsage>90 + MemoryUsage>85` で発火）、`OnHealthAlert` 経由の health.alert→Alert Storm 配線（モニターイベント発火→3件で相関）、バッファ上限超過時の最古イベント破棄（max=2 で3件投入→不発火）、int/long/float ペイロード型の数値比較アーム、非数値ペイロードが閾値条件を満たさないこと（0 強制変換の回帰防止）、モニター例外が catch→ログ→サービス継続すること — `ProcessEventCorrelationsAsync` 100%、クラス全体 89.7% → 97.3%（残りは現行ルールが使わない `<`/`>=`/`<=` 演算子アーム＝将来ルール用の防衛分岐）
+- テスト総数 293 → 299（+6）
+
 ### Improved (ProcessRunner の終了・キャンセル時プロセス kill 経路へテスト追加)
 
 - Unix で `TryTerminate`（`Kill(entireProcessTree)`）を実機検証： タイムアウト時は `/bin/sleep 30` が 300ms で打ち切られ子プロセスが即終了（リークしていれば 30 秒ブロックするが 10 秒未満で完了を確認）、実行中のキャンセルでも同様に子を kill して伝播、`Dispose` 後の `RunAsync` は `ObjectDisposedException` — `ExecuteProcessAsync` のカバレッジ 87.7%
