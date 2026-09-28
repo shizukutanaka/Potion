@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (修復ポリシーのバリデータへテスト追加)
+
+- `RemediationPolicyOptionsValidators` の3静的バリデータを全分岐で固定： タスク名重複は大小文字不問で `ValidationException`（重複名列挙）、空タスク集合は有効、`CommandAllowlist` 空は無効、無効化タスクはスキップ、**パス修飾コマンドは裸名エントリで許可されない**（CommandValidator と同一バイパス規則のリグレッション固定）、許可外コマンドは `タスク名: コマンド` 列挙で例外、保守ウィンドウは空=有効・タグ重複/不正時刻/空曜日で例外 — `RemediationPolicyOptions.cs` 59.7% → **100%**
+- テスト総数 272 → 285（+13）
+
 ### Improved (ServicePaths のパス契約とファイル名サニタイズへテスト追加)
 
 - 全 well-known ディレクトリのオンディスク存在・Base 配下収まり・`ToSafeFileName` の3分岐（無効文字除去・全無効時ランダムhexフォールバック・64文字切詰）・`GetTelemetryFilePath`/`DigestPath`/`TaskStatePath`/監査・スナップショットパスの命名規約を固定 — 敵対的タスク名によるディレクトリエスケープ不可をプラットフォーム非依存で検証（`ServicePaths.cs` 43.8% → 62.5%、残りは Windows 候補パスと ACL 強化）
