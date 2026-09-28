@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (.gitattributes にフォントバイナリ宣言を追加 + scripts 監査)
+
+- `*.woff2`/`*.woff`/`*.ttf` が未宣言で `* text=auto` の対象 — 現行ファイルは NUL 検出で偶然救われているだけで、将来の追加フォントは改行正規化で破損し得た → 明示的 `binary` 宣言（コミット済みファイルのバイト一致も検証）
+- `scripts/deploy.sh`（k8s 適用 + rollout 検証 + 実エンドポイント smoke）と `validate-system.sh`（実エンドポイントのみ対象）は実態と一致を確認
+
 ### Improved (HSTS・fetch エラーハンドリング・Program.cs の監査)
 
 - 監査クリア（変更不要）: `Strict-Transport-Security` は HTTPS 応答で設定済み（max-age=1年）・dashboard.js の fetch 6箇所は全て try/catch 内（unhandled rejection なし）・SignalR 接続失敗はポーリングへフォールバック
