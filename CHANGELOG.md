@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (.dockerignore の正体不明パターン `C*/` を除去 — 将来の C 始まりトップレベルディレクトリの誤除外を防止)
+
+- `C*/` は現在何にもマッチしない残骸パターン — 将来 `Config/` `Certs/` 等を追加した際にサイレントに Docker コンテキストから除外されるフットガンだった
+- scripts/*.sh は `bash -n` 構文検証を両方パス。Docker ビルドに必要な `src/`・`Directory.Build.props`・lock ファイルが除外されていないことを確認
+- *.ps1 は pwsh 未導入のため Windows 実機検証待ち（既知ブロッカー）
+
 ### Improved (`dotnet format style`/`analyzers` 全診断ゼロを確認 — コーディング規約完全適合)
 
 - `dotnet format style --verify-no-changes` と `analyzers --verify-no-changes` が両方とも診断ゼロ — var 選好・式本体・未使用 using 等の IDE 診断が全て規約準拠

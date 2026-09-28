@@ -22,4 +22,3 @@ docker-compose*.yml
 validation-report.txt
 .claude/
 claudedocs/
-C*/
