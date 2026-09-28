@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (Prometheus アラートにヘルススコア低下ルールを追加 + 監視スタック監査)
+
+- `monitoring/rules.yml` に `PotionDegradedHealthScore` を追加：`potion_system_health_score < 0.7`（5分継続で warning）— 複合スコアは `1.0 - worst(CPU,Mem,Disk)%` の 0-1 スケールで、最悪メトリクス 70% 超を捉える。従来の個別メトリクス閾値（CPU/Mem 95%、Disk 5GB）では拾えない「単独では閾値未満だが複合で劣化」状態を検出
+- 監視スタック全体を実態と突合：scrape 対象 `potion-service:80/metrics`・alertmanager webhook `http://potion-service:80/api/health/alerts/webhook`・全4ルールの系列名を実起動の `/metrics` 出力で確認（`potion_system_health_score`・`potion_system_disk_available_gigabytes` 等すべて実在）。**gauge の unit/description は "(0-1)" で 0-100 ではないことを確認し閾値を 0.7 に修正**
+
 ### Improved (k8s マニフェストと実稼働面の整合監査 — 不整合なし)
 
 - `k8s/deployment.yaml` 全リソースを実態と突合：ConfigMap が `ASPNETCORE_ENVIRONMENT=Container`＋`RepairExecutionEnabled=false` を正しく設定、`readOnlyRootFilesystem` 環境で `HOME=/app/data` の writable フォールバックあり、liveness/readiness/startup プローブが実エンドポイント `/health:80` に一致、Ingress ルート（`/api`・`/health`・`/metrics`・`/collaboration`・`/`）はすべて実在、ServiceMonitor の `/metrics` スクレイプ・securityContext（nonRoot/uid101/drop ALL）も Dockerfile と整合

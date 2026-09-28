@@ -41,3 +41,13 @@ groups:
         annotations:
           summary: "Low disk space on monitored host"
           description: "potion_system_disk_available_gigabytes is below 5 GB."
+
+      - alert: PotionDegradedHealthScore
+        expr: potion_system_health_score < 0.7
+        for: 5m
+        labels:
+          severity: warning
+          service: potion-service
+        annotations:
+          summary: "Monitored host health score degraded"
+          description: "potion_system_health_score (0-1 scale) has been below 0.7 for 5 minutes — worst of CPU/memory/disk usage above 70%."
