@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (k8s マニフェストと実稼働面の整合監査 — 不整合なし)
+
+- `k8s/deployment.yaml` 全リソースを実態と突合：ConfigMap が `ASPNETCORE_ENVIRONMENT=Container`＋`RepairExecutionEnabled=false` を正しく設定、`readOnlyRootFilesystem` 環境で `HOME=/app/data` の writable フォールバックあり、liveness/readiness/startup プローブが実エンドポイント `/health:80` に一致、Ingress ルート（`/api`・`/health`・`/metrics`・`/collaboration`・`/`）はすべて実在、ServiceMonitor の `/metrics` スクレイプ・securityContext（nonRoot/uid101/drop ALL）も Dockerfile と整合
+- コード変更なし（監査のみ — 不整合ゼロ）
+
 ### Improved (セキュリティヘッダに Permissions-Policy と Report-Only CSP を追加)
 
 - `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()` — ダッシュボードはこれらのブラウザAPIを使わないため安全に無効化
