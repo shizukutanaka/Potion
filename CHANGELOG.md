@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (テスト並列化を無効化 — OS 実測値アサートのフレーキング要因を除去)
+
+- `CollectionBehavior(DisableTestParallelization = true)` を追加 — ProcessRunner・SystemMetricsSampler・GC カウンタ・ドライブ列挙の実測値に依存するテストが並列クラスにリソースを奪われてフレークする可能性を根本解消
+- 実行時間は ~17s→55s（全テスト直列化のコスト）だが結果の決定性と引き換えに許容範囲 — 321/321 全パス
+
 ### Fixed (.gitattributes にフォントバイナリ宣言を追加 + scripts 監査)
 
 - `*.woff2`/`*.woff`/`*.ttf` が未宣言で `* text=auto` の対象 — 現行ファイルは NUL 検出で偶然救われているだけで、将来の追加フォントは改行正規化で破損し得た → 明示的 `binary` 宣言（コミット済みファイルのバイト一致も検証）
