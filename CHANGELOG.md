@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (テストのみで消費される死パイプライン群を削除 — 本番は1パイプラインのみ使用)
+
+- `CreateRemediationPipeline`・`CreateHealthCheckPipeline`・`CreateDiagnosticPipeline`（本番は `CreateProcessExecutionPipeline` のみ登録・残り3つはテストだけが呼ぶ死コード）+ `ProcessResult`・`DiagnosticReport`/`Check`/`Recommendation`/`Severity` 型を削除
+- `PotionMetrics.RecordDiagnosticCheck` + `potion.diagnostics.check_duration` ヒストグラム（呼出し元なし）も削除
+- 併せて該当テストファイル（ResiliencePipelinesTests.cs・12テスト）削除 — 321→309/309 全パス
+
 ### Fixed (Docker イメージが素の `docker run` で Production 設定にフォールバックする問題を修正)
 
 - Dockerfile に `ENV ASPNETCORE_ENVIRONMENT=Container` を追加 — env 未指定の `docker run` は Production.json（localhost バインド + Windows 証明書パス）を読み、公開ポートが到達不能 or 起動失敗していた → イメージが自前で Container 設定（Kestrel `+:80`）を選択（compose/k8s は同値を明示設定済み・`-e` 上書き可能）
