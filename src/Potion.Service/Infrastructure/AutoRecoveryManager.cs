@@ -321,7 +321,7 @@ public sealed class AutoRecoveryManager : BackgroundService
         {
             _logger.LogInformation("Attempting failover for component: {Component}", component);
 
-                // フェイルオーバー先は構成されていないため実行できない
+            // フェイルオーバー先は構成されていないため実行できない
             _logger.LogWarning("Failover is not available: no standby target configured for {Component}", component);
             return false;
         }

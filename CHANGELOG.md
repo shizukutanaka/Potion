@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (`dotnet format` 整形ドリフト修正 + 検証パイプライン整備)
+
+- `AutoRecoveryManager.cs` のコメント段差ずれを `dotnet format whitespace` で修正 — ソリューション全体が整形規約に適合（`--verify-no-changes` パス）
+
 ### Improved (private メソッド・フィールドの死コード監査 — 全階層で孤立ゼロを確認)
 
 - private メソッド107件・private フィールド146件をファイル内出現数で精査 — 宣言のみの孤立はゼロ
