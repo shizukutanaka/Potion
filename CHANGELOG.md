@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (Advanced Filters の収集値を実フィルタへ接続 — severity チェック・コンポーネント・期間が無視されていた)
+
+- `applyAdvancedFilters` が severity/timeRange/component を収集しながら severity しか適用していなかった → `filterAlerts` が3条件を全て適用（severity 複数選択の allowlist・コンポーネント名部分一致・1h/24h/7d/30d の期間 bound）
+- 全 `data-action` ハンドラ28件の実体を監査 — 空スタブ・未定義・単一参照の孤立はなし（この1件のみが収集値未適用の実ギャップ）
+
 ### Fixed (残りの死設定を実装 — soundNotifications・criticalAlerts/warningAlerts・retentionDays)
 
 - `soundNotifications`（critical アラート音）→ WebAudio 880Hz ビープを SignalR `Alert` ハンドラへ配線

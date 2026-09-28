@@ -11,6 +11,9 @@ class PotionDashboard {
         this.selectedAlerts = new Set();
         this.acknowledgedAlertIds = new Set();
         this.currentAlertFilter = 'all';
+        this.currentAlertSeverities = null;
+        this.currentAlertComponents = null;
+        this.currentAlertTimeRange = null;
         this.currentAlertSearch = '';
         this.currentSecurityTab = 'components';
         this.currentChartRange = '24h';
@@ -1396,9 +1399,26 @@ class PotionDashboard {
     }
 
     filterAlerts(alerts) {
+        const timeRangeMs = { '1h': 3600000, '24h': 86400000, '7d': 604800000, '30d': 2592000000 }[this.currentAlertTimeRange];
         return alerts.filter(alert => {
             // Apply severity filter
             if (this.currentAlertFilter !== 'all' && alert.severity.toLowerCase() !== this.currentAlertFilter) {
+                return false;
+            }
+
+            // Apply advanced severity allowlist (checkboxes)
+            if (this.currentAlertSeverities && !this.currentAlertSeverities.includes(alert.severity.toLowerCase())) {
+                return false;
+            }
+
+            // Apply component allowlist
+            if (this.currentAlertComponents &&
+                !this.currentAlertComponents.some(cf => (alert.component || '').toLowerCase().includes(cf.toLowerCase()))) {
+                return false;
+            }
+
+            // Apply time-range bound
+            if (timeRangeMs && Date.now() - new Date(alert.timestamp).getTime() > timeRangeMs) {
                 return false;
             }
 
@@ -1773,7 +1793,9 @@ class PotionDashboard {
 
         // Apply filters to alerts
         this.currentAlertFilter = severityFilters.length === 1 ? severityFilters[0] : 'all';
-        // In a real implementation, more complex filtering would be applied
+        this.currentAlertSeverities = severityFilters.length > 0 ? severityFilters : [];
+        this.currentAlertComponents = componentFilters.length > 0 ? componentFilters : [];
+        this.currentAlertTimeRange = timeRange;
 
         this.refreshAllData();
         this.toggleAdvancedSearch();
