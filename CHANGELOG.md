@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (環境別設定のドリフト監査 — 不整合なし)
+
+- appsettings.{Development,Container,Production}.json の全セクションをベースと突合：レイヤリング継承・セクション整合・Sink/Enricher パッケージ参照（`Serilog.Sinks.EventLog`・`WithEnvironmentUserName`）・Kestrel↔Dockerfile EXPOSE↔compose ポートマッピングすべて一致を確認
+- コード変更なし（監査のみ — 不整合ゼロ）
+
 ### Improved (隠れていた設定セクションを appsettings.json に明示)
 
 - `MemoryMonitor`・`PerformanceOptimizer`・`Observability:OtlpEndpoint` はコードで Bind/参照されるのに appsettings.json にセクションが存在せず、デフォルト値が発見不能だった → 全ノブを既定値つきで明示（`ValidateOnStart`/`ValidateDataAnnotations` が実値を検証するようになり、運用者が変更点を発見可能に）
