@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (compose healthcheck・Prometheus スクレイプ設定監査 — 変更不要を確認)
+
+- `depends_on` は list 形式（起動順序のみ）で不整合なし。healthcheck 未設定は妥当 — aspnet ランタイムイメージに curl/wget がなくシェルヘルスチェック不可、k8s プローブが実環境の健全性ゲートを担う
+- `prometheus.yml` の `potion-service:80` + `/metrics` は Container バインド（`+:80`）と `MapPrometheusScrapingEndpoint()` に一致
+
 ### Improved (ConfigTool 引数処理・restore 安全設計監査 — 変更不要を確認)
 
 - 未登録コマンド → ヘルプ + exit 1、`--config` の bounds check、restore 引数必須チェック — CLI 面は完全
