@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (k8s プローブ・Ingress・ServiceMonitor パスのエンドポイント一致検証 — 変更不要を確認)
+
+- liveness/startup `/health`・readiness `/health/ready` → `MapHealthChecks` 両方登録済み（readiness は sampling 完走を要求する ready タグ設計）
+- scrape `/metrics` → `MapPrometheusScrapingEndpoint()` が提供・ServiceMonitor の `port: http` は Service の named port と一致
+- Ingress ルート（/api・/health・/collaboration・/）は全て実在、/metrics は外部非公開のまま
+
 ### Improved (.sln↔csproj 登録ドリフト・.gitignore 網羅性監査 — 変更不要を確認)
 
 - Potion.sln がディスク上の3 csproj（Service・Tests・ConfigTool）と完全一致 — ConfigTool もソリューションビルドに含まれる
