@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Audit (フロント fetch URL↔サーバルート一致を監査 — 変更不要を確認)
+
+- dashboard.js の `fetch()` は `/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary` の4件のみ・全て Startup.cs の登録ルートと一致（`/api/health/alerts/webhook` は alertmanager 宛に登録済み）
+- フロント→API のドリフト（存在しないエンドポイントへの dead call）なし
+
 ### Fixed (未定義 CSS 変数 `--gray-25` を定義 — ログテーブル hover がサイレントに無効だった)
 
 - `.logs-table tbody tr:hover` の `var(--gray-25)` が未定義で宣言ごと無効化されていた → `--gray-25: #FCFDFE` をパレットに追加（hover 効果が実際に出る）
