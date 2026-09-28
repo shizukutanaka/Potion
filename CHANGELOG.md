@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (EnvironmentVariableHelper と ResiliencePipelines にテスト36件追加)
+
+- `EnvironmentVariableHelperTests.cs` 新規（24件）：env-var オーバーライド層の契約を固定 — 未設定・空白・パース不能・**非正数（0/負）のすべてが既定値へフォールバック**（`parsed > 0` の positive-only 意味論）、bool は true/false のみ受理（"1"/"yes" は既定値）、TimeSpan/int/long 同様
+- `ResiliencePipelinesTests.cs` 新規（12件）：Startup 登録済みの Polly v9 パイプラインを実実行で検証 — `ProcessResult.IsTransientFailure`（終了コード -1/5/1314 のみ）、非一時的失敗はリトライしない（遅延コストを払わない）、一時的失敗→成功でリトライ動作、**サーキットブレーカーが連続失敗後にオープンし、以降の呼出はコールバックを実行せず BrokenCircuitException で即拒否**、診断パイプラインは Critical レポートのみリトライ
+- テスト総数 325 → **361**
+
 ### Improved (CollaborationHub にテスト11件追加 — 匿名到達可能な Hub メソッドの契約を固定)
 
 - `tests/Potion.Service.Tests/CollaborationHubTests.cs` 新規：`HubCallerContext`/`IGroupManager`/`IHubCallerClients` をモック化し実 `CollaborationService` と組み合わせてトランスポート不要で検証 — 接続時 `system-monitors` グループ参加、上限到達時は `Context.Abort()` で切断しグループ不参加、切断でセッション除去、`alerts-{type}` 購読/解除と Caller 確認、`SendMessage` の 2000 文字上限（超過・空・空白は送信せず、ちょうど2000は送信 — 匿名クライアントの増幅攻撃を防ぐ上限）、`UserIdentifier` 優先の投稿者解決、`JoinRoom`/`LeaveRoom` のグループ管理
