@@ -62,72 +62,6 @@ public sealed class HealthCheckResult
 }
 
 /// <summary>
-/// バックアップ種別
-/// </summary>
-public enum BackupType
-{
-    Full,
-    Configuration,
-    SystemState
-}
-
-/// <summary>
-/// バックアップ実行結果
-/// </summary>
-public sealed record BackupResult(
-    bool Success,
-    string BackupPath,
-    long SizeBytes,
-    int FileCount,
-    DateTimeOffset CreatedAt);
-
-/// <summary>
-/// バックアップファイル情報
-/// </summary>
-public sealed record BackupFileInfo(
-    string Name,
-    string FullName,
-    long Length,
-    DateTimeOffset LastWriteUtc,
-    BackupType Type)
-{
-    public DateTimeOffset CreatedAt => LastWriteUtc;
-}
-
-/// <summary>
-/// ログエラー統計
-/// </summary>
-public sealed record LogErrorStatistics(
-    int TotalErrors,
-    int CriticalErrors,
-    int WarningCount,
-    IReadOnlyList<string> TopErrors,
-    DateTimeOffset PeriodStart,
-    DateTimeOffset PeriodEnd)
-{
-    public int CriticalErrorCount { get; init; }
-}
-
-/// <summary>
-/// パフォーマンスメトリクス
-/// </summary>
-public sealed record PerformanceMetric(
-    string Name,
-    double Value,
-    string Unit,
-    DateTimeOffset Timestamp);
-
-/// <summary>
-/// ログパフォーマンス統計
-/// </summary>
-public sealed record LogPerformanceStatistics(
-    int TotalOperations,
-    int FailedOperations,
-    int SlowOperations,
-    int AverageDurationMs,
-    IReadOnlyList<PerformanceMetric> TopMetrics);
-
-/// <summary>
 /// コマンドバリデータ
 /// </summary>
 public interface ICommandValidator
@@ -194,64 +128,6 @@ public sealed class CommandValidator : ICommandValidator
     public IReadOnlyCollection<string> GetCurrentAllowlist()
     {
         return _optionsMonitor.CurrentValue.CommandAllowlist;
-    }
-}
-
-/// <summary>
-/// ログ分析サービス
-/// </summary>
-public interface ILogAnalysisService
-{
-    Task<LogErrorStatistics> AnalyzeErrorStatisticsAsync(CancellationToken cancellationToken);
-
-    Task<LogPerformanceStatistics> AnalyzePerformanceStatisticsAsync(CancellationToken cancellationToken);
-}
-
-public sealed class LogAnalysisService : ILogAnalysisService
-
-{
-    private readonly ILogger<LogAnalysisService> _logger;
-
-    public LogAnalysisService(ILogger<LogAnalysisService> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task<LogErrorStatistics> AnalyzeErrorStatisticsAsync(CancellationToken cancellationToken)
-    {
-        var now = DateTimeOffset.UtcNow;
-        var result = new LogErrorStatistics(0, 0, 0, Array.Empty<string>(), now.AddHours(-1), now);
-        return Task.FromResult(result);
-    }
-
-    public Task<LogPerformanceStatistics> AnalyzePerformanceStatisticsAsync(CancellationToken cancellationToken)
-    {
-        var result = new LogPerformanceStatistics(0, 0, 0, 0, Array.Empty<PerformanceMetric>());
-        return Task.FromResult(result);
-    }
-}
-
-/// <summary>
-/// テレメトリ保持サービス
-/// </summary>
-public interface ITelemetryRetentionService
-{
-    Task OptimizeForHighSpeedAsync();
-}
-
-public sealed class TelemetryRetentionService : ITelemetryRetentionService
-{
-    private readonly ILogger<TelemetryRetentionService> _logger;
-
-    public TelemetryRetentionService(ILogger<TelemetryRetentionService> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task OptimizeForHighSpeedAsync()
-    {
-        _logger.LogDebug("Optimizing telemetry retention for high-speed collection");
-        return Task.CompletedTask;
     }
 }
 

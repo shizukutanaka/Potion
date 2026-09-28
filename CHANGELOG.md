@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (ServiceSupportTypes の死型10件を除去 — コンシューマゼロ)
+
+- `ServiceSupportTypes.cs` から消費者ゼロの型10件を除去：`BackupType`・`BackupResult`・`BackupFileInfo`・`LogErrorStatistics`・`PerformanceMetric`・`LogPerformanceStatistics`・`ILogAnalysisService`+`LogAnalysisService`（常に空統計を返すスタブ実装）・`ITelemetryRetentionService`+`TelemetryRetentionService`（ログを書くだけのスタブ実装）— 全コードベースで参照ゼロを確認
+- 291→157行。`HealthStatus`・`HealthCheckResult` は `AutoRecoveryManager.PerformHealthCheckAsync` が実使用のため保持
+- 検証： ビルド0警告・358/358 テスト全パス
+
 ### Removed (死んだ i18n ランタイムクラスタを除去 — コンシューマゼロ)
 
 - `InternationalizationService`（62行）は DI 登録されているが**注入・呼出し元がゼロ**の死コード — `GetLocalizedString`/`SetCulture`（プロセス全体の `CultureInfo.CurrentUICulture` を書き換える危険な死メソッド）の利用者不在を確認し除去
