@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (README エンドポイント記述↔実登録ルート双方向照合 — ドリフトなしを確認)
+
+- README 記載の全ルート（`/api/health`・`/metrics`・`/collaboration`・webhook 等）が実登録に存在・`/collaboration/negotiate` は SignalR サブプロトコルとして正当
+- 逆方向も一致 — README に未記載の登録ルートなし
+
 ### Improved (csproj NuGet メタデータ監査 — 変更不要を確認)
 
 - 出荷成果物 `Potion.Service` は `PackageId`・`Description`・`PackageLicenseExpression MIT`・`Authors`・`Version 2.0.0` + `InformationalVersion 2.0.0-dev` を完備
