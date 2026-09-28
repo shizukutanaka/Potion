@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (PotionEventSource の未発火 ETW イベント27件を除去)
+
+- 33イベントメソッド中、実際に呼び出されるのは6件のみ（`RemediationTaskStarted/Completed/Failed`・`CircuitBreakerStateChanged`・`RetryAttempt`・`PerformanceAlert`）— 残り27件（`SelfHealing*`・`Rollback*`・`Security*`・`Maintenance*`・`Diagnostic*` 等）は発火経路ゼロで除去（343→約110行）
+- 死イベントのみが使っていた `Keywords` 定数7件（Monitoring/Health/Prediction/Diagnostics/Healing/Security/Configuration）も除去 — 残る3件（Remediation/Resilience/Performance）は実使用中
+- 検証： ビルド0警告・299/299 テスト全パス
+
 ### Removed (解決者ゼロの死 DI 登録4件を除去)
 
 - `ResiliencePipeline<ProcessResult>`・`<bool>`・`<DiagnosticReport>` の Singleton 登録3件：パイプラインは構築されるが**DI から解決するコードが一つもなかった**（`ResiliencePipelines` ビルダー自体は残し、直接実行するテスト12件は維持）

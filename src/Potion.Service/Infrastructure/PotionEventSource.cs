@@ -43,36 +43,10 @@ public sealed class PotionEventSource : EventSource
     }
 
     /// <summary>Event ID 4: System anomaly detected</summary>
-    [Event(4, Level = EventLevel.Warning,
-           Keywords = Keywords.Monitoring,
-           Message = "System anomaly detected: {0} - Current: {1}, Baseline: {2}, Deviation: {3}")]
-    public void SystemAnomalyDetected(string component, double currentValue,
-                                     double baselineValue, double deviation)
-    {
-        if (IsEnabled())
-            WriteEvent(4, component, currentValue, baselineValue, deviation);
-    }
 
     /// <summary>Event ID 5: Critical health threshold exceeded</summary>
-    [Event(5, Level = EventLevel.Critical,
-           Keywords = Keywords.Health,
-           Message = "Critical health threshold exceeded: {0} = {1} (threshold: {2})")]
-    public void CriticalHealthThresholdExceeded(string metric, double value, double threshold)
-    {
-        if (IsEnabled())
-            WriteEvent(5, metric, value, threshold);
-    }
 
     /// <summary>Event ID 6: Predictive maintenance scheduled</summary>
-    [Event(6, Level = EventLevel.Informational,
-           Keywords = Keywords.Prediction,
-           Message = "Predictive maintenance scheduled for {0}: {1} on {2} (failure probability: {3})")]
-    public void PredictiveMaintenanceScheduled(string component, string maintenanceType,
-                                               string scheduledDate, double failureProbability)
-    {
-        if (IsEnabled())
-            WriteEvent(6, component, maintenanceType, scheduledDate, failureProbability);
-    }
 
     /// <summary>Event ID 7: Circuit breaker state change</summary>
     [Event(7, Level = EventLevel.Warning,
@@ -96,125 +70,28 @@ public sealed class PotionEventSource : EventSource
     }
 
     /// <summary>Event ID 9: Health check completed</summary>
-    [Event(9, Level = EventLevel.Informational,
-           Keywords = Keywords.Health,
-           Message = "Health check completed in {0}ms: Status={1}, CPU={2}%, Memory={3}%, Services Failed={4}")]
-    public void HealthCheckCompleted(long durationMs, string status, double cpuPercent,
-                                     double memoryPercent, int failedServices)
-    {
-        if (IsEnabled())
-            WriteEvent(9, durationMs, status, cpuPercent, memoryPercent, failedServices);
-    }
 
     /// <summary>Event ID 10: Diagnostic analysis started</summary>
-    [Event(10, Level = EventLevel.Informational,
-           Keywords = Keywords.Diagnostics,
-           Message = "Diagnostic analysis started: {0}")]
-    public void DiagnosticStarted(string diagnosticType)
-    {
-        if (IsEnabled())
-            WriteEvent(10, diagnosticType);
-    }
 
     /// <summary>Event ID 11: Diagnostic analysis completed</summary>
-    [Event(11, Level = EventLevel.Informational,
-           Keywords = Keywords.Diagnostics,
-           Message = "Diagnostic analysis completed: {0} in {1}ms - Severity: {2}, Issues found: {3}")]
-    public void DiagnosticCompleted(string diagnosticType, long durationMs, string severity, int issuesFound)
-    {
-        if (IsEnabled())
-            WriteEvent(11, diagnosticType, durationMs, severity, issuesFound);
-    }
 
     /// <summary>Event ID 12: Self-healing action started</summary>
-    [Event(12, Level = EventLevel.Informational,
-           Keywords = Keywords.Healing,
-           Message = "Self-healing action initiated: {0} for issue {1}")]
-    public void SelfHealingStarted(string action, string issueType)
-    {
-        if (IsEnabled())
-            WriteEvent(12, action, issueType);
-    }
 
     /// <summary>Event ID 13: Self-healing action succeeded</summary>
-    [Event(13, Level = EventLevel.Informational,
-           Keywords = Keywords.Healing,
-           Message = "Self-healing succeeded: {0} completed in {1}ms")]
-    public void SelfHealingSucceeded(string action, long durationMs)
-    {
-        if (IsEnabled())
-            WriteEvent(13, action, durationMs);
-    }
 
     /// <summary>Event ID 14: Self-healing action failed</summary>
-    [Event(14, Level = EventLevel.Error,
-           Keywords = Keywords.Healing,
-           Message = "Self-healing failed: {0} - {1}")]
-    public void SelfHealingFailed(string action, string errorReason)
-    {
-        if (IsEnabled())
-            WriteEvent(14, action, errorReason);
-    }
 
     /// <summary>Event ID 15: Rollback initiated</summary>
-    [Event(15, Level = EventLevel.Warning,
-           Keywords = Keywords.Healing,
-           Message = "Rollback initiated for session {0}: {1}")]
-    public void RollbackInitiated(string sessionId, string reason)
-    {
-        if (IsEnabled())
-            WriteEvent(15, sessionId, reason);
-    }
 
     /// <summary>Event ID 16: Rollback completed</summary>
-    [Event(16, Level = EventLevel.Informational,
-           Keywords = Keywords.Healing,
-           Message = "Rollback completed successfully for session {0} in {1}ms")]
-    public void RollbackCompleted(string sessionId, long durationMs)
-    {
-        if (IsEnabled())
-            WriteEvent(16, sessionId, durationMs);
-    }
 
     /// <summary>Event ID 17: Security baseline violation detected</summary>
-    [Event(17, Level = EventLevel.Error,
-           Keywords = Keywords.Security,
-           Message = "Security baseline violations detected: {0} policy violations found")]
-    public void SecurityBaselineViolation(int violationCount)
-    {
-        if (IsEnabled())
-            WriteEvent(17, violationCount);
-    }
 
     /// <summary>Event ID 18: Security hardening action completed</summary>
-    [Event(18, Level = EventLevel.Informational,
-           Keywords = Keywords.Security,
-           Message = "Security hardening applied: {0}")]
-    public void SecurityHardeningApplied(string policyName)
-    {
-        if (IsEnabled())
-            WriteEvent(18, policyName);
-    }
 
     /// <summary>Event ID 19: Configuration applied</summary>
-    [Event(19, Level = EventLevel.Informational,
-           Keywords = Keywords.Configuration,
-           Message = "Configuration applied: {0} from snapshot {1}")]
-    public void ConfigurationApplied(string configName, string snapshotId)
-    {
-        if (IsEnabled())
-            WriteEvent(19, configName, snapshotId);
-    }
 
     /// <summary>Event ID 20: Configuration validation failed</summary>
-    [Event(20, Level = EventLevel.Error,
-           Keywords = Keywords.Configuration,
-           Message = "Configuration validation failed: {0}")]
-    public void ConfigurationValidationFailed(string validationError)
-    {
-        if (IsEnabled())
-            WriteEvent(20, validationError);
-    }
 
     /// <summary>Event ID 21: Performance alert</summary>
     [Event(21, Level = EventLevel.Warning,
@@ -227,117 +104,30 @@ public sealed class PotionEventSource : EventSource
     }
 
     /// <summary>Event ID 22: Escalation to human review</summary>
-    [Event(22, Level = EventLevel.Critical,
-           Keywords = Keywords.Healing | Keywords.Security,
-           Message = "Manual intervention required: {0} - Session {1}")]
-    public void SelfHealingEscalation(string sessionId, string reason)
-    {
-        if (IsEnabled())
-            WriteEvent(22, sessionId, reason);
-    }
 
     /// <summary>Event ID 23: Maintenance window entered</summary>
-    [Event(23, Level = EventLevel.Informational,
-           Keywords = Keywords.Remediation,
-           Message = "Maintenance window started: {0} (scheduled until {1})")]
-    public void MaintenanceWindowStarted(string windowTag, string endTime)
-    {
-        if (IsEnabled())
-            WriteEvent(23, windowTag, endTime);
-    }
 
     /// <summary>Event ID 24: Maintenance window exited</summary>
-    [Event(24, Level = EventLevel.Informational,
-           Keywords = Keywords.Remediation,
-           Message = "Maintenance window ended: {0} - Tasks completed: {1}")]
-    public void MaintenanceWindowEnded(string windowTag, int tasksCompleted)
-    {
-        if (IsEnabled())
-            WriteEvent(24, windowTag, tasksCompleted);
-    }
 
     /// <summary>Event ID 25: ML model trained</summary>
-    [Event(25, Level = EventLevel.Informational,
-           Keywords = Keywords.Prediction,
-           Message = "ML model trained: {0}")]
-    public void MachineLearningModelTrained(string modelName)
-    {
-        if (IsEnabled())
-            WriteEvent(25, modelName);
-    }
 
     /// <summary>Event ID 26: Remediation executed</summary>
-    [Event(26, Level = EventLevel.Informational,
-           Keywords = Keywords.Remediation,
-           Message = "Remediation executed: {0} - {1} - {2}")]
-    public void RemediationExecuted(string remediationId, string anomalyType, string status)
-    {
-        if (IsEnabled())
-            WriteEvent(26, remediationId, anomalyType, status);
-    }
 
     /// <summary>Event ID 27: Security threat indicators blocked</summary>
-    [Event(27, Level = EventLevel.Warning,
-           Keywords = Keywords.Security,
-           Message = "Threat indicators blocked: {0} IOCs, {1} malware samples")]
-    public void SecurityThreatIndicatorBlocked(int blockedIocs, int blockedMalware)
-    {
-        if (IsEnabled())
-            WriteEvent(27, blockedIocs, blockedMalware);
-    }
 
     /// <summary>Event ID 28: Security configuration applied</summary>
-    [Event(28, Level = EventLevel.Informational,
-           Keywords = Keywords.Security,
-           Message = "Security configuration applied: {0}")]
-    public void SecurityConfigurationApplied(string configurationName)
-    {
-        if (IsEnabled())
-            WriteEvent(28, configurationName);
-    }
 
     /// <summary>Event ID 29: Security incident response initiated</summary>
-    [Event(29, Level = EventLevel.Warning,
-           Keywords = Keywords.Security,
-           Message = "Incident response initiated: {0} - {1}")]
-    public void SecurityIncidentResponseInitiated(string incidentId, string title)
-    {
-        if (IsEnabled())
-            WriteEvent(29, incidentId, title);
-    }
 
     /// <summary>Event ID 30: Security audit event recorded</summary>
-    [Event(30, Level = EventLevel.Informational,
-           Keywords = Keywords.Security,
-           Message = "Audit event recorded: {0} by {1} on {2}")]
-    public void SecurityAuditEventRecorded(string action, string actor, string resource)
-    {
-        if (IsEnabled())
-            WriteEvent(30, action, actor, resource);
-    }
 
     /// <summary>Event ID 31: Hotpatch applied</summary>
-    [Event(31, Level = EventLevel.Informational,
-           Keywords = Keywords.Remediation,
-           Message = "Hotpatch applied: {0} - {1}")]
-    public void HotpatchApplied(string patchId, string status)
-    {
-        if (IsEnabled())
-            WriteEvent(31, patchId, status);
-    }
 
     /// <summary>ETW Keywords for event filtering</summary>
     public static class Keywords
     {
         public const EventKeywords Remediation = (EventKeywords)1;
-        public const EventKeywords Monitoring = (EventKeywords)2;
-        public const EventKeywords Health = (EventKeywords)4;
-        public const EventKeywords Prediction = (EventKeywords)8;
         public const EventKeywords Resilience = (EventKeywords)16;
-        public const EventKeywords Diagnostics = (EventKeywords)32;
-        public const EventKeywords Healing = (EventKeywords)64;
-        public const EventKeywords Security = (EventKeywords)128;
-        public const EventKeywords Configuration = (EventKeywords)256;
         public const EventKeywords Performance = (EventKeywords)512;
     }
 }
