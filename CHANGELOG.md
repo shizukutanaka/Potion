@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (html/JS 双方で未参照の死 CSS 162ルールを除去)
+
+- styles.css 3,886→2,825行：class セレクタ336件を index.html・dashboard.js（`class=`/`classList`/`className`・テンプレート補間を含む）と機械照合し、参照ゼロの162ルールを除去 — about-*/banner-*/contextual-help-*/dropdown-*/inline-*/tooltip-rich-*/loading-*/skeleton-*/empty-state-*/status-page系/mb-*/u-w45 等
+- `notification-${type}`・`status-indicator ${status}` 等の**補間生成クラス**（notification-*/unknown/information/completed/inactive/editing/banner）と稼働中の `progress-bar`/`progress-fill` は保持
+- 検証： 実ブラウザでダッシュボード全セクション描画・メトリクスバー・チャート正常を確認・299/299 テスト全パス・ビルド0警告
+
 ### Removed (死 NuGet パッケージ2件と追跡外すべきファイル)
 
 - `Microsoft.Data.SqlClient`：唯一の消費者 `DatabaseOptimizationService`（サイクル336で除去済み）が消え、コード内の利用ゼロを確認してパッケージ参照を除去
