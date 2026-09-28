@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (NuGet パッケージの脆弱性スキャン + 安全な minor/patch アップデート)
+
+- `dotnet list package --vulnerable`： 推移的依存含め脆弱性ゼロを確認
+- 更新3件： Serilog 4.3.1→4.4.0・Serilog.Sinks.Console 6.0.0→6.1.1・Moq 4.20.72→4.21.0（lock ファイル更新済み・321/321 全パス）
+- 意図的に保留： FluentAssertions 6→8（7.x で再ライセンス・導入リスク）、Serilog.Extensions/Settings 9→10・Microsoft.Extensions.* →10.0.12（net10 系メジャー・net8 プロジェクトへの混入不可）、Serilog.Sinks.File 6→7（メジャー・要個別検証）
+
 ### Improved (テスト並列化を無効化 — OS 実測値アサートのフレーキング要因を除去)
 
 - `CollectionBehavior(DisableTestParallelization = true)` を追加 — ProcessRunner・SystemMetricsSampler・GC カウンタ・ドライブ列挙の実測値に依存するテストが並列クラスにリソースを奪われてフレークする可能性を根本解消
