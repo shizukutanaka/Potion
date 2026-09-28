@@ -244,4 +244,56 @@ public sealed class RemediationPolicyValidatorsTests
         Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
             () => RemediationPolicyOptionsValidators.ArgumentsAreSafe(options));
     }
+
+    [Fact]
+    public void ArgumentsAreAllowlisted_AcceptsMatchingArguments()
+    {
+        var options = new RemediationPolicyOptions
+        {
+            CommandArgumentAllowlist = new Dictionary<string, List<string>>
+            {
+                ["sfc.exe"] = new() { "/scannow" }
+            },
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "a", Command = "sfc.exe", Arguments = "/scannow", Enabled = true }
+            }
+        };
+        Assert.True(RemediationPolicyOptionsValidators.ArgumentsAreAllowlisted(options));
+    }
+
+    [Fact]
+    public void ArgumentsAreAllowlisted_UnlistedCommandIsUnrestricted()
+    {
+        var options = new RemediationPolicyOptions
+        {
+            CommandArgumentAllowlist = new Dictionary<string, List<string>>
+            {
+                ["sfc.exe"] = new() { "/scannow" }
+            },
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "a", Command = "chkdsk.exe", Arguments = "/f /r", Enabled = true }
+            }
+        };
+        Assert.True(RemediationPolicyOptionsValidators.ArgumentsAreAllowlisted(options));
+    }
+
+    [Fact]
+    public void ArgumentsAreAllowlisted_RejectsUnlistedArguments()
+    {
+        var options = new RemediationPolicyOptions
+        {
+            CommandArgumentAllowlist = new Dictionary<string, List<string>>
+            {
+                ["net.exe"] = new() { "user /domain" }
+            },
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "a", Command = "net.exe", Arguments = "user badguy /add", Enabled = true }
+            }
+        };
+        Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+            () => RemediationPolicyOptionsValidators.ArgumentsAreAllowlisted(options));
+    }
 }

@@ -146,6 +146,21 @@ public sealed class CommandValidator : ICommandValidator
             _logger.LogWarning("Blocked arguments containing quote/control characters for command {Command}", command);
             throw new InvalidOperationException("Arguments contain characters that could alter the spawned command line.");
         }
+
+        var argumentAllowlist = _optionsMonitor.CurrentValue.CommandArgumentAllowlist;
+        var fileName = command.Split(' ', '\t')[0];
+        var executableName = System.IO.Path.GetFileName(fileName);
+        var entry = argumentAllowlist.FirstOrDefault(kv =>
+            string.Equals(kv.Key, command, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(kv.Key, fileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(kv.Key, executableName, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrEmpty(entry.Key) &&
+            !entry.Value.Any(a => string.Equals(a, arguments, StringComparison.Ordinal)))
+        {
+            _logger.LogWarning("Blocked arguments not in the allowlist for command {Command}: {Arguments}", command, arguments);
+            throw new InvalidOperationException("Arguments are not allowed by the command argument allowlist.");
+        }
     }
 
     public IReadOnlyCollection<string> GetCurrentAllowlist()

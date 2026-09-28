@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Security (コマンド別引数許可リスト — 許可済みバイナリの任意引数を遮断)
+
+- 文字レベル検証（`"`・制御文字拒否）だけでは、許可済み `net.exe` に `user badguy /add` のような合法だが悪意ある引数が通過していた — `CommandArgumentAllowlist`（`Dictionary<string, List<string>>`）を追加し、マップに列挙されたコマンドはリスト内の引数文字列との完全一致のみ許可
+- キー解決はコマンド許可リストと同一規則（フルコマンド/ファイル名/実行名・OrdinalIgnoreCase）・引数比較は Ordinal 厳密一致 — マップ未登録コマンドは従来どおり文字レベル検証のみ（後方互換）
+- 実行時（`EnsureArgumentsAreAllowed`）と起動時（`ArgumentsAreAllowlisted`・`ValidateOnStart`）の二層で検証
+- appsettings.json に実タスク4件の引数を登録（sfc/dism/cleanmgr/ngen）— 未使用の許可済み3コマンド（chkdsk/powercfg/netsh）は無制限のまま
+- テスト +7件（実行時4件・設定時3件）
+- 検証： 315/315 テスト全パス・ビルド0警告
+
 ### Security (引数検証を設定レイヤに反映 — 起動時 fail-fast)
 
 - `RemediationPolicyOptionsValidators.ArgumentsAreSafe` を追加し `ValidateOnStart()` に登録 — 実行時ガードと同一ルール（`"`・制御文字・2048文字超過）を起動時に検証、不正なポリシーが実行時エラーではなくブート失敗で検出される
