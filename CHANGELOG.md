@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (PeriodicAsyncLoop のユニットテスト追加 — 315→321)
+
+- 直列化（即時実行→周期反復）・反復例外の報告と継続・`DisposeAsync` の停止確定性と in-flight 待機・`CancelNow` の冪等性・初期遅延尊重の6ケースを追加
+- README テスト数を実態に更新（315→321）
+
 ### Improved (イベント購読・セッションリークの監査)
 
 - 監査クリア（変更不要）: `CollaborationService` の ctor 購読3件は singleton ライフタイム一致（発行者・購読者が同寿命でリーク不成立）・`EventCorrelationService`/`EventDrivenRemediationService` は `StopAsync` で解除済み
