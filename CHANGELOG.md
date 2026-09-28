@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Security (Docker ビルドで lock ファイル復元を有効化 — 依存ピンが無視されていた)
+
+- Dockerfile が `src/` のみをコピーしていたため、リポジトリルートの `Directory.Build.props`（`RestorePackagesWithLockFile`）がコンテナ内に存在せず — **`packages.lock.json` は COPY されているのに一切参照されず、Docker ビルドだけが依存解決を非固定で行っていた**
+- `Directory.Build.props` を build context へ COPY + `ContinuousIntegrationBuild=true` を build ステージに設定（コンテナビルドは CI ビルド → `RestoreLockedMode` が発動し lock 不整合でビルド失敗）
+- 検証： `--locked-mode` 復元がローカルで成功・`.dockerignore` が props/lock を除外していないこと確認
+
 ### Improved (実行パスの cancellation 配線・タイマー上限記述の監査)
 
 - 監査クリア: プロセス実行は `ResilienceContext` の CT を `RunAsync` へ正しく伝播（パイプラインタイムアウトでプロセスツリーごと kill）・`new Timer` 残存ゼロ・`.Result`/`.Wait()` 同期ブロックゼロ

@@ -2,9 +2,17 @@
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 WORKDIR /src
 
+# Repo-root build props enable lock-file restore; without them the
+# container build would silently ignore packages.lock.json pins.
+COPY ["Directory.Build.props", "./"]
+
 # Copy the project file first so the NuGet restore layer stays cached
 # unless package references themselves change.
 COPY ["src/Potion.Service/Potion.Service.csproj", "Potion.Service/"]
+
+# Container builds are CI builds: fail on a lock-file mismatch instead
+# of silently rewriting it (see RestoreLockedMode in Directory.Build.props).
+ENV ContinuousIntegrationBuild=true
 
 # Restore dependencies
 WORKDIR "/src/Potion.Service"
