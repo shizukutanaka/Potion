@@ -76,12 +76,6 @@ public sealed class MemoryMonitorOptions
     public int LeakCheckIntervalMinutes { get; set; } = 15;
 
     /// <summary>
-    /// メモリリーク検知のしきい値（MB単位）
-    /// </summary>
-    [Required, Range(50, 1000)]
-    public long LeakDetectionThresholdMb { get; set; } = 100;
-
-    /// <summary>
     /// メモリ統計の履歴保持数
     /// </summary>
     [Required, Range(100, 10000)]
@@ -92,12 +86,6 @@ public sealed class MemoryMonitorOptions
     /// </summary>
     [Required, Range(30, 300)]
     public int OptimizationTimeoutSeconds { get; set; } = 60;
-
-    /// <summary>
-    /// メモリ最適化の最大実行回数（1回の監視間隔あたり）
-    /// </summary>
-    [Required, Range(1, 10)]
-    public int MaxOptimizationAttempts { get; set; } = 3;
 
     /// <summary>
     /// メモリ最適化のクールダウン時間（秒単位）

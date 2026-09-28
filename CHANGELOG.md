@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (バインド済み・未読取りオプション2件を除去)
+
+- `MemoryMonitorOptions.LeakDetectionThresholdMb`・`MaxOptimizationAttempts`：設定ファイルにキーがあり DI バインドされるが**読み取るコードが一切存在しない**（リーク検知・最適化回数カウント機能は既に撤去済み）— プロパティと appsettings.json のキーを除去
+- 全35オプションプロパティを機械照合 — 残り33件は全て実読取りあり（`EnableRealTimeAlerts`/`ReportDirectory`/`Standards` 等は稼働中）
+- 検証： 299/299 テスト全パス・ビルド0警告
+
 ### Improved (Polly レジリエンスパイプラインを修復実行パスへ実配線)
 
 - `ResiliencePipelines` のビルダーと12テストは存在したが、DI 登録除去（解決者ゼロ）以来**実行経路が一切パイプラインを通っていなかった** → `CreateProcessExecutionPipeline`（`ProcessExecutionResult` 版）を新設し、`RemediationTaskExecutor` の `IProcessRunner.RunAsync` 呼出しを包んで実稼働化
