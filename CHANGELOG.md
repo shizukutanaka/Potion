@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (Performance タブの CPU 0.0% 表示を調査 — バグなし)
+
+- ブラウザ検証で Overview 34.1%・Performance 0.0% の不整合を調査：`cpu.usagePercent` のバインドは全箇所で同一、差は `MacCpuPercent` のデルタサンプリング仕様（`host_statistics` 累積カウンタの前回差分 — 初回/間隔空きは正直に0を返す）による正常なウォームアップ。Windows `NextValue`/Linux `/proc/stat` も同方式のため意図的動作と確認
+- コード変更なし（調査のみ）
+
 ### Improved (ダッシュボードを実ブラウザで全タブ検証)
 
 - 実起動したサービスに Chrome で接続し全5タブを描画確認：Overview（ヘルススコア100・CPU/メモリ/ディスク実測値・504サービス）・Security（非Windowsで Defender/Firewall が正しく DISABLED 表示）・Performance（チャート+実値）・Alerts/Event Logs（空状態）— すべて実データ描画、JS 致命的エラーなし、ヘッダーの接続状態バッジも正しく「System Healthy」
