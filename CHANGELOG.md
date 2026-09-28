@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (オプション検証網羅監査 — 変更不要を確認)
+
+- 全6オプションクラス（Collaboration・Memory・PerformanceOptimizer・EventCorrelation・Compliance・RemediationPolicy）が `ValidateOnStart()` 登録済み — DataAnnotations 3件は `ValidateDataAnnotations()` あり、ラムダ検証3件は実制約を網羅（MaxConcurrentUsers>0・ReportIntervalHours 1-1193・相関パラメータ）
+- `IOptions`/`IOptionsMonitor` 注入経路の全6型を突合 — 未登録・未検証なし
+- `ComplianceOptions.ReportDirectory`（既定 `reports/compliance`）は `Path.Combine(ServicePaths.Base, ...)` で解決 — Windows サービス配下でも CWD 非依存
+
 ### Improved (リモートブランチ棚卸し — マージ済み33本を削除)
 
 - リモートブランチ57本のうち、**マージ済みPR(#5–#37・#55–#59)の head ブランチ33本を削除** — squash マージで tip が main に含まれないため `git branch --merged` では検出できず、PR の head ref とマージ状態を1件ずつ突合して確認
