@@ -107,6 +107,7 @@ class PotionDashboard {
             connection.on('Alert', (alert) => {
                 const severity = alert && alert.data && alert.data.severity >= 2 ? 'error' : 'warning';
                 this.showNotification((alert && alert.message) || 'System alert', severity);
+                this.deliverAlert(severity, (alert && alert.message) || 'System alert');
                 this.refreshAllData();
             });
 
@@ -282,6 +283,38 @@ class PotionDashboard {
         if (this.modalStack.length > 0) {
             const topModalId = this.modalStack[this.modalStack.length - 1];
             this.closeModal(topModalId);
+        }
+    }
+
+    deliverAlert(severity, message) {
+        const settings = this.getStoredSettings();
+        const pref = severity === 'error' ? settings.criticalAlerts : settings.warningAlerts;
+        if (settings.soundNotifications && severity === 'error') {
+            this.playAlertSound();
+        }
+        if (pref === 'browser' && 'Notification' in window) {
+            if (Notification.permission === 'granted') {
+                new Notification(severity === 'error' ? 'Critical alert' : 'Warning', { body: message });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+        }
+    }
+
+    playAlertSound() {
+        try {
+            const ctx = this._audioCtx || (this._audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain).connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+        } catch {
+            // AudioContext unavailable or blocked — the notification itself is enough.
         }
     }
 
@@ -1139,13 +1172,17 @@ class PotionDashboard {
                 throw new Error(`GET /api/health -> ${response.status}`);
             }
             const data = await response.json();
+            const retentionDays = this.getStoredSettings().retentionDays;
+            const cutoff = Number.isFinite(retentionDays) && retentionDays > 0
+                ? Date.now() - retentionDays * 86400000
+                : -Infinity;
             this.logsData = (data.alerts || []).map(a => ({
                 timestamp: new Date(a.timestamp),
                 level: (a.severity || 'info').toLowerCase(),
                 source: 'HealthMonitor',
                 eventId: a.component || '-',
                 message: `${a.title}: ${a.message}`
-            }));
+            })).filter(log => log.timestamp.getTime() >= cutoff);
             this.renderLogsTable();
         } catch (error) {
             console.error('Failed to load logs data:', error);

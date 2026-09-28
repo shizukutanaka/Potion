@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (残りの死設定を実装 — soundNotifications・criticalAlerts/warningAlerts・retentionDays)
+
+- `soundNotifications`（critical アラート音）→ WebAudio 880Hz ビープを SignalR `Alert` ハンドラへ配線
+- `criticalAlerts`/`warningAlerts` の `browser` 配信 → `Notification` API 発火（権限未許可時は requestPermission・denied なら黙殺）; `email` はサーバ側送信機能がないため未実装（UI 上の選択肢として残存）
+- `retentionDays` → `logsData` ロード時に保持期間外のアラートを除外（クライアント側表示履歴の bounds として実装）
+
 ### Fixed (`language`/`dateFormat` 設定を日時レンダリングへ接続 — 保存されるが無視されていた設定を実装)
 
 - 日時表示8箇所が `toLocaleString('ja-JP')` ハードコードで設定を一切参照していなかった → `formatDateTime`/`formatDate`/`relativeTime` ヘルパーを追加し設定に応じて出力（`YYYY-MM-DD`→ISO、`MM/DD/YYYY`→en-US、`DD/MM/YYYY`→en-GB、`relative`→相対時刻、未設定→language ロケール）
