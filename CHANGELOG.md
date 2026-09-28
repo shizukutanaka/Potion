@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Improved (Polly レジリエンスパイプラインを修復実行パスへ実配線)
+
+- `ResiliencePipelines` のビルダーと12テストは存在したが、DI 登録除去（解決者ゼロ）以来**実行経路が一切パイプラインを通っていなかった** → `CreateProcessExecutionPipeline`（`ProcessExecutionResult` 版）を新設し、`RemediationTaskExecutor` の `IProcessRunner.RunAsync` 呼出しを包んで実稼働化
+- 4戦略が実際に機能： **バルクヘッド**（同時4・キュー10 — タスク集中時の枯渇防止）→ **リトライ**（一時的終了コード -1/5/1314 と IO/UnauthorizedAccess のみ、指数バックオフ最大3回 — 許可終了コードの判定は変更せず最終結果のみ）→ **サーキットブレーカー**（5分で50%失敗・最低3件で10分オープン — システム劣化時の連鎖防止）→ **外側タイムアウト**30分
+- 既存 `CreateRemediationPipeline`/`CreateHealthCheckPipeline`/`CreateDiagnosticPipeline` の `ProcessResult` 版 API とテストは不変（実型 `ProcessExecutionResult` 専用の新ファクトリとして追加）
+- 検証： 299/299 テスト全パス・ビルド0警告・DI 解決経路は実機起動で確認
+
 ### Removed (未参照 @keyframes 9件 + 残存監査ゼロ)
 
 - styles.css：`@keyframes` 全12定義と `animation:`/`animation-name:` 参照を照合 — 使用ゼロの9件（spin・loading-shimmer・fadeInUp・wave×2・slideInFromTop・pulse-blue・advanced-loading・loading-wave）を除去。`wave` は `@media (prefers-reduced-motion)` 内に重複定義されていた残骸も除去

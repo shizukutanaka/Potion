@@ -133,6 +133,8 @@ public class Startup
                 .ValidateOnStart();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<ICommandValidator, CommandValidator>();
+            services.AddSingleton(sp => ResiliencePipelines.CreateProcessExecutionPipeline(
+                sp.GetRequiredService<ILogger<RemediationTaskExecutor>>()));
             services.AddSingleton<IRemediationTaskExecutor, RemediationTaskExecutor>();
             services.AddSingleton<RemediationScheduler>();
             services.AddSingleton<IRemediationScheduler>(sp => sp.GetRequiredService<RemediationScheduler>());
