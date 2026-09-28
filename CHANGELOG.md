@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (ConfigTool 引数処理・restore 安全設計監査 — 変更不要を確認)
+
+- 未登録コマンド → ヘルプ + exit 1、`--config` の bounds check、restore 引数必須チェック — CLI 面は完全
+- `restore` は上書き前に `validate` と同一検証をバックアップへ適用 + 現行設定を `.prerestore-*.bak` へ自動退避（破壊的操作の安全設計として完備）
+- 全ハンドラが例外を捕捉し意味のある終了コードを返す
+
 ### Improved (k8s プローブ・Ingress・ServiceMonitor パスのエンドポイント一致検証 — 変更不要を確認)
 
 - liveness/startup `/health`・readiness `/health/ready` → `MapHealthChecks` 両方登録済み（readiness は sampling 完走を要求する ready タグ設計）
