@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (appsettings.json とオプションクラスの整合監査 — 変更不要を確認)
+
+- 11セクション全てが消費先と一致（Serilog=ReadFrom.Configuration・AllowedHosts/Kestrel=host 既定・6オプション=Bind + ValidateOnStart・FeatureFlags/Observability=GetValue 直読）
+- セクション内キーは全て対応オプションクラスのプロパティに存在（死キーなし）
+
 ### Improved (NuGet パッケージの脆弱性スキャン + 安全な minor/patch アップデート)
 
 - `dotnet list package --vulnerable`： 推移的依存含め脆弱性ゼロを確認
