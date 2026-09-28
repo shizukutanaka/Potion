@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (ConfigTool generate が全設定セクションを出力)
+
+- `Potion.ConfigTool generate` が `RemediationPolicy` のみを出力し、残り10セクション（Collaboration・Compliance・EventCorrelation・FeatureFlags・Kestrel・MemoryMonitor・Observability・PerformanceOptimizer・Serilog・AllowedHosts）が欠落していた → POCO オプションクラスを `new` してシリアライズする方式に拡張し、**コード既定値とドリフトしない完全な既定設定**を出力するようになった（RemediationPolicy のタスク定義・許可リストはキュレーション済みリテラルを維持、Serilog はバンドル継承のため省略）
+- 検証： generate→validate ラウンドトリップ合格・生成ファイルに9セクション・ビルド0警告
+
 ### Fixed (外部設定ファイルを実際に読み込む — ConfigTool の配線を完成)
 
 - `Program.cs` に `AddJsonFile(ServicePaths.ConfigurationFile, optional: true, reloadOnChange: true)` を追加：`ServicePaths.ConfigurationFile`（`{Base}/config/appsettings.json`）が宣言だけ存在し、どこからも読まれていなかった — 運用者がインストール先を触らずに設定を上書きできる外部レイヤが実稼働

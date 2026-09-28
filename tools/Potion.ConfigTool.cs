@@ -2,6 +2,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Potion.Service.Hubs;
 using Potion.Service.Infrastructure;
 using Potion.Service.Options;
 
@@ -240,6 +241,27 @@ class Program
                         MaintenanceWindowTag = "business_hours",
                         AllowedExitCodes = new[] { 0 }
                     }
+                }
+            },
+            // Emit every bound section with its code defaults so operators can
+            // see every knob; anything omitted still inherits the bundled
+            // appsettings.json (this file is an override layer).
+            Collaboration = new CollaborationOptions(),
+            Compliance = new ComplianceOptions(),
+            EventCorrelation = new EventCorrelationOptions(),
+            MemoryMonitor = new MemoryMonitorOptions(),
+            PerformanceOptimizer = new PerformanceOptimizerOptions(),
+            FeatureFlags = new { RepairExecutionEnabled = false },
+            Observability = new { OtlpEndpoint = "http://localhost:4317" },
+            Kestrel = new
+            {
+                Limits = new
+                {
+                    MaxConcurrentConnections = 100,
+                    MaxConcurrentUpgradedConnections = 10,
+                    MaxRequestBodySize = 1048576,
+                    MinRequestBodyDataRate = new { BytesPerSecond = 100, GracePeriod = "00:00:10" },
+                    MinResponseDataRate = new { BytesPerSecond = 100, GracePeriod = "00:00:10" }
                 }
             }
         };
