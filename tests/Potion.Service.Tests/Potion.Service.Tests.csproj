@@ -27,6 +27,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Potion.Service\Potion.Service.csproj" />
+    <!-- Explicit copy: tests bind against the service's real config. Relying on
+         transitive ProjectReference content flow races parallel builds and
+         intermittently left appsettings.json missing from the test output. -->
+    <None Include="..\..\src\Potion.Service\appsettings.json" CopyToOutputDirectory="PreserveNewest" Link="appsettings.json" />
+    <None Include="..\..\src\Potion.Service\appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" Link="appsettings.Development.json" />
   </ItemGroup>
 
 </Project>

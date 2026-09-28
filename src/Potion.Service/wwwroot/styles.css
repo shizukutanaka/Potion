@@ -4095,3 +4095,9 @@ body.no-tooltips .tooltip:hover .tooltip-content {
     pointer-events: none;
     transition: opacity 0.2s ease;
 }
+
+/* Utilities replacing inline style attributes (strict style-src). */
+.u-hidden { display: none; }
+.u-w0 { width: 0%; }
+.u-w45 { width: 45%; }
+.policy-updated { margin-top: var(--space-2); font-size: 11px; color: var(--text-muted); }

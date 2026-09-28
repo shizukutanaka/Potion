@@ -1642,7 +1642,7 @@ class PotionDashboard {
                     </div>
                 </div>
                 <div class="policy-description">${this.esc(policy.description)}</div>
-                <div style="margin-top: var(--space-2); font-size: 11px; color: var(--text-muted);">
+                <div class="policy-updated">
                     Last updated: ${this.esc(policy.lastUpdated)}
                 </div>
             `;

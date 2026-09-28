@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Security (CSP 完全厳格化 — style-src の unsafe-inline も除去)
+
+- 残存11箇所のインライン `style=` 属性（進捗バー初期幅・非表示要素・ポリシー更新表示）を `u-hidden`/`u-w0`/`u-w45`/`policy-updated` ユーティリティクラスへ移行 — JS の `el.style.*` プロパティ代入は CSP の対象外のため動的更新は継続動作
+- `style-src 'self' 'unsafe-inline' ...` → `style-src 'self' <CDN>` — インラインスタイル属性・`<style>` ブロック注入もブラウザがブロックする完全厳格 CSP に
+
+### Fixed (テストの appsettings.json コピーレースを根因修正)
+
+- `OptionsBindingTests`/`AutoRecoveryManagerTests` がテスト出力の `appsettings.json` を読むが、ファイルは ProjectReference 経由の**推移的コピー**に依存しており、並行ビルド時に稀に欠落して FileNotFound になっていた（サイクル324/327で観測）→ テスト csproj にサービスの実 `appsettings*.json` を明示的 `None CopyToOutputDirectory` で宣言し、タイミング依存を解消
+
 ### Security (インラインハンドラ全廃 — CSP を強制モードへ昇格)
 
 - index.html の39箇所の `onclick`/`onchange`/`onkeyup` と dashboard.js が innerHTML で注入していた14箇所の動的 `onclick` をすべて `data-action`/`data-arg`/`data-onchange`/`data-onkeyup` 属性へ移行し、document 上の委譲ディスパッチャ（`POTION_ACTIONS` マップ）で処理 — ナビ選択の `[onclick*="..."]` セレクタも属性セレクタへ更新

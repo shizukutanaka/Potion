@@ -119,21 +119,21 @@
                             <div class="indicator">
                                 <span class="indicator-label">CPU</span>
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="cpu-usage" style="width: 0%"></div>
+                                    <div class="progress-fill u-w0" id="cpu-usage" ></div>
                                 </div>
                                 <span class="indicator-value" id="cpu-value">0%</span>
                             </div>
                             <div class="indicator">
                                 <span class="indicator-label">Memory</span>
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="memory-usage" style="width: 0%"></div>
+                                    <div class="progress-fill u-w0" id="memory-usage" ></div>
                                 </div>
                                 <span class="indicator-value" id="memory-value">0%</span>
                             </div>
                             <div class="indicator">
                                 <span class="indicator-label">Disk</span>
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="disk-usage" style="width: 0%"></div>
+                                    <div class="progress-fill u-w0" id="disk-usage" ></div>
                                 </div>
                                 <span class="indicator-value" id="disk-value">0%</span>
                             </div>
@@ -331,7 +331,7 @@
                         <i class="fas fa-search search-icon"></i>
                         <input type="text" class="search-input" id="alerts-search" aria-label="Search alerts" placeholder="Search alerts..." data-onkeyup="search-alerts">
                     </div>
-                    <div class="bulk-actions" id="bulk-actions" style="display: none;">
+                    <div class="bulk-actions u-hidden" id="bulk-actions">
                         <span id="selected-count">0 selected</span>
                         <button class="btn btn-secondary" data-action="clear-alert-selection">Clear</button>
                         <button class="btn btn-primary" data-action="bulk-acknowledge">Acknowledge</button>
@@ -575,16 +575,16 @@
         </div>
 
         <!-- Advanced Search with Autocomplete -->
-        <div class="advanced-search-overlay" id="advanced-search-overlay" style="display: none;">
+        <div class="advanced-search-overlay u-hidden" id="advanced-search-overlay">
             <div class="advanced-search-container">
                 <div class="search-input-wrapper">
                     <i class="fas fa-search search-icon"></i>
                     <input type="text" class="advanced-search-input" id="advanced-search-input" aria-label="Search dashboards, alerts, and logs" placeholder="Search dashboards, alerts, logs..." autocomplete="off">
-                    <button class="search-clear" data-action="clear-advanced-search" aria-label="Clear search" style="display: none;">
+                    <button class="search-clear u-hidden" data-action="clear-advanced-search" aria-label="Clear search">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="search-results" id="search-results" style="display: none;">
+                <div class="search-results u-hidden" id="search-results">
                     <div class="search-categories">
                         <div class="search-category active" data-category="all">All Results</div>
                         <div class="search-category" data-category="alerts">Alerts</div>
@@ -698,7 +698,7 @@
     </aside>
 
     <!-- Advanced Search Panel -->
-    <div class="search-panel" id="advanced-search-panel" style="display: none;">
+    <div class="search-panel u-hidden" id="advanced-search-panel">
         <div class="search-panel-header">
             <h4>Advanced Search</h4>
             <button class="btn btn-ghost" data-action="toggle-advanced-search" aria-label="Close search panel">
@@ -910,14 +910,14 @@
     </div>
 
     <!-- Drag and Drop Zone for File Upload -->
-    <div class="drag-drop-zone" id="file-upload-zone" style="display: none;">
+    <div class="drag-drop-zone u-hidden" id="file-upload-zone">
         <div class="drag-drop-content">
             <div class="drag-drop-icon">
                 <i class="fas fa-cloud-upload-alt"></i>
             </div>
             <h3>Drop files here to upload</h3>
             <p>or <button class="btn btn-link" data-action="trigger-file-select">browse files</button></p>
-            <input type="file" id="file-input" aria-label="Upload files" multiple style="display: none;" data-onchange="handle-file-upload">
+            <input type="file" id="file-input" class="u-hidden" aria-label="Upload files" multiple data-onchange="handle-file-upload">
         </div>
         <div class="drag-drop-overlay" id="drag-overlay"></div>
     </div>
@@ -952,7 +952,7 @@
                 <div class="progress-details">
                     <div class="progress-bar-container">
                         <div class="progress-bar">
-                            <div class="progress-fill" id="progress-fill" style="width: 45%"></div>
+                            <div class="progress-fill u-w45" id="progress-fill"></div>
                         </div>
                         <span class="progress-percentage" id="progress-percentage">45%</span>
                     </div>

@@ -273,12 +273,12 @@ public class Startup
             context.Response.Headers["Referrer-Policy"] = "no-referrer";
             context.Response.Headers["Permissions-Policy"] =
                 "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
-            // Enforced now that all inline handlers were moved to the
-            // data-action dispatcher in dashboard.js; style-src keeps
-            // 'unsafe-inline' for the remaining inline style attributes.
+            // Fully strict CSP: inline handlers became data-action delegation and
+            // inline style attributes became utility classes, so no 'unsafe-inline'
+            // is needed for either script-src or style-src.
             context.Response.Headers["Content-Security-Policy"] =
                 "default-src 'self'; script-src 'self'; " +
-                "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
+                "style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
                 "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
                 "img-src 'self' data:; connect-src 'self' ws: wss:; " +
                 "object-src 'none'; base-uri 'self'";
