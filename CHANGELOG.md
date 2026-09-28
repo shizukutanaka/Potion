@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (README ドリフト解消 — テスト数・エンドポイント一覧を実態に更新)
+
+- テスト数記載 `305/305` → 実態の **315/315** に修正（`dotnet test Potion.sln` で実測確認）
+- エンドポイント一覧に `/health/ready`（k8s readinessProbe 対象・実測サンプリング）が未記載だったのを追加
+- SignalR ハブ行にダッシュボードのリアルタイム接続 + ポーリングフォールバックを明記
+- dependabot.yml 監査： nuget/docker/github-actions 3エコシステム網羅 — 変更不要
+- 検証： 315/315 テスト全パス・ビルド0警告
+
 ### Fixed (ライセンスファイル重複を解消 — MIT 正規版に一本化)
 
 - `LICENSE`（MIT + 商業ライセンス付録 + `sales@potion-service.com` プレースホルダ + 存在しない `THIRD_PARTY_LICENSES.md` 参照）と `LICENSE.txt`（クリーンな MIT）の2ファイルが共存 — csproj の `PackageLicenseExpression=MIT`・README の参照と整合するよう、`LICENSE` をクリーンな MIT 本文に一本化し `LICENSE.txt` を削除
