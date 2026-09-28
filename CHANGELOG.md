@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (周期タイマーを PeriodicTimer ベースへ置換 — 実行の直列化と失敗の可視化)
+
+- `EventCorrelationService`・`ComplianceReportService`・`AnomalyDetector`・`CollaborationService` の4箇所が `new Timer(_ => _ = work(), ...)` で fire-and-forget 実行 — **前回実行が未完了でも次回が重複起動し、コールバック内で捕捉漏れした例外は unobserved task exception として静かに消失**していた
+- `PeriodicAsyncLoop`（`PeriodicTimer` ベース）を新設： 実行の直列化・反復ごとの例外ログ・`StopAsync` での確定的停止（in-flight 実行の完了待機）を実現
+- 検証： 315/315 テスト全パス・ビルド0警告
+
 ### Security (docker-compose 公開ポートをループバックにバインド)
 
 - `5000:80`・`9090:9090`・`9093:9093` は全ホストインターフェースに公開され、**認証なしのダッシュボード・メトリクス・webhook が LAN から到達可能**だった — `127.0.0.1:` プレフィックスでループバックのみに公開を限定
