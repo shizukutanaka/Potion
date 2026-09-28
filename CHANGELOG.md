@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (alertmanager.yml ルーティング・webhook 宛先整合監査 — 変更不要を確認)
+
+- webhook `http://potion-service:80/api/health/alerts/webhook` → `MapPost` 登録と一致・route の receiver 名は定義済み
+- inhibit_rule が参照する `severity`/`service` ラベルは rules.yml の全アラートが設定済み
+- プレースホルダーホスト・未定義 receiver なし
+
 ### Improved (Prometheus rules.yml アラート↔実発行 series 実機検証 — 死ルールゼロを確認)
 
 - 実機 `/metrics` で5ルール全ての式を検証：`up{job="potion-service"}`・`potion_system_cpu_usage`・`potion_system_memory_usage`・`potion_system_disk_available_gigabytes`（`unit: "GB"` が exporter で `gigabytes` 接尾辞に正規化）・`potion_system_health_score` — 全て実在の series と一致
