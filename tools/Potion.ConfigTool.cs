@@ -98,7 +98,13 @@ class Program
                 return 1;
             }
 
+            // Overlay semantics: the external file layers on top of the bundled
+            // defaults, so validate the merged view — a file that omits
+            // RemediationPolicy inherits the bundled section and is valid.
+            var defaultsJson = JsonSerializer.Serialize(BuildDefaultConfig());
+            using var defaultsStream = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(defaultsJson));
             var config = new ConfigurationBuilder()
+                .AddJsonStream(defaultsStream)
                 .AddJsonFile(configPath, optional: false)
                 .Build();
 
@@ -155,11 +161,9 @@ class Program
         }
     }
 
-    static int GenerateDefaultConfig(string configPath)
+    static object BuildDefaultConfig()
     {
-        Console.WriteLine("Generating default configuration...");
-
-        var defaultConfig = new
+        return new
         {
             RemediationPolicy = new
             {
@@ -240,6 +244,22 @@ class Program
                         StopOnFailure = true,
                         MaintenanceWindowTag = "business_hours",
                         AllowedExitCodes = new[] { 0 }
+                    },
+                    new
+                    {
+                        Name = "dotnet_optimization",
+                        DisplayName = ".NET Runtime Optimization",
+                        Command = "ngen.exe",
+                        Arguments = "update /force",
+                        RunEveryMinutes = 10080,
+                        TimeoutSeconds = 3600,
+                        RequiresElevation = true,
+                        Enabled = true,
+                        MaxRetries = 1,
+                        RetryBackoffSeconds = 1800,
+                        StopOnFailure = false,
+                        MaintenanceWindowTag = "overnight",
+                        AllowedExitCodes = new[] { 0 }
                     }
                 }
             },
@@ -265,6 +285,13 @@ class Program
                 }
             }
         };
+    }
+
+    static int GenerateDefaultConfig(string configPath)
+    {
+        Console.WriteLine("Generating default configuration...");
+
+        var defaultConfig = BuildDefaultConfig();
 
         try
         {

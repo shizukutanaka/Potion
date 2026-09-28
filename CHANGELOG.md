@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (ConfigTool validate をオーバーレイ意味論へ — 部分設定ファイルの誤拒否を解消)
+
+- `Potion.ConfigTool validate` が対象ファイルを**単独で**バインドしていたため、`RemediationPolicy` を省略した正当なオーバーレイファイル（例： Kestrel のみ上書き）が `CommandAllowlist must not be empty` で誤拒否されていた — 実際のサービスはバンドル appsettings.json から同セクションを継承する → 生成既定値をベースレイヤ（`AddJsonStream`）として対象ファイルを重ねた**マージ済み構成**で検証するよう修正。`restore` も同経路のため部分バックアップが復元可能になった
+- `generate` のタスク一覧に `dotnet_optimization`（ngen.exe）が欠落しバンドル版（4タスク）とドリフト → 追加して一致させた
+- 検証： Kestrelのみのオーバーレイ→合格・`net.exe` を含む悪意タスク→正しく拒否・generate 出力がバンドルと一致・ビルド0警告
+
 ### Fixed (ConfigTool generate が全設定セクションを出力)
 
 - `Potion.ConfigTool generate` が `RemediationPolicy` のみを出力し、残り10セクション（Collaboration・Compliance・EventCorrelation・FeatureFlags・Kestrel・MemoryMonitor・Observability・PerformanceOptimizer・Serilog・AllowedHosts）が欠落していた → POCO オプションクラスを `new` してシリアライズする方式に拡張し、**コード既定値とドリフトしない完全な既定設定**を出力するようになった（RemediationPolicy のタスク定義・許可リストはキュレーション済みリテラルを維持、Serilog はバンドル継承のため省略）
