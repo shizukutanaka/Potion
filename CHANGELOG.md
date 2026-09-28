@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Removed (参照ゼロの死ファイル13件を除去)
+
+- `kubernetes-enterprise.yml`（439行）：`k8s/deployment.yaml` に取って代わられた旧エンタープライズ構成 — README/scripts/CI いずれからも未参照
+- `helm/`（Chart.yaml + values.yaml のみ）：`templates/` 不在でチャートとして機能しないスタブ
+- `tools/TranslationManager.cs` + `.csx`：resx を操作する i18n ツール — 対象ファイルはサイクル334で除去済み、`.cs` は csproj で `<Compile Remove>` 済みの完全な死ファイル
+- `setup/PotionSetupUI.cs`（464行）：参照ゼロの旧セットアップ UI
+- 日付付き進捗レポート文書7件（`ADVANCED_IMPROVEMENTS.md`・`COMPLETION_REPORT.md`・`IMPROVEMENTS.md`・`PHASE1_*`・`PHASE2_*`×2・`PHASE3_*`）：いずれも未リンク、履歴は CHANGELOG が担う
+- 検証： ビルド0警告・299/299 テスト全パス
+
 ### Removed (dashboard の死メソッド・死モーダル・死 CSS を除去)
 
 - 呼出し経路ゼロのクラスメソッド9件を除去：`showModal`（唯一の呼出し元が死メソッド）・`showSettingsModal`・**`saveSettings`（同名メソッドが2つ定義されておりクラス定義上は後者に黙って上書きされていた＝到達不能かつ自己再帰バグを内包）**・`toggleAutoRefresh`・`showFileUpload`・`showProgressModal`・`closeProgressModal`・`updateProgress`・`playNotificationSound`（計166行）
