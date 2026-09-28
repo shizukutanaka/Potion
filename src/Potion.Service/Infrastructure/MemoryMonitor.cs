@@ -8,27 +8,6 @@ using System.Collections.Concurrent;
 
 namespace Potion.Service.Infrastructure;
 
-/// <summary>
-/// メモリ監視と最適化サービス
-/// </summary>
-public interface IMemoryMonitor
-{
-    /// <summary>
-    /// メモリ統計を取得します
-    /// </summary>
-    Task<MemoryStatistics> GetMemoryStatisticsAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// メモリ最適化を実行します
-    /// </summary>
-    Task<MemoryOptimizationResult> OptimizeMemoryAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// メモリリークをチェックします
-    /// </summary>
-    Task<MemoryLeakReport> CheckMemoryLeaksAsync(CancellationToken cancellationToken);
-
-}
 
 /// <summary>
 /// メモリ統計情報
@@ -80,7 +59,7 @@ public sealed record ProcessMemoryInfo(
     TimeSpan CpuTime,
     DateTimeOffset StartTime);
 
-public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
+public sealed class MemoryMonitor : BackgroundService
 {
     private readonly ILogger<MemoryMonitor> _logger;
     private readonly IOptionsMonitor<MemoryMonitorOptions> _optionsMonitor;

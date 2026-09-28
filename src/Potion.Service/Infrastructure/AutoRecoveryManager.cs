@@ -41,7 +41,7 @@ public enum RecoveryAction
     Failover
 }
 
-public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManager
+public sealed class AutoRecoveryManager : BackgroundService
 {
     private readonly ILogger<AutoRecoveryManager> _logger;
     private readonly Dictionary<string, ComponentHealth> _componentHealth = new();

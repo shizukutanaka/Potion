@@ -131,19 +131,6 @@ public sealed class CommandValidator : ICommandValidator
     }
 }
 
-/// <summary>
-/// 自動復旧マネージャー
-/// </summary>
-public interface IAutoRecoveryManager
-{
-    event EventHandler<RecoveryAttemptEventArgs>? RecoveryAttempted;
-
-    event EventHandler<SystemHealthChangedEventArgs>? SystemHealthChanged;
-
-    Task<bool> AttemptRecoveryAsync(string component, Exception failure, CancellationToken cancellationToken);
-
-    Task<HealthCheckResult> PerformHealthCheckAsync(CancellationToken cancellationToken);
-}
 
 /// <summary>
 /// 修復タスクスケジューラ

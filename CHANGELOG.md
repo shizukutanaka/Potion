@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (未注入の死インターフェース4件を除去)
+
+- `IMemoryMonitor`・`IPerformanceOptimizer`・`IAnomalyDetector`・`IAutoRecoveryManager`：DI 解決・注入・Mock 化されるコードが皆無（実型をそのまま登録・消費）のため除去 — クラスは実型のまま継続稼働
+- 保持： `ISystemHealthMonitor`（エンドポイント・2サービスが注入）・`ICommandValidator`・`IRemediationScheduler`・`IRemediationTaskExecutor`・`IProcessRunner`（全て実消費あり）
+- `RecoveryAttempted`/`SystemHealthChanged` イベントは本番購読ゼロだが**テストが挙動検証に使用**（変更時のみ発火する回帰契約等）のため保持
+- 検証： 299/299 テスト全パス・ビルド0警告
+
 ### Removed (html/JS 双方で未参照の死 CSS 162ルールを除去)
 
 - styles.css 3,886→2,825行：class セレクタ336件を index.html・dashboard.js（`class=`/`classList`/`className`・テンプレート補間を含む）と機械照合し、参照ゼロの162ルールを除去 — about-*/banner-*/contextual-help-*/dropdown-*/inline-*/tooltip-rich-*/loading-*/skeleton-*/empty-state-*/status-page系/mb-*/u-w45 等
