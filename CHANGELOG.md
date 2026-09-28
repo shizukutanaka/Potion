@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (DI未登録の大型死サービス3件を除去 — 約1,660行)
+
+- `ErrorHandler.cs`（335行→実質約900行の多型ファイル）：DI 未登録で注入元ゼロ。ファイル内の全型（`IErrorHandler`・`ErrorType`・`ErrorSeverity`・`ErrorRecoveryAction`・`ErrorStatistics`・`OperationMetrics`・`CircuitStateInfo`・`CircuitBreakerState`・`BackoffStrategy`・`FailureRecoveryAction`・`ErrorRecoveryStrategy`・`UserFriendlyErrorMessages`・`StructuredLogEntry`・`ExceptionDetails`・独自 `LogLevel` 列挙）も外部参照ゼロを確認
+- `DatabaseOptimizationService.cs`（391行・SQL Server DMV クエリ）・`AdvancedCacheService.cs`（361行・独自 CircuitBreaker+二層キャッシュ）：いずれも DI 未登録・外部参照ゼロ
+- 専用テスト3ファイル（59件・死コードのみを対象）を併せて除去 — 299/299 テスト全パス・ビルド0警告
+
 ### Removed (ServiceSupportTypes の死型10件を除去 — コンシューマゼロ)
 
 - `ServiceSupportTypes.cs` から消費者ゼロの型10件を除去：`BackupType`・`BackupResult`・`BackupFileInfo`・`LogErrorStatistics`・`PerformanceMetric`・`LogPerformanceStatistics`・`ILogAnalysisService`+`LogAnalysisService`（常に空統計を返すスタブ実装）・`ITelemetryRetentionService`+`TelemetryRetentionService`（ログを書くだけのスタブ実装）— 全コードベースで参照ゼロを確認
