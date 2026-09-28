@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (解決者ゼロの死 DI 登録4件を除去)
+
+- `ResiliencePipeline<ProcessResult>`・`<bool>`・`<DiagnosticReport>` の Singleton 登録3件：パイプラインは構築されるが**DI から解決するコードが一つもなかった**（`ResiliencePipelines` ビルダー自体は残し、直接実行するテスト12件は維持）
+- `CircuitBreakerService` の登録+クラス自体（ロガーを保持するだけのスタブ）：注入元ゼロを確認して除去
+- 検証： ビルド0警告・実起動で /health 200・299/299 テスト全パス
+
 ### Removed (DI未登録の大型死サービス3件を除去 — 約1,660行)
 
 - `ErrorHandler.cs`（335行→実質約900行の多型ファイル）：DI 未登録で注入元ゼロ。ファイル内の全型（`IErrorHandler`・`ErrorType`・`ErrorSeverity`・`ErrorRecoveryAction`・`ErrorStatistics`・`OperationMetrics`・`CircuitStateInfo`・`CircuitBreakerState`・`BackoffStrategy`・`FailureRecoveryAction`・`ErrorRecoveryStrategy`・`UserFriendlyErrorMessages`・`StructuredLogEntry`・`ExceptionDetails`・独自 `LogLevel` 列挙）も外部参照ゼロを確認

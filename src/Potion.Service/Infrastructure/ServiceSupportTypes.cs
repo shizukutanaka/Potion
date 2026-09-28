@@ -132,19 +132,6 @@ public sealed class CommandValidator : ICommandValidator
 }
 
 /// <summary>
-/// サーキットブレーカーサービス
-/// </summary>
-public sealed class CircuitBreakerService
-{
-    private readonly ILogger<CircuitBreakerService> _logger;
-
-    public CircuitBreakerService(ILogger<CircuitBreakerService> logger)
-    {
-        _logger = logger;
-    }
-}
-
-/// <summary>
 /// 自動復旧マネージャー
 /// </summary>
 public interface IAutoRecoveryManager

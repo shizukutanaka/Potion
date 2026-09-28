@@ -56,24 +56,6 @@ public class Startup
         services.AddSingleton(PotionActivitySource.Source);
 
         // Polly resilience pipelines (Phase 1 enhancement)
-        services.AddSingleton<ResiliencePipeline<ProcessResult>>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<Startup>>();
-            return ResiliencePipelines.CreateRemediationPipeline(logger);
-        });
-
-        services.AddSingleton<ResiliencePipeline<bool>>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<Startup>>();
-            return ResiliencePipelines.CreateHealthCheckPipeline(logger);
-        });
-
-        services.AddSingleton<ResiliencePipeline<DiagnosticReport>>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<Startup>>();
-            return ResiliencePipelines.CreateDiagnosticPipeline(logger);
-        });
-
         // The dashboard compares alert severities as strings ("Critical");
         // serialize enums as names so /api/health responses match the contract.
         services.ConfigureHttpJsonOptions(o =>
@@ -161,7 +143,6 @@ public class Startup
             services.AddHostedService<PredictiveRemediationService>();
         }
 
-        services.AddSingleton<CircuitBreakerService>();
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
