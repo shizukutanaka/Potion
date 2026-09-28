@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (HSTS・fetch エラーハンドリング・Program.cs の監査)
+
+- 監査クリア（変更不要）: `Strict-Transport-Security` は HTTPS 応答で設定済み（max-age=1年）・dashboard.js の fetch 6箇所は全て try/catch 内（unhandled rejection なし）・SignalR 接続失敗はポーリングへフォールバック
+- `Program.cs`： `ValidateOnBuild`/`ValidateScopes`・Serilog 設定読込・オペレーター設定オーバーレイ・Windows サービス統合の全てが正規配線
+
 ### Improved (Brotli/Gzip レスポンス圧縮を有効化 — テキスト資産の転送量を約70%削減)
 
 - 約230KBのテキスト資産（dashboard.js・styles.css・FA css・API JSON）が無圧縮配信だった → `AddResponseCompression`/`UseResponseCompression`（デフォルトの Brotli+Gzip）を配線
