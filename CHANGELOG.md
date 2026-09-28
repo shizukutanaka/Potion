@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (ダッシュボードを実ブラウザで全タブ検証)
+
+- 実起動したサービスに Chrome で接続し全5タブを描画確認：Overview（ヘルススコア100・CPU/メモリ/ディスク実測値・504サービス）・Security（非Windowsで Defender/Firewall が正しく DISABLED 表示）・Performance（チャート+実値）・Alerts/Event Logs（空状態）— すべて実データ描画、JS 致命的エラーなし、ヘッダーの接続状態バッジも正しく「System Healthy」
+- コード変更なし（検証のみ）
+
 ### Improved (修復実行ティアの有効化パスを実機検証)
 
 - `FeatureFlags:RepairExecutionEnabled=true` で実起動：4つのポリシータスク（sfc/dism/cleanmgr/ngen）すべて `CommandAllowlist` を通過、`ValidateOnStart` + 3バリデータ（一意名・許可リスト・保守ウィンドウ）が起動時に通ることを実証 — フラグ有効化で起動が失敗する地雷なし
