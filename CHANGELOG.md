@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (.sln↔csproj 登録ドリフト・.gitignore 網羅性監査 — 変更不要を確認)
+
+- Potion.sln がディスク上の3 csproj（Service・Tests・ConfigTool）と完全一致 — ConfigTool もソリューションビルドに含まれる
+- .gitignore は OS/エディタ/依存/シークレット/ビルド成果物/ログ/検証成果物を網羅。`claudedocs/` は意図的に追跡される調査ドキュメントで、.dockerignore によるイメージ除外は正しい設計
+
 ### Fixed (.dockerignore の正体不明パターン `C*/` を除去 — 将来の C 始まりトップレベルディレクトリの誤除外を防止)
 
 - `C*/` は現在何にもマッチしない残骸パターン — 将来 `Config/` `Certs/` 等を追加した際にサイレントに Docker コンテキストから除外されるフットガンだった
