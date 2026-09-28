@@ -44,11 +44,14 @@ RUN groupadd -r -g 101 potion && useradd -r -u 101 -g potion potion \
 ENV HOME=/home/potion
 USER potion
 
-# Compose/k8s override the Kestrel endpoint to :80; :5000 is the local-dev
-# default (HTTPS in Production via the cert config — see
-# appsettings.Production.json)
+# Default the image to its Container environment so a bare `docker run`
+# binds Kestrel to +:80 via appsettings.Container.json — without it the
+# image falls back to Production config (localhost binding + a Windows
+# cert path), leaving published ports unreachable or the boot crashing.
+# Compose and k8s set this same value; `-e` can still override it.
+ENV ASPNETCORE_ENVIRONMENT=Container
+
 EXPOSE 80
-EXPOSE 5000
 
 # Start the application
 ENTRYPOINT ["dotnet", "Potion.Service.dll"]

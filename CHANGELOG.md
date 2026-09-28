@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (Docker イメージが素の `docker run` で Production 設定にフォールバックする問題を修正)
+
+- Dockerfile に `ENV ASPNETCORE_ENVIRONMENT=Container` を追加 — env 未指定の `docker run` は Production.json（localhost バインド + Windows 証明書パス）を読み、公開ポートが到達不能 or 起動失敗していた → イメージが自前で Container 設定（Kestrel `+:80`）を選択（compose/k8s は同値を明示設定済み・`-e` 上書き可能）
+- `EXPOSE 5000` を削除 — Container 環境では :80 のみバインドするため実態と不一致だった
+- `appsettings.Container.json` 監査もクリア: セクション欠落はオーバーレイ継承による正規設計・Serilog/Kestrel の差分のみを宣言
+
 ### Fixed (イベント駆動 webhook も停止トークンを伝播 — 横展開監査で発見)
 
 - `SendWebhookAsync` の `PostAsync` がトークン未指定 — シャットダウン中も webhook が応答なし待機し得た → `_serviceStoppingToken` を伝播（サイクル379修正の兄弟経路）
