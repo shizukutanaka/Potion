@@ -237,7 +237,7 @@ class PotionDashboard {
                 <div class="modal-content">
                     <div class="modal-header">
                         <h3 class="modal-title">${options.title || 'Modal'}</h3>
-                        <button class="modal-close" onclick="dashboard.closeModal('${modalId}')">&times;</button>
+                        <button class="modal-close" data-action="close-modal" data-arg="${modalId}">&times;</button>
                     </div>
                     <div class="modal-body">
                         ${content}
@@ -281,7 +281,7 @@ class PotionDashboard {
             <div class="notification notification-${this.esc(type)}" id="${notificationId}">
                 <div class="notification-content">
                     <span class="notification-message">${this.esc(message)}</span>
-                    <button class="notification-close" onclick="dashboard.closeNotification('${notificationId}')">&times;</button>
+                    <button class="notification-close" data-action="close-notification" data-arg="${notificationId}">&times;</button>
                 </div>
             </div>
         `;
@@ -314,7 +314,7 @@ class PotionDashboard {
         document.querySelectorAll('.side-nav-link').forEach(item => {
             item.classList.remove('active');
         });
-        document.querySelector(`[onclick*="showSection('${sectionName}')"]`).classList.add('active');
+        document.querySelector(`[data-action="show-section"][data-arg="${sectionName}"]`)?.classList.add('active');
 
         // Update content sections
         document.querySelectorAll('.content-section').forEach(section => {
@@ -394,8 +394,8 @@ class PotionDashboard {
         `;
 
         const footer = `
-            <button class="btn btn-secondary" onclick="dashboard.closeTopModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="dashboard.saveSettings()">Save Settings</button>
+            <button class="btn btn-secondary" data-action="close-top-modal">Cancel</button>
+            <button class="btn btn-primary" data-action="dash-save-settings">Save Settings</button>
         `;
 
         this.showModal(content, {
@@ -759,13 +759,13 @@ class PotionDashboard {
             <div class="search-section">
                 <h4>Recent Searches</h4>
                 <div class="recent-searches">
-                    <div class="search-item" onclick="dashboard.performQuickSearch('CPU usage')">
+                    <div class="search-item" data-action="quick-search" data-arg="CPU usage">
                         <i class="fas fa-history"></i> CPU usage
                     </div>
-                    <div class="search-item" onclick="dashboard.performQuickSearch('error logs')">
+                    <div class="search-item" data-action="quick-search" data-arg="error logs">
                         <i class="fas fa-history"></i> error logs
                     </div>
-                    <div class="search-item" onclick="dashboard.performQuickSearch('security alerts')">
+                    <div class="search-item" data-action="quick-search" data-arg="security alerts">
                         <i class="fas fa-history"></i> security alerts
                     </div>
                 </div>
@@ -863,7 +863,7 @@ class PotionDashboard {
                 <div class="search-section">
                     <h4>${this.esc(category.charAt(0).toUpperCase() + category.slice(1))}</h4>
                     ${groupedResults[category].map(result => `
-                        <div class="search-result-item" onclick="dashboard.navigateToResult('${result.url}')">
+                        <div class="search-result-item" data-action="navigate-result" data-arg="${result.url}">
                             <div class="search-result-icon">
                                 <i class="fas fa-${result.category === 'alerts' ? 'exclamation-triangle' : result.category === 'logs' ? 'list-alt' : 'chart-line'}"></i>
                             </div>
@@ -1342,18 +1342,18 @@ class PotionDashboard {
         `;
 
         // Previous button
-        paginationHTML += `<button class="pagination-btn${this.currentPage === 1 ? ' disabled' : ''}" onclick="dashboard.changePage(${this.currentPage - 1})">Previous</button>`;
+        paginationHTML += `<button class="pagination-btn${this.currentPage === 1 ? ' disabled' : ''}" data-action="change-page" data-arg="${this.currentPage - 1}">Previous</button>`;
 
         // Page numbers
         const startPage = Math.max(1, this.currentPage - 2);
         const endPage = Math.min(totalPages, this.currentPage + 2);
 
         for (let i = startPage; i <= endPage; i++) {
-            paginationHTML += `<button class="pagination-btn${i === this.currentPage ? ' active' : ''}" onclick="dashboard.changePage(${i})">${i}</button>`;
+            paginationHTML += `<button class="pagination-btn${i === this.currentPage ? ' active' : ''}" data-action="change-page" data-arg="${i}">${i}</button>`;
         }
 
         // Next button
-        paginationHTML += `<button class="pagination-btn${this.currentPage === totalPages ? ' disabled' : ''}" onclick="dashboard.changePage(${this.currentPage + 1})">Next</button>`;
+        paginationHTML += `<button class="pagination-btn${this.currentPage === totalPages ? ' disabled' : ''}" data-action="change-page" data-arg="${this.currentPage + 1}">Next</button>`;
 
         paginationHTML += '</div>';
         pagination.innerHTML = paginationHTML;
@@ -1572,7 +1572,7 @@ class PotionDashboard {
     switchTab(tabName) {
         // Update tab buttons
         document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        document.querySelector(`[data-action="switch-tab" data-arg="${tabName}"]`).classList.add('active');
 
         // Update tab content
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -1859,7 +1859,7 @@ function filterAlerts(severity) {
 
     // Update active filter button
     filterButtons.forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`[onclick="filterAlerts('${severity}')"]`).classList.add('active');
+    document.querySelector(`[data-action="filter-alerts" data-arg="${severity}"]`).classList.add('active');
 
     // Filter alerts
     alerts.forEach(alert => {
@@ -1871,7 +1871,7 @@ function filterAlerts(severity) {
     });
 }
 
-// Global functions for HTML onclick handlers
+// Global functions invoked by the data-action dispatcher below
 function showSection(section) {
     if (window.dashboard) {
         window.dashboard.showSection(section);
@@ -1915,7 +1915,7 @@ function setTimeFilter(timeFilter) {
         document.querySelectorAll('.time-filter .btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        document.querySelector(`[onclick="setTimeFilter('${timeFilter}')"]`).classList.add('active');
+        document.querySelector(`[data-action="set-time-filter" data-arg="${timeFilter}"]`).classList.add('active');
 
         window.dashboard.renderLogsTable();
     }
@@ -2093,4 +2093,55 @@ function applyAdvancedFilters() {
     if (window.dashboard) {
         window.dashboard.applyAdvancedFilters();
     }
+}
+
+// Delegated handlers for data-action / data-onchange / data-onkeyup attributes.
+// Replaces inline on* attributes so script-src can drop 'unsafe-inline'.
+const POTION_ACTIONS = {
+    'show-section': (el, arg) => showSection(arg),
+    'show-help': () => showHelp(),
+    'show-shortcuts': () => showKeyboardShortcuts(),
+    'switch-tab': (el, arg) => switchTab(arg),
+    'toggle-card': (el) => toggleCard(el),
+    'open-perf-drawer': () => openPerformanceDrawer(),
+    'clear-alert-selection': () => clearAlertSelection(),
+    'bulk-acknowledge': () => bulkAcknowledge(),
+    'filter-alerts': (el, arg) => filterAlerts(arg),
+    'toggle-select-all': () => toggleSelectAll(),
+    'export-alerts': () => exportAlerts(),
+    'set-time-filter': (el, arg) => setTimeFilter(arg),
+    'toggle-advanced-search': () => toggleAdvancedSearch(),
+    'close-help-modal': () => closeHelpModal(),
+    'show-tutorial': () => showTutorial(),
+    'close-shortcuts-modal': () => closeShortcutsModal(),
+    'clear-advanced-search': () => clearAdvancedSearch(),
+    'close-perf-drawer': () => closePerformanceDrawer(),
+    'clear-advanced-filters': () => clearAdvancedFilters(),
+    'apply-advanced-filters': () => applyAdvancedFilters(),
+    'close-settings-modal': () => closeAdvancedSettingsModal(),
+    'reset-defaults': () => resetToDefaults(),
+    'save-adv-settings': () => saveAdvancedSettings(),
+    'trigger-file-select': () => triggerFileSelect(),
+    'close-modal': (el, arg) => window.dashboard?.closeModal(arg),
+    'close-notification': (el, arg) => window.dashboard?.closeNotification(arg),
+    'close-top-modal': () => window.dashboard?.closeTopModal(),
+    'dash-save-settings': () => window.dashboard?.saveSettings(),
+    'quick-search': (el, arg) => window.dashboard?.performQuickSearch(arg),
+    'navigate-result': (el, arg) => window.dashboard?.navigateToResult(arg),
+    'change-page': (el, arg) => window.dashboard?.changePage(parseInt(arg, 10)),
+    'update-chart-range': (el) => updateChartRange(el.value),
+    'search-alerts': (el) => searchAlerts(el.value),
+    'change-log-type': (el) => changeLogType(el.value),
+    'handle-file-upload': (el) => handleFileUpload(el.files)
+};
+
+for (const [type, attr] of [['click', 'data-action'], ['change', 'data-onchange'], ['keyup', 'data-onkeyup']]) {
+    document.addEventListener(type, (event) => {
+        const el = event.target instanceof Element ? event.target.closest(`[${attr}]`) : null;
+        if (!el) return;
+        const fn = POTION_ACTIONS[el.getAttribute(attr)];
+        if (typeof fn !== 'function') return;
+        fn(el, el.dataset.arg);
+        if (type === 'click' && el.tagName === 'A') event.preventDefault();
+    });
 }

@@ -263,10 +263,9 @@ public class Startup
             });
         });
 
-        // Browser-facing dashboard hardening. No enforced CSP: the dashboard uses inline
-        // onclick/style attributes pervasively, so a useful policy is impossible
-        // without a markup refactor — a Report-Only policy still surfaces attempts
-        // to load resources from unexpected origins.
+        // Browser-facing dashboard hardening with an enforced CSP: inline script
+        // handlers were migrated to data-action delegation in dashboard.js, so
+        // script-src no longer needs 'unsafe-inline'.
         app.Use(async (context, next) =>
         {
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
@@ -274,8 +273,11 @@ public class Startup
             context.Response.Headers["Referrer-Policy"] = "no-referrer";
             context.Response.Headers["Permissions-Policy"] =
                 "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
-            context.Response.Headers["Content-Security-Policy-Report-Only"] =
-                "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+            // Enforced now that all inline handlers were moved to the
+            // data-action dispatcher in dashboard.js; style-src keeps
+            // 'unsafe-inline' for the remaining inline style attributes.
+            context.Response.Headers["Content-Security-Policy"] =
+                "default-src 'self'; script-src 'self'; " +
                 "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
                 "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
                 "img-src 'self' data:; connect-src 'self' ws: wss:; " +

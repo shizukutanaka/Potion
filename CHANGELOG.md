@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Security (インラインハンドラ全廃 — CSP を強制モードへ昇格)
+
+- index.html の39箇所の `onclick`/`onchange`/`onkeyup` と dashboard.js が innerHTML で注入していた14箇所の動的 `onclick` をすべて `data-action`/`data-arg`/`data-onchange`/`data-onkeyup` 属性へ移行し、document 上の委譲ディスパッチャ（`POTION_ACTIONS` マップ）で処理 — ナビ選択の `[onclick*="..."]` セレクタも属性セレクタへ更新
+- `Content-Security-Policy-Report-Only` → **`Content-Security-Policy`（強制）** に昇格し `script-src 'self' 'unsafe-inline'` から `'unsafe-inline'` を除去 — インラインスクリプト注入による XSS をブラウザがブロックするようになった（`style-src` は残存する11箇所のインライン `style=` 属性のため `'unsafe-inline'` を維持）
+- 実機検証： 強制 CSP 送出を確認・実ブラウザで全ナビ/サブタブ/時間フィルタ/セクション切替が動作・ビルド0警告・361/361テスト全パス
+
 ### Fixed (ConfigTool validate をオーバーレイ意味論へ — 部分設定ファイルの誤拒否を解消)
 
 - `Potion.ConfigTool validate` が対象ファイルを**単独で**バインドしていたため、`RemediationPolicy` を省略した正当なオーバーレイファイル（例： Kestrel のみ上書き）が `CommandAllowlist must not be empty` で誤拒否されていた — 実際のサービスはバンドル appsettings.json から同セクションを継承する → 生成既定値をベースレイヤ（`AddJsonStream`）として対象ファイルを重ねた**マージ済み構成**で検証するよう修正。`restore` も同経路のため部分バックアップが復元可能になった
