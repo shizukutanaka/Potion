@@ -107,13 +107,21 @@ public static class ServicePaths
 
         try
         {
-            var privilegedSecurityIdentifiers = new[]
+            // The service's own identity must stay in the allowlist: a gMSA or
+            // custom service account is none of the well-known SIDs below, so
+            // without it hardening locks the service out of its own state.
+            var allowedSids = new List<SecurityIdentifier>
             {
                 new SecurityIdentifier(WellKnownSidType.LocalSystemSid, null),
                 new SecurityIdentifier(WellKnownSidType.BuiltinAdministratorsSid, null),
                 new SecurityIdentifier(WellKnownSidType.LocalServiceSid, null),
                 new SecurityIdentifier(WellKnownSidType.NetworkServiceSid, null)
             };
+            var currentSid = WindowsIdentity.GetCurrent().User;
+            if (currentSid is not null && !allowedSids.Contains(currentSid))
+            {
+                allowedSids.Add(currentSid);
+            }
 
             var directoryInfo = new DirectoryInfo(path);
             if (!directoryInfo.Exists)
@@ -131,13 +139,13 @@ public static class ServicePaths
 
             foreach (var rule in existingRules)
             {
-                if (rule.IdentityReference is not SecurityIdentifier sid || !IsPrivilegedSid(sid))
+                if (rule.IdentityReference is not SecurityIdentifier sid || !allowedSids.Contains(sid))
                 {
                     security.RemoveAccessRule(rule);
                 }
             }
 
-            foreach (var sid in privilegedSecurityIdentifiers)
+            foreach (var sid in allowedSids)
             {
                 var rule = new FileSystemAccessRule(
                     sid,
@@ -154,13 +162,5 @@ public static class ServicePaths
         {
             // ACL強化に失敗しても機能継続を優先
         }
-    }
-
-    private static bool IsPrivilegedSid(SecurityIdentifier sid)
-    {
-        return sid.IsWellKnown(WellKnownSidType.LocalSystemSid) ||
-               sid.IsWellKnown(WellKnownSidType.BuiltinAdministratorsSid) ||
-               sid.IsWellKnown(WellKnownSidType.LocalServiceSid) ||
-               sid.IsWellKnown(WellKnownSidType.NetworkServiceSid);
     }
 }

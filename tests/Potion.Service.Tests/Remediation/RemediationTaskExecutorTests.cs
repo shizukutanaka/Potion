@@ -24,7 +24,8 @@ public class RemediationTaskExecutorTests
         _validator.Setup(v => v.EnsureCommandIsAllowed(It.IsAny<string>()))
             .Returns((string c) => c);
         _executor = new RemediationTaskExecutor(_logger.Object, _runner.Object, _validator.Object,
-            new RemediationExecutionStats());
+            new RemediationExecutionStats(),
+            ResiliencePipelines.CreateProcessExecutionPipeline(_logger.Object));
     }
 
     private static RemediationTaskDescriptor Descriptor(RemediationTaskOption? option = null) =>

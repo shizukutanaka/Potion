@@ -368,15 +368,6 @@ public static class PotionActivitySource
         return activity;
     }
 
-    /// <summary>Creates an activity for a diagnostic operation</summary>
-    public static Activity? StartDiagnosticActivity(string diagnosticName)
-    {
-        var activity = Source.StartActivity("Diagnostic");
-        activity?.SetTag("diagnostic.name", diagnosticName);
-        activity?.SetTag("span.kind", "internal");
-        return activity;
-    }
-
     /// <summary>Creates an activity for a self-healing operation</summary>
     public static Activity? StartSelfHealingActivity(string issueType)
     {

@@ -41,7 +41,7 @@ public enum RecoveryAction
     Failover
 }
 
-public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManager
+public sealed class AutoRecoveryManager : BackgroundService
 {
     private readonly ILogger<AutoRecoveryManager> _logger;
     private readonly Dictionary<string, ComponentHealth> _componentHealth = new();
@@ -167,6 +167,10 @@ public sealed class AutoRecoveryManager : BackgroundService, IAutoRecoveryManage
             }
             catch (Exception ex)
             {
+                // The exception is recorded as an Error health entry, but
+                // log it too — a throwing health check is abnormal and must
+                // stay diagnosable from logs alone.
+                _logger.LogWarning(ex, "Health check for component {Component} threw", componentName);
                 currentHealth[componentName] = new ComponentHealth(
                     false,
                     "Error",

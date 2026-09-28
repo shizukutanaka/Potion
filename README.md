@@ -9,7 +9,7 @@ A production-grade Windows system automation and monitoring service with autonom
 - **Reliability**: Polly circuit-breaker/retry resilience pipelines, dependency injection validated at startup
 - **Observability**: Serilog logging, OpenTelemetry metrics + traces, Prometheus `/metrics` endpoint
 - **Collaboration**: SignalR hub at `/collaboration` and a static dashboard (`wwwroot/`)
-- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk) through the allowlist — the autonomous repair-execution services (`AutoRecoveryManager`, `PerformanceOptimizer`, `EventDrivenRemediationService`, `PredictiveRemediationService`) are wired behind the `FeatureFlags:RepairExecutionEnabled` flag, off by default (see CHANGELOG)
+- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk/ngen/powercfg/netsh) through the allowlist — the autonomous repair-execution services (`AutoRecoveryManager`, `PerformanceOptimizer`, `EventDrivenRemediationService`, `PredictiveRemediationService`) are wired behind the `FeatureFlags:RepairExecutionEnabled` flag, off by default (see CHANGELOG)
 
 ## Quick Start
 
@@ -32,10 +32,11 @@ The service listens on `http://localhost:5000` by default and serves:
 
 - `GET /` (or `/index.html`) — dashboard
 - `GET /health` — liveness probe (`200 Healthy`)
+- `GET /health/ready` — readiness probe (samples real system state; k8s `readinessProbe` targets this)
 - `GET /api/health`, `/api/health/metrics`, `/api/health/security`, `/api/health/security/summary` — dashboard data endpoints fed by `ISystemHealthMonitor`
 - `POST /api/health/alerts/webhook` — Alertmanager webhook receiver (firing alerts logged as warnings, resolved as info)
 - `GET /metrics` — Prometheus metrics
-- `POST /collaboration/negotiate` — SignalR hub
+- `POST /collaboration/negotiate` — SignalR hub (the dashboard connects for real-time alerts + health updates, falling back to polling when unavailable)
 
 Production HTTPS requires the certificate configured in `appsettings.Production.json` (`Kestrel:Endpoints:Https:Certificate`); inject the PFX password via the `Kestrel__Endpoints__Https__Certificate__Password` environment variable.
 
@@ -53,12 +54,13 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 - `RemediationPolicy` — repair command allowlist and remediation policy options
 - `MemoryMonitor`, `PerformanceOptimizer`, `EventCorrelation`, `Compliance`, `Collaboration` — monitoring-service options (thresholds/`Enabled`); can also be set via env vars, e.g. `MemoryMonitor__MonitoringIntervalSeconds=60`
 - `FeatureFlags` — feature toggles read at startup; `RepairExecutionEnabled` (default `false`) activates the autonomous repair-execution services
+- `Observability` — `OtlpEndpoint` for OpenTelemetry OTLP export (default `http://localhost:4317`)
 - `Serilog`, `AllowedHosts`, `Kestrel` — framework settings
 
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 111/111 tests
+dotnet test Potion.sln   # 315/315 tests
 ```
 
 ## License

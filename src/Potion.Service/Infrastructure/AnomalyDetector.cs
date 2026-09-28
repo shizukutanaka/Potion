@@ -5,18 +5,8 @@ namespace Potion.Service.Infrastructure;
 
 public sealed record DetectedAnomaly(string MetricName, double Value, double Score, string AnomalyType, DateTimeOffset At);
 
-public interface IAnomalyDetector : IHostedService
-{
-    event EventHandler<DetectedAnomaly>? AnomalyDetected;
 
-    void RecordMetric(string metricName, double value, DateTimeOffset? timestamp = null);
-
-    bool IsAnomaly(string metricName, double value);
-
-    double GetAnomalyScore(string metricName);
-}
-
-public class AnomalyDetector : IAnomalyDetector, IHostedService, IDisposable
+public class AnomalyDetector : IHostedService, IDisposable
 {
     private readonly ILogger<AnomalyDetector> _logger;
     private readonly ISystemHealthMonitor _healthMonitor;

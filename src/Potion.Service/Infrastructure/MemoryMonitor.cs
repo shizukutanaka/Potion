@@ -8,31 +8,6 @@ using System.Collections.Concurrent;
 
 namespace Potion.Service.Infrastructure;
 
-/// <summary>
-/// メモリ監視と最適化サービス
-/// </summary>
-public interface IMemoryMonitor
-{
-    /// <summary>
-    /// メモリ統計を取得します
-    /// </summary>
-    Task<MemoryStatistics> GetMemoryStatisticsAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// メモリ最適化を実行します
-    /// </summary>
-    Task<MemoryOptimizationResult> OptimizeMemoryAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// メモリリークをチェックします
-    /// </summary>
-    Task<MemoryLeakReport> CheckMemoryLeaksAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// メモリ使用状況の監視を開始します
-    /// </summary>
-    Task StartMonitoringAsync(CancellationToken cancellationToken);
-}
 
 /// <summary>
 /// メモリ統計情報
@@ -84,7 +59,7 @@ public sealed record ProcessMemoryInfo(
     TimeSpan CpuTime,
     DateTimeOffset StartTime);
 
-public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
+public sealed class MemoryMonitor : BackgroundService
 {
     private readonly ILogger<MemoryMonitor> _logger;
     private readonly IOptionsMonitor<MemoryMonitorOptions> _optionsMonitor;
@@ -373,16 +348,6 @@ public sealed class MemoryMonitor : BackgroundService, IMemoryMonitor
                 new[] { "メモリリークチェックでエラーが発生しました。" },
                 DateTimeOffset.UtcNow);
         }
-    }
-
-    public async Task StartMonitoringAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("メモリ監視を明示的に開始します");
-
-        // 初期統計の記録
-        await GetMemoryStatisticsAsync(cancellationToken);
-
-        // 監視ループはExecuteAsyncで既に実行されているので、追加の開始処理は不要
     }
 
     private bool ShouldOptimizeMemory(MemoryStatistics stats)

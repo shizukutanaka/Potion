@@ -108,4 +108,98 @@ public class CommandValidatorTests
         };
         Assert.True(RemediationPolicyOptionsValidators.CommandsAreAllowlisted(options));
     }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_AcceptsBenignArguments()
+    {
+        var validator = CreateValidator(new[] { "sfc.exe" });
+        validator.EnsureArgumentsAreAllowed("sfc.exe", "/scannow /offbootdir=C:\\");
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_AcceptsNullAndEmpty()
+    {
+        var validator = CreateValidator(new[] { "sfc.exe" });
+        validator.EnsureArgumentsAreAllowed("sfc.exe", null);
+        validator.EnsureArgumentsAreAllowed("sfc.exe", "");
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_RejectsDoubleQuoteSmuggling()
+    {
+        var validator = CreateValidator(new[] { "net.exe" });
+        Assert.Throws<InvalidOperationException>(() =>
+            validator.EnsureArgumentsAreAllowed("net.exe", "user \" /add"));
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_RejectsControlCharacters()
+    {
+        var validator = CreateValidator(new[] { "sfc.exe" });
+        Assert.Throws<InvalidOperationException>(() =>
+            validator.EnsureArgumentsAreAllowed("sfc.exe", "/scannow\nmalicious"));
+        Assert.Throws<InvalidOperationException>(() =>
+            validator.EnsureArgumentsAreAllowed("sfc.exe", "/scannow\tmalicious"));
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_RejectsOversizedArguments()
+    {
+        var validator = CreateValidator(new[] { "sfc.exe" });
+        Assert.Throws<ArgumentException>(() =>
+            validator.EnsureArgumentsAreAllowed("sfc.exe", new string('a', 2049)));
+    }
+
+    private static CommandValidator CreateValidatorWithArgAllowlist(
+        IEnumerable<string> allowlist, Dictionary<string, List<string>> argAllowlist)
+    {
+        var logger = new Mock<ILogger<CommandValidator>>();
+        var options = new Mock<IOptionsMonitor<RemediationPolicyOptions>>();
+        options.Setup(o => o.CurrentValue)
+            .Returns(new RemediationPolicyOptions
+            {
+                CommandAllowlist = allowlist.ToList(),
+                CommandArgumentAllowlist = argAllowlist
+            });
+        return new CommandValidator(logger.Object, options.Object);
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_AllowsListedArguments()
+    {
+        var validator = CreateValidatorWithArgAllowlist(
+            new[] { "sfc.exe" },
+            new Dictionary<string, List<string>> { ["sfc.exe"] = new() { "/scannow" } });
+        validator.EnsureArgumentsAreAllowed("sfc.exe", "/scannow");
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_RejectsUnlistedArgumentsForListedCommand()
+    {
+        var validator = CreateValidatorWithArgAllowlist(
+            new[] { "net.exe" },
+            new Dictionary<string, List<string>> { ["net.exe"] = new() { "user /domain" } });
+        Assert.Throws<InvalidOperationException>(() =>
+            validator.EnsureArgumentsAreAllowed("net.exe", "user badguy /add"));
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_UnlistedCommandKeepsCharLevelOnly()
+    {
+        var validator = CreateValidatorWithArgAllowlist(
+            new[] { "chkdsk.exe" },
+            new Dictionary<string, List<string>> { ["sfc.exe"] = new() { "/scannow" } });
+        validator.EnsureArgumentsAreAllowed("chkdsk.exe", "/f /r");
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_MatchesKeyCaseInsensitively()
+    {
+        var validator = CreateValidatorWithArgAllowlist(
+            new[] { "sfc.exe" },
+            new Dictionary<string, List<string>> { ["SFC.EXE"] = new() { "/scannow" } });
+        Assert.Throws<InvalidOperationException>(() =>
+            validator.EnsureArgumentsAreAllowed("sfc.exe", "/verifyonly"));
+        validator.EnsureArgumentsAreAllowed("sfc.exe", "/scannow");
+    }
 }

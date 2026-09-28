@@ -6,7 +6,7 @@
     <title>Potion Service Dashboard</title>
     <link rel="stylesheet" href="styles.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous">
 </head>
 <body>
     <div class="dashboard-layout">
@@ -21,32 +21,32 @@
                 <div class="side-nav-section">
                     <ul class="side-nav-menu">
                         <li class="side-nav-item">
-                            <a href="#" class="side-nav-link active" onclick="showSection('overview'); return false;">
+                            <a href="#" class="side-nav-link active" data-action="show-section" data-arg="overview">
                                 <i class="fas fa-chart-line side-nav-icon"></i>
                                 <span class="side-nav-text">Overview</span>
                             </a>
                         </li>
                         <li class="side-nav-item">
-                            <a href="#" class="side-nav-link" onclick="showSection('security'); return false;">
+                            <a href="#" class="side-nav-link" data-action="show-section" data-arg="security">
                                 <i class="fas fa-shield-alt side-nav-icon"></i>
                                 <span class="side-nav-text">Security</span>
                             </a>
                         </li>
                         <li class="side-nav-item">
-                            <a href="#" class="side-nav-link" onclick="showSection('performance'); return false;">
+                            <a href="#" class="side-nav-link" data-action="show-section" data-arg="performance">
                                 <i class="fas fa-tachometer-alt side-nav-icon"></i>
                                 <span class="side-nav-text">Performance</span>
                             </a>
                         </li>
                         <li class="side-nav-item">
-                            <a href="#" class="side-nav-link" onclick="showSection('alerts'); return false;">
+                            <a href="#" class="side-nav-link" data-action="show-section" data-arg="alerts">
                                 <i class="fas fa-exclamation-triangle side-nav-icon"></i>
                                 <span class="side-nav-text">Alerts</span>
                                 <span class="side-nav-badge" id="alerts-count-side">0</span>
                             </a>
                         </li>
                         <li class="side-nav-item">
-                            <a href="#" class="side-nav-link" onclick="showSection('logs'); return false;">
+                            <a href="#" class="side-nav-link" data-action="show-section" data-arg="logs">
                                 <i class="fas fa-list-alt side-nav-icon"></i>
                                 <span class="side-nav-text">Event Logs</span>
                             </a>
@@ -70,11 +70,11 @@
 
             <div class="page-actions">
                 <div class="action-group">
-                    <button class="btn btn-secondary tooltip" onclick="showHelp()">
+                    <button class="btn btn-secondary tooltip" data-action="show-help">
                         <i class="fas fa-question-circle"></i>
                         <span class="tooltip-content">Help & Documentation</span>
                     </button>
-                    <button class="btn btn-secondary tooltip" onclick="showKeyboardShortcuts()">
+                    <button class="btn btn-secondary tooltip" data-action="show-shortcuts">
                         <i class="fas fa-keyboard"></i>
                         <span class="tooltip-content">Keyboard Shortcuts</span>
                     </button>
@@ -119,21 +119,21 @@
                             <div class="indicator">
                                 <span class="indicator-label">CPU</span>
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="cpu-usage" style="width: 0%"></div>
+                                    <div class="progress-fill u-w0" id="cpu-usage" ></div>
                                 </div>
                                 <span class="indicator-value" id="cpu-value">0%</span>
                             </div>
                             <div class="indicator">
                                 <span class="indicator-label">Memory</span>
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="memory-usage" style="width: 0%"></div>
+                                    <div class="progress-fill u-w0" id="memory-usage" ></div>
                                 </div>
                                 <span class="indicator-value" id="memory-value">0%</span>
                             </div>
                             <div class="indicator">
                                 <span class="indicator-label">Disk</span>
                                 <div class="progress-bar">
-                                    <div class="progress-fill" id="disk-usage" style="width: 0%"></div>
+                                    <div class="progress-fill u-w0" id="disk-usage" ></div>
                                 </div>
                                 <span class="indicator-value" id="disk-value">0%</span>
                             </div>
@@ -235,16 +235,16 @@
             </div>
 
             <div class="tabs">
-                <button class="tab active" onclick="switchTab('components')">Components</button>
-                <button class="tab" onclick="switchTab('events')">Events</button>
-                <button class="tab" onclick="switchTab('policies')">Policies</button>
+                <button class="tab active" data-action="switch-tab" data-arg="components">Components</button>
+                <button class="tab" data-action="switch-tab" data-arg="events">Events</button>
+                <button class="tab" data-action="switch-tab" data-arg="policies">Policies</button>
             </div>
 
             <div id="components-tab" class="tab-content active">
                 <div class="security-card card-collapsible">
                     <div class="card-header collapsible">
                         <h3>Security Components</h3>
-                        <button class="card-toggle" onclick="toggleCard(this)">
+                        <button class="card-toggle" data-action="toggle-card" aria-label="Toggle section">
                             <i class="fas fa-chevron-up"></i>
                         </button>
                     </div>
@@ -261,7 +261,7 @@
                     <div class="card-header collapsible">
                         <h3>Recent Security Events</h3>
                         <span class="status-lozenge info">Live</span>
-                        <button class="card-toggle" onclick="toggleCard(this)">
+                        <button class="card-toggle" data-action="toggle-card" aria-label="Toggle section">
                             <i class="fas fa-chevron-up"></i>
                         </button>
                     </div>
@@ -293,7 +293,7 @@
                     <div class="card-header">
                         <h3>Resource Usage Trends</h3>
                         <div class="chart-controls">
-                            <select id="chart-time-range" onchange="updateChartRange(this.value)">
+                            <select id="chart-time-range" aria-label="Chart time range" data-onchange="update-chart-range">
                                 <option value="1h">Last Hour</option>
                                 <option value="24h" selected>Last 24 Hours</option>
                                 <option value="7d">Last 7 Days</option>
@@ -309,7 +309,7 @@
                 <div class="performance-card">
                     <div class="card-header">
                         <h3>System Performance</h3>
-                        <button class="btn btn-ghost tooltip" onclick="openPerformanceDrawer()">
+                        <button class="btn btn-ghost tooltip" data-action="open-perf-drawer">
                             <i class="fas fa-chart-line"></i>
                             <span class="tooltip-content">View detailed performance metrics</span>
                         </button>
@@ -329,28 +329,28 @@
                 <div class="alerts-toolbar">
                     <div class="search-container">
                         <i class="fas fa-search search-icon"></i>
-                        <input type="text" class="search-input" id="alerts-search" placeholder="Search alerts..." onkeyup="searchAlerts(this.value)">
+                        <input type="text" class="search-input" id="alerts-search" aria-label="Search alerts" placeholder="Search alerts..." data-onkeyup="search-alerts">
                     </div>
-                    <div class="bulk-actions" id="bulk-actions" style="display: none;">
+                    <div class="bulk-actions u-hidden" id="bulk-actions">
                         <span id="selected-count">0 selected</span>
-                        <button class="btn btn-secondary" onclick="clearAlertSelection()">Clear</button>
-                        <button class="btn btn-primary" onclick="bulkAcknowledge()">Acknowledge</button>
+                        <button class="btn btn-secondary" data-action="clear-alert-selection">Clear</button>
+                        <button class="btn btn-primary" data-action="bulk-acknowledge">Acknowledge</button>
                     </div>
                 </div>
             </div>
 
             <div class="alerts-filters">
                 <div class="alert-filters">
-                    <button class="filter-btn active" onclick="filterAlerts('all')">All</button>
-                    <button class="filter-btn" onclick="filterAlerts('critical')">Critical</button>
-                    <button class="filter-btn" onclick="filterAlerts('warning')">Warning</button>
-                    <button class="filter-btn" onclick="filterAlerts('info')">Info</button>
+                    <button class="filter-btn active" data-action="filter-alerts" data-arg="all">All</button>
+                    <button class="filter-btn" data-action="filter-alerts" data-arg="critical">Critical</button>
+                    <button class="filter-btn" data-action="filter-alerts" data-arg="warning">Warning</button>
+                    <button class="filter-btn" data-action="filter-alerts" data-arg="info">Info</button>
                 </div>
                 <div class="alert-actions">
-                    <button class="btn btn-ghost" onclick="toggleSelectAll()">
+                    <button class="btn btn-ghost" data-action="toggle-select-all">
                         <i class="fas fa-check-square"></i> Select All
                     </button>
-                    <button class="btn btn-ghost" onclick="exportAlerts()">
+                    <button class="btn btn-ghost" data-action="export-alerts">
                         <i class="fas fa-download"></i> Export
                     </button>
                 </div>
@@ -366,17 +366,17 @@
             <div class="section-header">
                 <h2>Event Logs</h2>
                 <div class="logs-controls">
-                    <select class="form-input" id="log-type-select" onchange="changeLogType(this.value)">
+                    <select class="form-input" id="log-type-select" aria-label="Log type" data-onchange="change-log-type">
                         <option value="system">System Logs</option>
                         <option value="security">Security Logs</option>
                         <option value="application">Application Logs</option>
                     </select>
                     <div class="time-filter">
-                        <button class="btn btn-secondary" onclick="setTimeFilter('1h')">1H</button>
-                        <button class="btn btn-secondary active" onclick="setTimeFilter('24h')">24H</button>
-                        <button class="btn btn-secondary" onclick="setTimeFilter('7d')">7D</button>
+                        <button class="btn btn-secondary" data-action="set-time-filter" data-arg="1h">1H</button>
+                        <button class="btn btn-secondary active" data-action="set-time-filter" data-arg="24h">24H</button>
+                        <button class="btn btn-secondary" data-action="set-time-filter" data-arg="7d">7D</button>
                     </div>
-                    <button class="btn btn-ghost tooltip" onclick="toggleAdvancedSearch()">
+                    <button class="btn btn-ghost tooltip" data-action="toggle-advanced-search">
                         <i class="fas fa-filter"></i>
                         <span class="tooltip-content">Advanced search and filters</span>
                     </button>
@@ -417,7 +417,7 @@
                         <i class="fas fa-question-circle"></i>
                         Help & Documentation
                     </h3>
-                    <button class="modal-close" onclick="closeHelpModal()">
+                    <button class="modal-close" data-action="close-help-modal" aria-label="Close help">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -493,12 +493,12 @@
                 </div>
                 <div class="modal-footer">
                     <div class="modal-footer-left">
-                        <button class="btn btn-ghost" onclick="showTutorial()">
+                        <button class="btn btn-ghost" data-action="show-tutorial">
                             <i class="fas fa-play-circle"></i> Start Tutorial
                         </button>
                     </div>
                     <div class="modal-footer-right">
-                        <button class="btn btn-primary" onclick="closeHelpModal()">Got it!</button>
+                        <button class="btn btn-primary" data-action="close-help-modal">Got it!</button>
                     </div>
                 </div>
             </div>
@@ -512,7 +512,7 @@
                         <i class="fas fa-keyboard"></i>
                         Keyboard Shortcuts
                     </h3>
-                    <button class="modal-close" onclick="closeShortcutsModal()">
+                    <button class="modal-close" data-action="close-shortcuts-modal" aria-label="Close shortcuts">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
@@ -575,16 +575,16 @@
         </div>
 
         <!-- Advanced Search with Autocomplete -->
-        <div class="advanced-search-overlay" id="advanced-search-overlay" style="display: none;">
+        <div class="advanced-search-overlay u-hidden" id="advanced-search-overlay">
             <div class="advanced-search-container">
                 <div class="search-input-wrapper">
                     <i class="fas fa-search search-icon"></i>
-                    <input type="text" class="advanced-search-input" id="advanced-search-input" placeholder="Search dashboards, alerts, logs..." autocomplete="off">
-                    <button class="search-clear" onclick="clearAdvancedSearch()" style="display: none;">
+                    <input type="text" class="advanced-search-input" id="advanced-search-input" aria-label="Search dashboards, alerts, and logs" placeholder="Search dashboards, alerts, logs..." autocomplete="off">
+                    <button class="search-clear u-hidden" data-action="clear-advanced-search" aria-label="Clear search">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
-                <div class="search-results" id="search-results" style="display: none;">
+                <div class="search-results u-hidden" id="search-results">
                     <div class="search-categories">
                         <div class="search-category active" data-category="all">All Results</div>
                         <div class="search-category" data-category="alerts">Alerts</div>
@@ -602,7 +602,7 @@
     <aside class="side-drawer" id="performance-drawer">
         <div class="drawer-header">
             <h3>Detailed Performance Metrics</h3>
-            <button class="drawer-close" onclick="closePerformanceDrawer()">
+            <button class="drawer-close" data-action="close-perf-drawer" aria-label="Close performance details">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -698,10 +698,10 @@
     </aside>
 
     <!-- Advanced Search Panel -->
-    <div class="search-panel" id="advanced-search-panel" style="display: none;">
+    <div class="search-panel u-hidden" id="advanced-search-panel">
         <div class="search-panel-header">
             <h4>Advanced Search</h4>
-            <button class="btn btn-ghost" onclick="toggleAdvancedSearch()">
+            <button class="btn btn-ghost" data-action="toggle-advanced-search" aria-label="Close search panel">
                 <i class="fas fa-times"></i>
             </button>
         </div>
@@ -740,8 +740,8 @@
             </div>
 
             <div class="search-actions">
-                <button class="btn btn-secondary" onclick="clearAdvancedFilters()">Clear All</button>
-                <button class="btn btn-primary" onclick="applyAdvancedFilters()">Apply Filters</button>
+                <button class="btn btn-secondary" data-action="clear-advanced-filters">Clear All</button>
+                <button class="btn btn-primary" data-action="apply-advanced-filters">Apply Filters</button>
             </div>
         </div>
     </div>
@@ -751,7 +751,7 @@
         <div class="modal-content large-modal">
             <div class="modal-header">
                 <h3 class="modal-title">Advanced Dashboard Settings</h3>
-                <button class="modal-close" onclick="closeAdvancedSettingsModal()">
+                <button class="modal-close" data-action="close-settings-modal" aria-label="Close settings">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
@@ -899,68 +899,31 @@
             </div>
             <div class="modal-footer">
                 <div class="modal-footer-left">
-                    <button class="btn btn-ghost" onclick="resetToDefaults()">Reset to Defaults</button>
+                    <button class="btn btn-ghost" data-action="reset-defaults">Reset to Defaults</button>
                 </div>
                 <div class="modal-footer-right">
-                    <button class="btn btn-secondary" onclick="closeAdvancedSettingsModal()">Cancel</button>
-                    <button class="btn btn-primary" onclick="saveAdvancedSettings()">Save Settings</button>
+                    <button class="btn btn-secondary" data-action="close-settings-modal">Cancel</button>
+                    <button class="btn btn-primary" data-action="save-adv-settings">Save Settings</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Drag and Drop Zone for File Upload -->
-    <div class="drag-drop-zone" id="file-upload-zone" style="display: none;">
+    <div class="drag-drop-zone u-hidden" id="file-upload-zone">
         <div class="drag-drop-content">
             <div class="drag-drop-icon">
                 <i class="fas fa-cloud-upload-alt"></i>
             </div>
             <h3>Drop files here to upload</h3>
-            <p>or <button class="btn btn-link" onclick="triggerFileSelect()">browse files</button></p>
-            <input type="file" id="file-input" multiple style="display: none;" onchange="handleFileUpload(this.files)">
+            <p>or <button class="btn btn-link" data-action="trigger-file-select">browse files</button></p>
+            <input type="file" id="file-input" class="u-hidden" aria-label="Upload files" multiple data-onchange="handle-file-upload">
         </div>
         <div class="drag-drop-overlay" id="drag-overlay"></div>
     </div>
 
-    <!-- Advanced Progress Modal -->
-    <div class="modal-overlay" id="progress-modal">
-        <div class="modal-content progress-modal">
-            <div class="modal-header">
-                <h3 class="modal-title" id="progress-title">Processing...</h3>
-            </div>
-            <div class="modal-body">
-                <div class="progress-tracker" id="operation-progress">
-                    <div class="progress-stage">
-                        <div class="progress-dot completed" data-step="1">
-                            <span class="progress-label">1</span>
-                        </div>
-                        <span class="progress-stage-name">Initializing</span>
-                    </div>
-                    <div class="progress-stage">
-                        <div class="progress-dot active" data-step="2">
-                            <span class="progress-label">2</span>
-                        </div>
-                        <span class="progress-stage-name">Processing</span>
-                    </div>
-                    <div class="progress-stage">
-                        <div class="progress-dot" data-step="3">
-                            <span class="progress-label">3</span>
-                        </div>
-                        <span class="progress-stage-name">Completing</span>
-                    </div>
-                </div>
-                <div class="progress-details">
-                    <div class="progress-bar-container">
-                        <div class="progress-bar">
-                            <div class="progress-fill" id="progress-fill" style="width: 45%"></div>
-                        </div>
-                        <span class="progress-percentage" id="progress-percentage">45%</span>
-                    </div>
-                    <div class="progress-message" id="progress-message">Processing system diagnostics...</div>
-                </div>
-            </div>
-        </div>
-    </div>
+    </div><!-- /.dashboard-layout -->
+    <script src="lib/signalr.min.js"></script>
     <script src="dashboard.js"></script>
 </body>
 </html>

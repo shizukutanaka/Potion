@@ -24,12 +24,23 @@ echo Usage: %~nx0 [/quiet] [/uninstall]
 exit /b 1
 
 :main
+REM Both install and uninstall require elevation.
+net session >nul 2>&1
+if !errorlevel! neq 0 (
+    echo Error: Administrator privileges required
+    echo Please run as administrator
+    exit /b 1
+)
+
+REM Resolve the MSI beside this script so the installer works from any CWD.
+set "MSI_PATH=%~dp0Potion.msi"
+
 if "%UNINSTALL%"=="true" (
     echo Uninstalling Potion Self-Healing Service...
     if "%QUIET%"=="true" (
-        msiexec.exe /x "Potion.msi" /quiet /norestart
+        msiexec.exe /x "%MSI_PATH%" /quiet /norestart
     ) else (
-        msiexec.exe /x "Potion.msi"
+        msiexec.exe /x "%MSI_PATH%"
     )
     if !errorlevel! neq 0 (
         echo Error: Failed to uninstall Potion
@@ -39,21 +50,13 @@ if "%UNINSTALL%"=="true" (
 ) else (
     echo Installing Potion Self-Healing Service...
 
-    REM Check administrator privileges
-    net session >nul 2>&1
-    if !errorlevel! neq 0 (
-        echo Error: Administrator privileges required
-        echo Please run as administrator
-        exit /b 1
-    )
-
     REM Install MSI
     if "%QUIET%"=="true" (
         echo Running silent installation...
-        msiexec.exe /i "Potion.msi" /quiet /norestart
+        msiexec.exe /i "%MSI_PATH%" /quiet /norestart
     ) else (
         echo Running interactive installation...
-        msiexec.exe /i "Potion.msi"
+        msiexec.exe /i "%MSI_PATH%"
     )
 
     if !errorlevel! neq 0 (

@@ -1,13 +1,10 @@
 using System;
-using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.Localization;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
-using Microsoft.Extensions.Caching.Memory;
-using Microsoft.Extensions.Localization;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Polly;
@@ -36,6 +33,7 @@ public class Startup
             {
                 metrics
                     .AddMeter("Potion.Service")
+                    .AddAspNetCoreInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddProcessInstrumentation()
                     .AddPrometheusExporter()
@@ -58,24 +56,6 @@ public class Startup
         services.AddSingleton(PotionActivitySource.Source);
 
         // Polly resilience pipelines (Phase 1 enhancement)
-        services.AddSingleton<ResiliencePipeline<ProcessResult>>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<Startup>>();
-            return ResiliencePipelines.CreateRemediationPipeline(logger);
-        });
-
-        services.AddSingleton<ResiliencePipeline<bool>>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<Startup>>();
-            return ResiliencePipelines.CreateHealthCheckPipeline(logger);
-        });
-
-        services.AddSingleton<ResiliencePipeline<DiagnosticReport>>(sp =>
-        {
-            var logger = sp.GetRequiredService<ILogger<Startup>>();
-            return ResiliencePipelines.CreateDiagnosticPipeline(logger);
-        });
-
         // The dashboard compares alert severities as strings ("Critical");
         // serialize enums as names so /api/health responses match the contract.
         services.ConfigureHttpJsonOptions(o =>
@@ -102,7 +82,9 @@ public class Startup
         services.AddSingleton<RequestMetricsTracker>();
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();
-        services.AddHealthChecks();
+        services.AddSingleton<SystemReadinessCheck>();
+        services.AddHealthChecks()
+            .AddCheck<SystemReadinessCheck>("system_ready", tags: new[] { "ready" });
         services.AddRateLimiter(options =>
         {
             // The alertmanager webhook is the only anonymous write endpoint;
@@ -147,10 +129,14 @@ public class Startup
                 .ValidateDataAnnotations()
                 .Validate(RemediationPolicyOptionsValidators.HasUniqueTaskNames, "Remediation policy contains duplicate task names.")
                 .Validate(RemediationPolicyOptionsValidators.CommandsAreAllowlisted, "Remediation policy references commands outside the allowlist.")
+                .Validate(RemediationPolicyOptionsValidators.ArgumentsAreSafe, "Remediation policy contains unsafe task arguments.")
+                .Validate(RemediationPolicyOptionsValidators.ArgumentsAreAllowlisted, "Remediation policy uses arguments outside the command argument allowlist.")
                 .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowsAreValid, "Remediation policy contains invalid maintenance windows.")
                 .ValidateOnStart();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<ICommandValidator, CommandValidator>();
+            services.AddSingleton(sp => ResiliencePipelines.CreateProcessExecutionPipeline(
+                sp.GetRequiredService<ILogger<RemediationTaskExecutor>>()));
             services.AddSingleton<IRemediationTaskExecutor, RemediationTaskExecutor>();
             services.AddSingleton<RemediationScheduler>();
             services.AddSingleton<IRemediationScheduler>(sp => sp.GetRequiredService<RemediationScheduler>());
@@ -161,75 +147,6 @@ public class Startup
             services.AddHostedService<PredictiveRemediationService>();
         }
 
-        var supportedCultures = new[]
-        {
-            new CultureInfo("en"),
-            new CultureInfo("ja"),
-            new CultureInfo("es"),
-            new CultureInfo("fr"),
-            new CultureInfo("de"),
-            new CultureInfo("ko"),
-            new CultureInfo("zh"),
-            new CultureInfo("ru"),
-            new CultureInfo("ar"),
-            new CultureInfo("hi"),
-            new CultureInfo("bn"),
-            new CultureInfo("ur"),
-            new CultureInfo("id"),
-            new CultureInfo("it"),
-            new CultureInfo("nl"),
-            new CultureInfo("pt"),
-            new CultureInfo("vi"), // Vietnamese
-            new CultureInfo("th"), // Thai
-            new CultureInfo("tr"), // Turkish
-            new CultureInfo("pl"), // Polish
-            new CultureInfo("uk"), // Ukrainian
-            new CultureInfo("cs"), // Czech
-            new CultureInfo("hu"), // Hungarian
-            new CultureInfo("sv"), // Swedish
-            new CultureInfo("no"), // Norwegian
-            new CultureInfo("da"), // Danish
-            new CultureInfo("fi"), // Finnish
-            new CultureInfo("el"), // Greek
-            new CultureInfo("he"), // Hebrew
-            new CultureInfo("fa"), // Persian
-            new CultureInfo("ms"), // Malay
-            new CultureInfo("tl"), // Tagalog
-            new CultureInfo("my"), // Myanmar
-            new CultureInfo("km"), // Khmer
-            new CultureInfo("lo"), // Lao
-            new CultureInfo("mn"), // Mongolian
-            new CultureInfo("sw"), // Swahili
-            new CultureInfo("af"), // Afrikaans
-            new CultureInfo("ca"), // Catalan
-            new CultureInfo("eu"), // Basque
-            new CultureInfo("gl"), // Galician
-            new CultureInfo("cy"), // Welsh
-            new CultureInfo("gd"), // Scottish Gaelic
-            new CultureInfo("ga"), // Irish
-            new CultureInfo("ne"), // Nepali
-            new CultureInfo("si"), // Sinhala
-            new CultureInfo("ta"), // Tamil
-            new CultureInfo("te")  // Telugu
-        };
-        services.Configure<RequestLocalizationOptions>(options =>
-        {
-            options.DefaultRequestCulture = new RequestCulture("en");
-            options.SupportedCultures = supportedCultures;
-            options.SupportedUICultures = supportedCultures;
-            options.RequestCultureProviders.Clear();
-            options.RequestCultureProviders.Add(new AcceptLanguageHeaderRequestCultureProvider());
-        });
-
-        services.AddLocalization(options => options.ResourcesPath = "Resources");
-        services.AddMemoryCache();
-        services.AddSingleton<InternationalizationService>(sp =>
-        {
-            var localizer = sp.GetRequiredService<IStringLocalizer<InternationalizationService>>();
-            var cache = sp.GetRequiredService<IMemoryCache>();
-            return new InternationalizationService(localizer, cache);
-        });
-        services.AddSingleton<CircuitBreakerService>();
     }
 
     public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -239,7 +156,55 @@ public class Startup
         // so without this the potion.* series never reach the /metrics export.
         _ = Infrastructure.PotionMetrics.SystemHealthScore;
 
-        app.UseRequestLocalization();
+        // Consistent 500 contract: without an exception handler, unhandled
+        // endpoint failures surface as Kestrel's bare empty-body 500.
+        app.UseExceptionHandler(errorApp =>
+        {
+            errorApp.Run(async context =>
+            {
+                var exception = context.Features.Get<Microsoft.AspNetCore.Diagnostics.IExceptionHandlerFeature>()?.Error;
+                var logger = context.RequestServices
+                    .GetRequiredService<ILoggerFactory>()
+                    .CreateLogger("Potion.UnhandledException");
+                logger.LogError(exception, "Unhandled exception for {Method} {Path}", context.Request.Method, context.Request.Path);
+
+                context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+                context.Response.ContentType = "application/problem+json";
+                await context.Response.WriteAsJsonAsync(new
+                {
+                    title = "Internal Server Error",
+                    status = 500,
+                    traceId = context.TraceIdentifier,
+                });
+            });
+        });
+
+        // Browser-facing dashboard hardening with an enforced CSP: inline script
+        // handlers were migrated to data-action delegation in dashboard.js, so
+        // script-src no longer needs 'unsafe-inline'.
+        app.Use(async (context, next) =>
+        {
+            context.Response.Headers["X-Content-Type-Options"] = "nosniff";
+            context.Response.Headers["X-Frame-Options"] = "DENY";
+            context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            context.Response.Headers["Permissions-Policy"] =
+                "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+            // Fully strict CSP: inline handlers became data-action delegation and
+            // inline style attributes became utility classes, so no 'unsafe-inline'
+            // is needed for either script-src or style-src.
+            context.Response.Headers["Content-Security-Policy"] =
+                "default-src 'self'; script-src 'self'; " +
+                "style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
+                "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
+                "img-src 'self' data:; connect-src 'self' ws: wss:; " +
+                "object-src 'none'; base-uri 'self'";
+            if (context.Request.IsHttps)
+            {
+                context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000";
+            }
+            await next();
+        });
+
         app.UseDefaultFiles();
         app.UseStaticFiles();
         app.UseMiddleware<RequestMetricsMiddleware>();
@@ -250,7 +215,10 @@ public class Startup
         app.UseEndpoints(endpoints =>
         {
             endpoints.MapHub<CollaborationHub>("/collaboration");
-            endpoints.MapHealthChecks("/health");
+            // /health = pure liveness (process responsive); /health/ready runs the
+            // 'ready'-tagged check that proves metric sampling works end-to-end.
+            endpoints.MapHealthChecks("/health", new HealthCheckOptions { Predicate = check => !check.Tags.Contains("ready") });
+            endpoints.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
             // Dashboard API: the wwwroot dashboard fetches these routes.
             // All data comes from the registered ISystemHealthMonitor snapshot.

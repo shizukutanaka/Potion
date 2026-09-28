@@ -69,11 +69,15 @@ New-Item -ItemType Directory -Path "$StatePath\telemetry" -Force | Out-Null
 # Set permissions
 Write-Host "🔐 Setting permissions..." -ForegroundColor Yellow
 
+# Builtin group names are localized (e.g. French 'Administrateurs') —
+# resolve by SID so the ACL works on non-English Windows.
+$adminsSid = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-32-544')
+$systemSid = New-Object System.Security.Principal.SecurityIdentifier('S-1-5-18')
 $acl = Get-Acl $InstallPath
 $acl.SetAccessRuleProtection($true, $false)
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule("Administrators", "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($adminsSid, "FullControl", "ContainerInherit,ObjectInherit", "None", "Allow")
 $acl.AddAccessRule($rule)
-$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($ServiceAccount, "ReadAndExecute", "ContainerInherit,ObjectInherit", "None", "Allow")
+$rule = New-Object System.Security.AccessControl.FileSystemAccessRule($systemSid, "ReadAndExecute", "ContainerInherit,ObjectInherit", "None", "Allow")
 $acl.AddAccessRule($rule)
 Set-Acl $InstallPath $acl
 
@@ -151,7 +155,7 @@ if ($serviceStatus.Status -eq "Running") {
     Write-Host "🧪 Testing service..." -ForegroundColor Yellow
 
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:5000/api/health" -UseBasicParsing
+        $response = Invoke-WebRequest -Uri "http://localhost:5000/api/health" -UseBasicParsing -TimeoutSec 15
         if ($response.StatusCode -eq 200) {
             Write-Host "✅ Health check passed!" -ForegroundColor Green
         }

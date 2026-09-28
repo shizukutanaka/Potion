@@ -22,6 +22,11 @@ public sealed partial class RemediationPolicyOptions
 
     public bool SkipSignatureValidation { get; set; } = false;
 
+    // Per-command exact-match argument allowlist. Commands absent from the map
+    // keep character-level validation only (backward compatible); a listed
+    // command may only run with one of its listed argument strings.
+    public Dictionary<string, List<string>> CommandArgumentAllowlist { get; set; } = new();
+
     public List<MaintenanceWindowOption> MaintenanceWindows { get; set; } = new();
 
     [Required]
@@ -150,6 +155,57 @@ public static class RemediationPolicyOptionsValidators
         }
 
         return true;
+    }
+
+    public static bool ArgumentsAreSafe(RemediationPolicyOptions options)
+    {
+        // Same rule as CommandValidator.EnsureArgumentsAreAllowed — validated at
+        // startup so a bad policy fails boot instead of failing per-execution.
+        var unsafeTasks = options.Tasks
+            .Where(task => task.Enabled && !string.IsNullOrEmpty(task.Arguments) &&
+                (task.Arguments.Length > 2048 ||
+                 task.Arguments.IndexOf('"') >= 0 ||
+                 task.Arguments.Any(char.IsControl)))
+            .Select(task => task.Name)
+            .ToList();
+
+        if (unsafeTasks.Any())
+        {
+            throw new ValidationException(
+                $"The following tasks contain unsafe arguments (quote/control characters or > 2048 chars): {string.Join(", ", unsafeTasks)}");
+        }
+
+        return true;
+    }
+
+    public static bool ArgumentsAreAllowlisted(RemediationPolicyOptions options)
+    {
+        var violations = options.Tasks
+            .Where(task => task.Enabled && !CommandArgumentAllowlistPermits(options, task.Command, task.Arguments))
+            .Select(task => $"{task.Name}: {task.Arguments}")
+            .ToList();
+
+        if (violations.Any())
+        {
+            throw new ValidationException(
+                $"The following tasks use arguments outside the command argument allowlist: {string.Join(", ", violations)}");
+        }
+
+        return true;
+    }
+
+    private static bool CommandArgumentAllowlistPermits(RemediationPolicyOptions options, string command, string? arguments)
+    {
+        var fileName = command.Split(' ', '\t')[0];
+        var executableName = Path.GetFileName(fileName);
+        var entry = options.CommandArgumentAllowlist
+            .FirstOrDefault(kv =>
+                string.Equals(kv.Key, command, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(kv.Key, fileName, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(kv.Key, executableName, StringComparison.OrdinalIgnoreCase));
+
+        // Command not listed -> unrestricted (character-level rules still apply).
+        return string.IsNullOrEmpty(entry.Key) || entry.Value.Any(a => string.Equals(a, arguments ?? string.Empty, StringComparison.Ordinal));
     }
 
     public static bool MaintenanceWindowsAreValid(RemediationPolicyOptions options)

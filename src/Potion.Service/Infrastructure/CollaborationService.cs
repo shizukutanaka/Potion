@@ -16,6 +16,8 @@ public class CollaborationOptions
 
 public class CollaborationHub : Hub
 {
+    private const int MaxMessageLength = 2000;
+
     private readonly ILogger<CollaborationHub> _logger;
     private readonly CollaborationService _collaborationService;
 
@@ -64,6 +66,13 @@ public class CollaborationHub : Hub
 
     public async Task SendMessage(string message)
     {
+        // Anonymous clients can reach this hub method; cap the payload so a
+        // single connection cannot amplify an arbitrarily large message to
+        // every connected client.
+        if (string.IsNullOrWhiteSpace(message) || message.Length > MaxMessageLength)
+        {
+            return;
+        }
         var userId = Context.UserIdentifier ?? Context.ConnectionId;
         await _collaborationService.BroadcastMessageAsync(userId, message);
     }

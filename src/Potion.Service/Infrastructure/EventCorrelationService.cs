@@ -3,6 +3,7 @@ using Microsoft.Extensions.Options;
 using Potion.Service.Options;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -149,7 +150,7 @@ public class EventCorrelationService : IHostedService, IDisposable
         RecordEvent("health.alert", alert, alert.Timestamp, "health-monitor");
     }
 
-    private async Task ProcessEventCorrelationsAsync()
+    internal async Task ProcessEventCorrelationsAsync()
     {
         try
         {
@@ -252,10 +253,10 @@ public class EventCorrelationService : IHostedService, IDisposable
     {
         return condition.Operator switch
         {
-            ">" => GetEventValue(systemEvent) > condition.Threshold,
-            "<" => GetEventValue(systemEvent) < condition.Threshold,
-            ">=" => GetEventValue(systemEvent) >= condition.Threshold,
-            "<=" => GetEventValue(systemEvent) <= condition.Threshold,
+            ">" => TryGetEventValue(systemEvent, out var v) && v > condition.Threshold,
+            "<" => TryGetEventValue(systemEvent, out var v) && v < condition.Threshold,
+            ">=" => TryGetEventValue(systemEvent, out var v) && v >= condition.Threshold,
+            "<=" => TryGetEventValue(systemEvent, out var v) && v <= condition.Threshold,
             "count" => true,
             _ => false,
         };
@@ -266,23 +267,30 @@ public class EventCorrelationService : IHostedService, IDisposable
         return conditions.Any(c => c.EventType == systemEvent.Type && EventSatisfies(c, systemEvent));
     }
 
-    private static double GetEventValue(SystemEvent systemEvent)
+    private static bool TryGetEventValue(SystemEvent systemEvent, out double value)
     {
-        // Extract numeric value from event data
-        if (systemEvent.Data is double d)
-            return d;
-        if (systemEvent.Data is int i)
-            return i;
-        if (systemEvent.Data is long l)
-            return l;
-        if (systemEvent.Data is float f)
-            return f;
-
-        // Try to parse from string
-        if (systemEvent.Data is string s && double.TryParse(s, out var value))
-            return value;
-
-        return 0;
+        switch (systemEvent.Data)
+        {
+            case double d:
+                value = d;
+                return true;
+            case int i:
+                value = i;
+                return true;
+            case long l:
+                value = l;
+                return true;
+            case float f:
+                value = f;
+                return true;
+            case string s:
+                // Event payloads are produced in-process or from procfs/sysfs;
+                // ambient culture would misparse "85.5" as 855 on comma-decimal locales.
+                return double.TryParse(s, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+            default:
+                value = 0;
+                return false;
+        }
     }
 
     private void HandleCorrelation(EventCorrelation correlation)

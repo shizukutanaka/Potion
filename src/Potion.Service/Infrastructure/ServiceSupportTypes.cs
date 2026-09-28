@@ -62,77 +62,13 @@ public sealed class HealthCheckResult
 }
 
 /// <summary>
-/// バックアップ種別
-/// </summary>
-public enum BackupType
-{
-    Full,
-    Configuration,
-    SystemState
-}
-
-/// <summary>
-/// バックアップ実行結果
-/// </summary>
-public sealed record BackupResult(
-    bool Success,
-    string BackupPath,
-    long SizeBytes,
-    int FileCount,
-    DateTimeOffset CreatedAt);
-
-/// <summary>
-/// バックアップファイル情報
-/// </summary>
-public sealed record BackupFileInfo(
-    string Name,
-    string FullName,
-    long Length,
-    DateTimeOffset LastWriteUtc,
-    BackupType Type)
-{
-    public DateTimeOffset CreatedAt => LastWriteUtc;
-}
-
-/// <summary>
-/// ログエラー統計
-/// </summary>
-public sealed record LogErrorStatistics(
-    int TotalErrors,
-    int CriticalErrors,
-    int WarningCount,
-    IReadOnlyList<string> TopErrors,
-    DateTimeOffset PeriodStart,
-    DateTimeOffset PeriodEnd)
-{
-    public int CriticalErrorCount { get; init; }
-}
-
-/// <summary>
-/// パフォーマンスメトリクス
-/// </summary>
-public sealed record PerformanceMetric(
-    string Name,
-    double Value,
-    string Unit,
-    DateTimeOffset Timestamp);
-
-/// <summary>
-/// ログパフォーマンス統計
-/// </summary>
-public sealed record LogPerformanceStatistics(
-    int TotalOperations,
-    int FailedOperations,
-    int SlowOperations,
-    int AverageDurationMs,
-    IReadOnlyList<PerformanceMetric> TopMetrics);
-
-/// <summary>
 /// コマンドバリデータ
 /// </summary>
 public interface ICommandValidator
 {
     string EnsureCommandIsAllowed(string command);
+
+    void EnsureArgumentsAreAllowed(string command, string? arguments);
 
     IReadOnlyCollection<string> GetCurrentAllowlist();
 }
@@ -191,96 +127,48 @@ public sealed class CommandValidator : ICommandValidator
         return command;
     }
 
+    public void EnsureArgumentsAreAllowed(string command, string? arguments)
+    {
+        if (string.IsNullOrEmpty(arguments))
+        {
+            return;
+        }
+
+        // Arguments land verbatim on the spawned command line; a double-quote or
+        // control character can break quoting and smuggle extra arguments into
+        // an allowlisted binary (e.g. `net.exe` -> net user /add).
+        if (arguments.Length > 2048)
+        {
+            throw new ArgumentException("Arguments exceed the maximum length of 2048 characters.", nameof(arguments));
+        }
+        if (arguments.IndexOf('"') >= 0 || arguments.Any(char.IsControl))
+        {
+            _logger.LogWarning("Blocked arguments containing quote/control characters for command {Command}", command);
+            throw new InvalidOperationException("Arguments contain characters that could alter the spawned command line.");
+        }
+
+        var argumentAllowlist = _optionsMonitor.CurrentValue.CommandArgumentAllowlist;
+        var fileName = command.Split(' ', '\t')[0];
+        var executableName = System.IO.Path.GetFileName(fileName);
+        var entry = argumentAllowlist.FirstOrDefault(kv =>
+            string.Equals(kv.Key, command, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(kv.Key, fileName, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(kv.Key, executableName, StringComparison.OrdinalIgnoreCase));
+
+        if (!string.IsNullOrEmpty(entry.Key) &&
+            !entry.Value.Any(a => string.Equals(a, arguments, StringComparison.Ordinal)))
+        {
+            _logger.LogWarning("Blocked arguments not in the allowlist for command {Command}: {Arguments}", command, arguments);
+            throw new InvalidOperationException("Arguments are not allowed by the command argument allowlist.");
+        }
+    }
+
     public IReadOnlyCollection<string> GetCurrentAllowlist()
     {
         return _optionsMonitor.CurrentValue.CommandAllowlist;
     }
 }
 
-/// <summary>
-/// ログ分析サービス
-/// </summary>
-public interface ILogAnalysisService
-{
-    Task<LogErrorStatistics> AnalyzeErrorStatisticsAsync(CancellationToken cancellationToken);
-
-    Task<LogPerformanceStatistics> AnalyzePerformanceStatisticsAsync(CancellationToken cancellationToken);
-}
-
-public sealed class LogAnalysisService : ILogAnalysisService
-
-{
-    private readonly ILogger<LogAnalysisService> _logger;
-
-    public LogAnalysisService(ILogger<LogAnalysisService> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task<LogErrorStatistics> AnalyzeErrorStatisticsAsync(CancellationToken cancellationToken)
-    {
-        var now = DateTimeOffset.UtcNow;
-        var result = new LogErrorStatistics(0, 0, 0, Array.Empty<string>(), now.AddHours(-1), now);
-        return Task.FromResult(result);
-    }
-
-    public Task<LogPerformanceStatistics> AnalyzePerformanceStatisticsAsync(CancellationToken cancellationToken)
-    {
-        var result = new LogPerformanceStatistics(0, 0, 0, 0, Array.Empty<PerformanceMetric>());
-        return Task.FromResult(result);
-    }
-}
-
-/// <summary>
-/// テレメトリ保持サービス
-/// </summary>
-public interface ITelemetryRetentionService
-{
-    Task OptimizeForHighSpeedAsync();
-}
-
-public sealed class TelemetryRetentionService : ITelemetryRetentionService
-{
-    private readonly ILogger<TelemetryRetentionService> _logger;
-
-    public TelemetryRetentionService(ILogger<TelemetryRetentionService> logger)
-    {
-        _logger = logger;
-    }
-
-    public Task OptimizeForHighSpeedAsync()
-    {
-        _logger.LogDebug("Optimizing telemetry retention for high-speed collection");
-        return Task.CompletedTask;
-    }
-}
-
-/// <summary>
-/// サーキットブレーカーサービス
-/// </summary>
-public sealed class CircuitBreakerService
-{
-    private readonly ILogger<CircuitBreakerService> _logger;
-
-    public CircuitBreakerService(ILogger<CircuitBreakerService> logger)
-    {
-        _logger = logger;
-    }
-}
-
-/// <summary>
-/// 自動復旧マネージャー
-/// </summary>
-public interface IAutoRecoveryManager
-{
-    event EventHandler<RecoveryAttemptEventArgs>? RecoveryAttempted;
-
-    event EventHandler<SystemHealthChangedEventArgs>? SystemHealthChanged;
-
-    Task<bool> AttemptRecoveryAsync(string component, Exception failure, CancellationToken cancellationToken);
-
-    Task<HealthCheckResult> PerformHealthCheckAsync(CancellationToken cancellationToken);
-}
 
 /// <summary>
 /// 修復タスクスケジューラ

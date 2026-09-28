@@ -4,3 +4,22 @@
 .git/
 .github/
 *.md
+
+# Build context only needs src/ — keep the rest out of the daemon upload.
+tests/
+tools/
+docs/
+k8s/
+monitoring/
+setup/
+scripts/
+logs/
+*.sln
+docker-compose*.yml
+.gitignore
+.gitattributes
+.dockerignore
+validation-report.txt
+.claude/
+claudedocs/
+C*/

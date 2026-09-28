@@ -7,6 +7,8 @@
     <Nullable>enable</Nullable>
     <RootNamespace>Potion.ConfigTool</RootNamespace>
     <AssemblyName>Potion.ConfigTool</AssemblyName>
+    <!-- 対象ホストが Windows のため CA1416 プラットフォーム警告は想定内（テストプロジェクトと同じ扱い） -->
+    <NoWarn>CA1416</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>

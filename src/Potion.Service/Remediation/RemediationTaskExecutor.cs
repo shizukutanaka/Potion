@@ -5,6 +5,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
+using Polly;
 using Potion.Service.Infrastructure;
 using Potion.Service.Options;
 
@@ -23,17 +24,20 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
     private readonly IProcessRunner _processRunner;
     private readonly ICommandValidator _commandValidator;
     private readonly RemediationExecutionStats _executionStats;
+    private readonly ResiliencePipeline<ProcessExecutionResult> _pipeline;
 
     public RemediationTaskExecutor(
         ILogger<RemediationTaskExecutor> logger,
         IProcessRunner processRunner,
         ICommandValidator commandValidator,
-        RemediationExecutionStats executionStats)
+        RemediationExecutionStats executionStats,
+        ResiliencePipeline<ProcessExecutionResult> pipeline)
     {
         _logger = logger;
         _processRunner = processRunner;
         _commandValidator = commandValidator;
         _executionStats = executionStats;
+        _pipeline = pipeline;
     }
 
     public async Task ExecuteAsync(RemediationTaskDescriptor descriptor, CancellationToken cancellationToken)
@@ -43,6 +47,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         var startUtc = DateTimeOffset.UtcNow;
 
         _commandValidator.EnsureCommandIsAllowed(option.Command);
+        _commandValidator.EnsureArgumentsAreAllowed(option.Command, option.Arguments);
         using var activity = PotionActivitySource.StartRemediationActivity(option.Name);
         _logger.LogInformation("Executing remediation task: {TaskName}", option.Name);
 
@@ -62,7 +67,9 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
             };
 
             var timeout = TimeSpan.FromSeconds(option.TimeoutSeconds);
-            var result = await _processRunner.RunAsync(startInfo, timeout, cancellationToken);
+            var result = await _pipeline.ExecuteAsync(
+                async ct => await _processRunner.RunAsync(startInfo, timeout, ct),
+                cancellationToken);
 
             var duration = DateTimeOffset.UtcNow - startUtc;
             var success = option.AllowedExitCodes.Contains(result.ExitCode) ||

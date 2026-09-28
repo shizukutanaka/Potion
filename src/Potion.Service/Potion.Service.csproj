@@ -48,7 +48,9 @@
     <DebugSymbols>false</DebugSymbols>
     <DebugType>portable</DebugType>
     <Optimize>true</Optimize>
-    <PathMap>$(MSBuildProjectDirectory)=/</PathMap>
+    <!-- CI向け決定論的ビルドのみ PathMap を適用する（無条件に設定すると
+         coverlet がソースパスを解決できずカバレッジレポートが空になる） -->
+    <PathMap Condition="'$(ContinuousIntegrationBuild)'=='true'">$(MSBuildProjectDirectory)=/</PathMap>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Debug'">
@@ -96,10 +98,8 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.12" />
 
     <!-- Web API -->
-    <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.31" />
 
     <!-- Security / Data -->
-    <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.3" />
 
     <!-- Analysis Libraries -->
 
@@ -135,9 +135,9 @@
     <PackageId>Potion.Service</PackageId>
     <Description>Production-grade Windows system automation service with autonomous remediation, monitoring, and security controls</Description>
     <PackageTags>windows-service;self-healing;remediation;monitoring;system-automation;security</PackageTags>
-    <PackageProjectUrl>https://github.com/irosa/Potion</PackageProjectUrl>
+    <PackageProjectUrl>https://github.com/shizukutanaka/Potion</PackageProjectUrl>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <RepositoryUrl>https://github.com/irosa/Potion.git</RepositoryUrl>
+    <RepositoryUrl>https://github.com/shizukutanaka/Potion.git</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <Authors>Potion Contributors</Authors>
     <Company>Open Source</Company>

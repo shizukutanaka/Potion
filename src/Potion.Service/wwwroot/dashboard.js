@@ -16,6 +16,10 @@ class PotionDashboard {
         this.currentChartRange = '24h';
         // Rolling window of real metric samples collected by the poller.
         this.chartData = [];
+        // Populated by the poller — initialized so the Logs/Alerts views render
+        // empty instead of throwing before the first successful fetch.
+        this.alertsData = [];
+        this.logsData = [];
         this.searchResults = [];
         this.currentSearchCategory = 'all';
         this.currentPage = 1;
@@ -31,12 +35,31 @@ class PotionDashboard {
         this.init();
     }
 
+    // Escape untrusted text before it enters innerHTML — alert/log fields are
+    // server-generated from component names, exception messages and service
+    // display names, any of which can contain markup.
+    esc(value) {
+        if (value === null || value === undefined) return '';
+        return String(value).replace(/[&<>"']/g, c => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[c]));
+    }
+
     async init() {
         this.setupEventListeners();
         this.setupKeyboardNavigation();
         this.setupTooltips();
         this.setupDragAndDrop();
         this.setupAdvancedSearch();
+
+        // Track OS theme changes while the 'auto' theme is selected.
+        if (window.matchMedia) {
+            window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+                if (this.theme === 'auto') {
+                    this.applyTheme('auto');
+                }
+            });
+        }
 
         // Restore persisted settings before starting the poller.
         const storedSettings = this.getStoredSettings();
@@ -57,6 +80,39 @@ class PotionDashboard {
         this.hideLoadingState();
         this.showSection('overview');
         this.initializeCharts();
+        this.connectSignalR();
+    }
+
+    // Connects to the /collaboration hub for live alerts and health updates.
+    // Polling stays the fallback — every push also triggers a REST refresh.
+    connectSignalR() {
+        if (typeof signalR === 'undefined') {
+            return;
+        }
+        try {
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/collaboration')
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on('SystemHealthUpdate', () => {
+                this.refreshAllData();
+            });
+            connection.on('Alert', (alert) => {
+                const severity = alert && alert.data && alert.data.severity >= 2 ? 'error' : 'warning';
+                this.showNotification((alert && alert.message) || 'System alert', severity);
+                this.refreshAllData();
+            });
+
+            connection.start()
+                .then(() => Promise.all(
+                    ['cpu', 'memory', 'disk', 'anomaly', 'task'].map(t =>
+                        connection.invoke('SubscribeToAlerts', t).catch(() => {}))
+                ))
+                .catch(() => { /* hub unreachable — polling already covers updates */ });
+        } catch {
+            // SignalR client init failure must not break the dashboard.
+        }
     }
 
     setupDragAndDrop() {
@@ -207,35 +263,6 @@ class PotionDashboard {
         });
     }
 
-    showModal(content, options = {}) {
-        const modalId = `modal-${Date.now()}`;
-        const modalHTML = `
-            <div class="modal-overlay active" id="${modalId}">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 class="modal-title">${options.title || 'Modal'}</h3>
-                        <button class="modal-close" onclick="dashboard.closeModal('${modalId}')">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        ${content}
-                    </div>
-                    ${options.footer ? `<div class="modal-footer">${options.footer}</div>` : ''}
-                </div>
-            </div>
-        `;
-
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        this.modalStack.push(modalId);
-
-        // Focus management
-        const modal = document.getElementById(modalId);
-        const focusableElements = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        if (focusableElements.length > 0) {
-            focusableElements[0].focus();
-        }
-
-        return modalId;
-    }
 
     closeModal(modalId) {
         const modal = document.getElementById(modalId);
@@ -255,10 +282,10 @@ class PotionDashboard {
     showNotification(message, type = 'info', duration = 5000) {
         const notificationId = `notification-${Date.now()}`;
         const notificationHTML = `
-            <div class="notification notification-${type}" id="${notificationId}">
+            <div class="notification notification-${this.esc(type)}" id="${notificationId}">
                 <div class="notification-content">
-                    <span class="notification-message">${message}</span>
-                    <button class="notification-close" onclick="dashboard.closeNotification('${notificationId}')">&times;</button>
+                    <span class="notification-message">${this.esc(message)}</span>
+                    <button class="notification-close" data-action="close-notification" data-arg="${notificationId}">&times;</button>
                 </div>
             </div>
         `;
@@ -291,7 +318,7 @@ class PotionDashboard {
         document.querySelectorAll('.side-nav-link').forEach(item => {
             item.classList.remove('active');
         });
-        document.querySelector(`[onclick*="showSection('${sectionName}')"]`).classList.add('active');
+        document.querySelector(`[data-action="show-section"][data-arg="${sectionName}"]`)?.classList.add('active');
 
         // Update content sections
         document.querySelectorAll('.content-section').forEach(section => {
@@ -349,66 +376,10 @@ class PotionDashboard {
         }
     }
 
-    showSettingsModal() {
-        const content = `
-            <div class="form-group">
-                <label class="form-label">Refresh Interval (seconds)</label>
-                <input type="number" class="form-input" id="refresh-interval" value="${this.refreshInterval / 1000}" min="5" max="300">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Theme</label>
-                <select class="form-input" id="theme-select">
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                    <option value="auto">Auto</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" id="auto-refresh-toggle" checked> Enable Auto-refresh
-                </label>
-            </div>
-        `;
 
-        const footer = `
-            <button class="btn btn-secondary" onclick="dashboard.closeTopModal()">Cancel</button>
-            <button class="btn btn-primary" onclick="dashboard.saveSettings()">Save Settings</button>
-        `;
-
-        this.showModal(content, {
-            title: 'Dashboard Settings',
-            footer: footer
-        });
-    }
-
-    saveSettings() {
-        const refreshInterval = parseInt(document.getElementById('refresh-interval').value) * 1000;
-        const theme = document.getElementById('theme-select').value;
-        const autoRefresh = document.getElementById('auto-refresh-toggle').checked;
-
-        // Update settings
-        this.refreshInterval = refreshInterval;
-
-        // Apply theme
-        this.applyTheme(theme);
-
-        // Update auto-refresh
-        if (autoRefresh && !this.autoRefreshTimer) {
-            this.startAutoRefresh();
-        } else if (!autoRefresh && this.autoRefreshTimer) {
-            clearInterval(this.autoRefreshTimer);
-            this.autoRefreshTimer = null;
-        }
-
-        // Persist so the choices survive a reload.
-        const stored = this.getStoredSettings();
-        this.saveSettings({ ...stored, theme, autoRefresh, refreshIntervalMs: refreshInterval });
-
-        this.closeTopModal();
-        this.showNotification('Settings saved successfully', 'success');
-    }
 
     applyTheme(theme) {
+        this.theme = theme;
         const body = document.body;
         body.classList.remove('light-theme', 'dark-theme');
 
@@ -422,16 +393,6 @@ class PotionDashboard {
         // light theme is default
     }
 
-    toggleAutoRefresh() {
-        if (this.autoRefreshTimer) {
-            clearInterval(this.autoRefreshTimer);
-            this.autoRefreshTimer = null;
-            this.showNotification('Auto-refresh disabled', 'info');
-        } else {
-            this.startAutoRefresh();
-            this.showNotification('Auto-refresh enabled', 'success');
-        }
-    }
 
     // Advanced Settings Modal
     openAdvancedSettingsModal() {
@@ -562,11 +523,6 @@ class PotionDashboard {
         this.showNotification('Settings reset to defaults', 'info');
     }
 
-    // File Upload Functionality
-    showFileUpload() {
-        const uploadZone = document.getElementById('file-upload-zone');
-        uploadZone.style.display = 'flex';
-    }
 
     hideFileUpload() {
         const uploadZone = document.getElementById('file-upload-zone');
@@ -588,46 +544,8 @@ class PotionDashboard {
         }
     }
 
-    // Progress Modal Functionality
-    showProgressModal(title, initialMessage) {
-        const modal = document.getElementById('progress-modal');
-        document.getElementById('progress-title').textContent = title;
-        document.getElementById('progress-message').textContent = initialMessage;
-        this.updateProgress(0, initialMessage);
-        modal.style.display = 'flex';
-        modal.classList.add('active');
-    }
 
-    closeProgressModal() {
-        const modal = document.getElementById('progress-modal');
-        modal.classList.remove('active');
-        setTimeout(() => {
-            modal.style.display = 'none';
-        }, 300);
-    }
 
-    updateProgress(percentage, message) {
-        const fill = document.getElementById('progress-fill');
-        const percentageEl = document.getElementById('progress-percentage');
-        const messageEl = document.getElementById('progress-message');
-
-        fill.style.width = `${percentage}%`;
-        percentageEl.textContent = `${Math.round(percentage)}%`;
-        messageEl.textContent = message;
-
-        // Update progress stages
-        const stages = [25, 50, 75, 100];
-        stages.forEach((stage, index) => {
-            const dot = document.querySelector(`[data-step="${index + 1}"]`);
-            if (percentage >= stage) {
-                dot.classList.remove('active');
-                dot.classList.add('completed');
-            } else if (percentage >= stage - 10) {
-                dot.classList.add('active');
-                dot.classList.remove('completed');
-            }
-        });
-    }
 
     // Help and Documentation
     showHelp() {
@@ -730,13 +648,13 @@ class PotionDashboard {
             <div class="search-section">
                 <h4>Recent Searches</h4>
                 <div class="recent-searches">
-                    <div class="search-item" onclick="dashboard.performQuickSearch('CPU usage')">
+                    <div class="search-item" data-action="quick-search" data-arg="CPU usage">
                         <i class="fas fa-history"></i> CPU usage
                     </div>
-                    <div class="search-item" onclick="dashboard.performQuickSearch('error logs')">
+                    <div class="search-item" data-action="quick-search" data-arg="error logs">
                         <i class="fas fa-history"></i> error logs
                     </div>
-                    <div class="search-item" onclick="dashboard.performQuickSearch('security alerts')">
+                    <div class="search-item" data-action="quick-search" data-arg="security alerts">
                         <i class="fas fa-history"></i> security alerts
                     </div>
                 </div>
@@ -832,15 +750,15 @@ class PotionDashboard {
         Object.keys(groupedResults).forEach(category => {
             html += `
                 <div class="search-section">
-                    <h4>${category.charAt(0).toUpperCase() + category.slice(1)}</h4>
+                    <h4>${this.esc(category.charAt(0).toUpperCase() + category.slice(1))}</h4>
                     ${groupedResults[category].map(result => `
-                        <div class="search-result-item" onclick="dashboard.navigateToResult('${result.url}')">
+                        <div class="search-result-item" data-action="navigate-result" data-arg="${result.url}">
                             <div class="search-result-icon">
                                 <i class="fas fa-${result.category === 'alerts' ? 'exclamation-triangle' : result.category === 'logs' ? 'list-alt' : 'chart-line'}"></i>
                             </div>
                             <div class="search-result-content">
-                                <div class="search-result-title">${result.title}</div>
-                                <div class="search-result-subtitle">${result.subtitle}</div>
+                                <div class="search-result-title">${this.esc(result.title)}</div>
+                                <div class="search-result-subtitle">${this.esc(result.subtitle)}</div>
                             </div>
                         </div>
                     `).join('')}
@@ -883,28 +801,6 @@ class PotionDashboard {
         this.clearSearchResults();
     }
 
-    playNotificationSound() {
-        // Create a simple beep sound using Web Audio API
-        try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-            oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
-        } catch (error) {
-            console.warn('Could not play notification sound:', error);
-        }
-    }
 
     // Reflect the backend reachability in the header status pill.
     setConnectionStatus(connected) {
@@ -940,6 +836,9 @@ class PotionDashboard {
     async loadOverviewData() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/health`);
+            if (!response.ok) {
+                throw new Error(`GET /api/health -> ${response.status}`);
+            }
             const data = await response.json();
 
             this.lastMetrics = data.metrics;
@@ -953,7 +852,16 @@ class PotionDashboard {
             this.updateEventsOverview(data.metrics.windowsEvents);
 
         } catch (error) {
+            // The badge must not keep reporting the last-known-good state
+            // while the API is unreachable — surface the disconnect, then let
+            // refreshAllData flip the header via its rejection path.
             console.error('Failed to load overview data:', error);
+            const statusEl = document.getElementById('overall-status');
+            if (statusEl) {
+                statusEl.className = 'status-badge offline';
+                statusEl.textContent = 'Unreachable';
+            }
+            throw error;
         }
     }
 
@@ -1071,6 +979,14 @@ class PotionDashboard {
                 fetch(`${this.apiBaseUrl}/api/health/security/summary`),
                 fetch(`${this.apiBaseUrl}/api/health/security`)
             ]);
+            for (const [path, res] of [
+                ['/api/health/security/summary', summaryResponse],
+                ['/api/health/security', dashboardResponse]
+            ]) {
+                if (!res.ok) {
+                    throw new Error(`GET ${path} -> ${res.status}`);
+                }
+            }
 
             const summary = await summaryResponse.json();
             const dashboard = await dashboardResponse.json();
@@ -1104,9 +1020,9 @@ class PotionDashboard {
             item.className = 'security-component';
 
             item.innerHTML = `
-                <span class="component-name">${component.name}</span>
+                <span class="component-name">${this.esc(component.name)}</span>
                 <span class="component-status ${component.status === 'Enabled' || component.status === 'Active' ? 'enabled' : 'disabled'}">
-                    ${component.status}
+                    ${this.esc(component.status)}
                 </span>
             `;
 
@@ -1129,8 +1045,8 @@ class PotionDashboard {
 
             eventItem.innerHTML = `
                 <div class="event-header">
-                    <span class="event-title">${alert.message}</span>
-                    <span class="event-severity ${alert.severity.toLowerCase()}">${alert.severity}</span>
+                    <span class="event-title">${this.esc(alert.message)}</span>
+                    <span class="event-severity ${this.esc((alert.severity || 'info').toLowerCase())}">${this.esc(alert.severity)}</span>
                 </div>
                 <div class="event-time">${new Date(alert.timestamp).toLocaleString('ja-JP')}</div>
             `;
@@ -1142,6 +1058,9 @@ class PotionDashboard {
     async loadPerformanceData() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/health/metrics`);
+            if (!response.ok) {
+                throw new Error(`GET /api/health/metrics -> ${response.status}`);
+            }
             const metrics = await response.json();
 
             this.updatePerformanceMetrics(metrics);
@@ -1165,8 +1084,8 @@ class PotionDashboard {
 
         container.innerHTML = performanceData.map(item =>
             `<div class="metric-item">
-                <span class="metric-name">${item.name}</span>
-                <span class="metric-value">${item.value}</span>
+                <span class="metric-name">${this.esc(item.name)}</span>
+                <span class="metric-value">${this.esc(item.value)}</span>
             </div>`
         ).join('');
     }
@@ -1175,6 +1094,9 @@ class PotionDashboard {
         try {
             // Real event stream: health alerts raised by the monitor.
             const response = await fetch(`${this.apiBaseUrl}/api/health`);
+            if (!response.ok) {
+                throw new Error(`GET /api/health -> ${response.status}`);
+            }
             const data = await response.json();
             this.logsData = (data.alerts || []).map(a => ({
                 timestamp: new Date(a.timestamp),
@@ -1258,10 +1180,10 @@ class PotionDashboard {
             const row = document.createElement('tr');
             row.innerHTML = `
                 <td>${log.timestamp.toLocaleString('ja-JP')}</td>
-                <td><span class="event-level ${log.level}">${log.level}</span></td>
-                <td>${log.source}</td>
-                <td>${log.eventId}</td>
-                <td>${log.message}</td>
+                <td><span class="event-level ${this.esc(log.level)}">${this.esc(log.level)}</span></td>
+                <td>${this.esc(log.source)}</td>
+                <td>${this.esc(log.eventId)}</td>
+                <td>${this.esc(log.message)}</td>
             `;
             tbody.appendChild(row);
         });
@@ -1287,18 +1209,18 @@ class PotionDashboard {
         `;
 
         // Previous button
-        paginationHTML += `<button class="pagination-btn${this.currentPage === 1 ? ' disabled' : ''}" onclick="dashboard.changePage(${this.currentPage - 1})">Previous</button>`;
+        paginationHTML += `<button class="pagination-btn${this.currentPage === 1 ? ' disabled' : ''}" data-action="change-page" data-arg="${this.currentPage - 1}">Previous</button>`;
 
         // Page numbers
         const startPage = Math.max(1, this.currentPage - 2);
         const endPage = Math.min(totalPages, this.currentPage + 2);
 
         for (let i = startPage; i <= endPage; i++) {
-            paginationHTML += `<button class="pagination-btn${i === this.currentPage ? ' active' : ''}" onclick="dashboard.changePage(${i})">${i}</button>`;
+            paginationHTML += `<button class="pagination-btn${i === this.currentPage ? ' active' : ''}" data-action="change-page" data-arg="${i}">${i}</button>`;
         }
 
         // Next button
-        paginationHTML += `<button class="pagination-btn${this.currentPage === totalPages ? ' disabled' : ''}" onclick="dashboard.changePage(${this.currentPage + 1})">Next</button>`;
+        paginationHTML += `<button class="pagination-btn${this.currentPage === totalPages ? ' disabled' : ''}" data-action="change-page" data-arg="${this.currentPage + 1}">Next</button>`;
 
         paginationHTML += '</div>';
         pagination.innerHTML = paginationHTML;
@@ -1370,17 +1292,20 @@ class PotionDashboard {
             const isSelected = this.selectedAlerts.has(alertItem.dataset.alertId);
 
             alertItem.innerHTML = `
-                <input type="checkbox" class="alert-checkbox" ${isSelected ? 'checked' : ''} onchange="dashboard.toggleAlertSelection('${alertItem.dataset.alertId}')">
+                <input type="checkbox" class="alert-checkbox" ${isSelected ? 'checked' : ''}>
                 <div class="alert-header">
-                    <div class="alert-title">${alert.component}: ${alert.message}</div>
-                    <div class="alert-severity ${alert.severity.toLowerCase()}">${alert.severity}</div>
+                    <div class="alert-title">${this.esc(alert.component)}: ${this.esc(alert.message)}</div>
+                    <div class="alert-severity ${this.esc((alert.severity || 'info').toLowerCase())}">${this.esc(alert.severity)}</div>
                 </div>
-                <div class="alert-message">${alert.message}</div>
+                <div class="alert-message">${this.esc(alert.message)}</div>
                 <div class="alert-metadata">
                     <span><i class="fas fa-clock"></i> ${new Date(alert.timestamp).toLocaleString('ja-JP')}</span>
-                    <span><i class="fas fa-tag"></i> ${alert.component}</span>
+                    <span><i class="fas fa-tag"></i> ${this.esc(alert.component)}</span>
                 </div>
             `;
+
+            alertItem.querySelector('.alert-checkbox')
+                .addEventListener('change', () => this.toggleAlertSelection(alertItem.dataset.alertId));
 
             if (isSelected) {
                 alertItem.classList.add('selected');
@@ -1514,7 +1439,7 @@ class PotionDashboard {
     switchTab(tabName) {
         // Update tab buttons
         document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-        document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+        document.querySelector(`[data-action="switch-tab" data-arg="${tabName}"]`).classList.add('active');
 
         // Update tab content
         document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
@@ -1575,17 +1500,17 @@ class PotionDashboard {
 
             policyCard.innerHTML = `
                 <div class="policy-header">
-                    <div class="policy-icon ${policy.status}">
+                    <div class="policy-icon ${this.esc(policy.status)}">
                         <i class="fas fa-shield-alt"></i>
                     </div>
-                    <div class="policy-title">${policy.title}</div>
+                    <div class="policy-title">${this.esc(policy.title)}</div>
                     <div class="policy-status status-lozenge ${policy.status === 'enabled' ? 'success' : policy.status === 'warning' ? 'warning' : 'default'}">
-                        ${policy.status}
+                        ${this.esc(policy.status)}
                     </div>
                 </div>
-                <div class="policy-description">${policy.description}</div>
-                <div style="margin-top: var(--space-2); font-size: 11px; color: var(--text-muted);">
-                    Last updated: ${policy.lastUpdated}
+                <div class="policy-description">${this.esc(policy.description)}</div>
+                <div class="policy-updated">
+                    Last updated: ${this.esc(policy.lastUpdated)}
                 </div>
             `;
 
@@ -1717,6 +1642,9 @@ class PotionDashboard {
     async updatePerformanceDrawer() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/health/metrics`);
+            if (!response.ok) {
+                throw new Error(`GET /api/health/metrics -> ${response.status}`);
+            }
             const metrics = await response.json();
             this.renderPerformanceDrawer(metrics);
         } catch (error) {
@@ -1798,7 +1726,7 @@ function filterAlerts(severity) {
 
     // Update active filter button
     filterButtons.forEach(btn => btn.classList.remove('active'));
-    document.querySelector(`[onclick="filterAlerts('${severity}')"]`).classList.add('active');
+    document.querySelector(`[data-action="filter-alerts" data-arg="${severity}"]`).classList.add('active');
 
     // Filter alerts
     alerts.forEach(alert => {
@@ -1810,7 +1738,7 @@ function filterAlerts(severity) {
     });
 }
 
-// Global functions for HTML onclick handlers
+// Global functions invoked by the data-action dispatcher below
 function showSection(section) {
     if (window.dashboard) {
         window.dashboard.showSection(section);
@@ -1854,7 +1782,7 @@ function setTimeFilter(timeFilter) {
         document.querySelectorAll('.time-filter .btn').forEach(btn => {
             btn.classList.remove('active');
         });
-        document.querySelector(`[onclick="setTimeFilter('${timeFilter}')"]`).classList.add('active');
+        document.querySelector(`[data-action="set-time-filter" data-arg="${timeFilter}"]`).classList.add('active');
 
         window.dashboard.renderLogsTable();
     }
@@ -2032,4 +1960,55 @@ function applyAdvancedFilters() {
     if (window.dashboard) {
         window.dashboard.applyAdvancedFilters();
     }
+}
+
+// Delegated handlers for data-action / data-onchange / data-onkeyup attributes.
+// Replaces inline on* attributes so script-src can drop 'unsafe-inline'.
+const POTION_ACTIONS = {
+    'show-section': (el, arg) => showSection(arg),
+    'show-help': () => showHelp(),
+    'show-shortcuts': () => showKeyboardShortcuts(),
+    'switch-tab': (el, arg) => switchTab(arg),
+    'toggle-card': (el) => toggleCard(el),
+    'open-perf-drawer': () => openPerformanceDrawer(),
+    'clear-alert-selection': () => clearAlertSelection(),
+    'bulk-acknowledge': () => bulkAcknowledge(),
+    'filter-alerts': (el, arg) => filterAlerts(arg),
+    'toggle-select-all': () => toggleSelectAll(),
+    'export-alerts': () => exportAlerts(),
+    'set-time-filter': (el, arg) => setTimeFilter(arg),
+    'toggle-advanced-search': () => toggleAdvancedSearch(),
+    'close-help-modal': () => closeHelpModal(),
+    'show-tutorial': () => showTutorial(),
+    'close-shortcuts-modal': () => closeShortcutsModal(),
+    'clear-advanced-search': () => clearAdvancedSearch(),
+    'close-perf-drawer': () => closePerformanceDrawer(),
+    'clear-advanced-filters': () => clearAdvancedFilters(),
+    'apply-advanced-filters': () => applyAdvancedFilters(),
+    'close-settings-modal': () => closeAdvancedSettingsModal(),
+    'reset-defaults': () => resetToDefaults(),
+    'save-adv-settings': () => saveAdvancedSettings(),
+    'trigger-file-select': () => triggerFileSelect(),
+    'close-modal': (el, arg) => window.dashboard?.closeModal(arg),
+    'close-notification': (el, arg) => window.dashboard?.closeNotification(arg),
+    'close-top-modal': () => window.dashboard?.closeTopModal(),
+    'dash-save-settings': () => window.dashboard?.saveSettings(),
+    'quick-search': (el, arg) => window.dashboard?.performQuickSearch(arg),
+    'navigate-result': (el, arg) => window.dashboard?.navigateToResult(arg),
+    'change-page': (el, arg) => window.dashboard?.changePage(parseInt(arg, 10)),
+    'update-chart-range': (el) => updateChartRange(el.value),
+    'search-alerts': (el) => searchAlerts(el.value),
+    'change-log-type': (el) => changeLogType(el.value),
+    'handle-file-upload': (el) => handleFileUpload(el.files)
+};
+
+for (const [type, attr] of [['click', 'data-action'], ['change', 'data-onchange'], ['keyup', 'data-onkeyup']]) {
+    document.addEventListener(type, (event) => {
+        const el = event.target instanceof Element ? event.target.closest(`[${attr}]`) : null;
+        if (!el) return;
+        const fn = POTION_ACTIONS[el.getAttribute(attr)];
+        if (typeof fn !== 'function') return;
+        fn(el, el.dataset.arg);
+        if (type === 'click' && el.tagName === 'A') event.preventDefault();
+    });
 }

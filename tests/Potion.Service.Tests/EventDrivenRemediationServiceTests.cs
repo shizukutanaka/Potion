@@ -1,7 +1,9 @@
 using System;
+using System.Net;
 using System.Net.Http;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using Potion.Service.Infrastructure;
@@ -190,6 +192,182 @@ public sealed class EventDrivenRemediationServiceTests
         {
             await service.StopAsync(CancellationToken.None);
             service.Dispose();
+        }
+    }
+
+    private sealed class CapturingHandler : HttpMessageHandler
+    {
+        public string? LastBody;
+        public string? LastUrl;
+        public int CallCount;
+        public HttpStatusCode StatusToReturn = HttpStatusCode.OK;
+        public Exception? ExceptionToThrow;
+
+        protected override async Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            LastUrl = request.RequestUri?.ToString();
+            LastBody = request.Content is null
+                ? null
+                : await request.Content.ReadAsStringAsync(cancellationToken);
+            if (ExceptionToThrow is not null)
+            {
+                throw ExceptionToThrow;
+            }
+            return new HttpResponseMessage(StatusToReturn);
+        }
+    }
+
+    private static EventDrivenRemediationService WebhookService(
+        Mock<ISystemHealthMonitor> monitor, CapturingHandler handler, Mock<ILogger<EventDrivenRemediationService>> logger)
+    {
+        var factory = new Mock<IHttpClientFactory>();
+        factory.Setup(f => f.CreateClient(It.IsAny<string>())).Returns(new HttpClient(handler));
+        return new EventDrivenRemediationService(
+            logger.Object, monitor.Object, Mock.Of<IRemediationTaskExecutor>(), factory.Object);
+    }
+
+    private static async Task<string?> WaitForBodyAsync(CapturingHandler handler)
+    {
+        var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+        while (DateTimeOffset.UtcNow < deadline)
+        {
+            if (handler.LastBody is not null)
+            {
+                return handler.LastBody;
+            }
+            await Task.Delay(25);
+        }
+        return null;
+    }
+
+    [Fact]
+    public async Task HealthAlert_WebhookRule_PostsAlertPayload()
+    {
+        var monitor = new Mock<ISystemHealthMonitor>();
+        var handler = new CapturingHandler();
+        var logger = new Mock<ILogger<EventDrivenRemediationService>>();
+        using var service = WebhookService(monitor, handler, logger);
+        service.AddTriggerRule("webhook-test", new TriggerRule
+        {
+            Name = "Webhook test",
+            Component = "cpu",
+            MinSeverity = AlertSeverity.Warning,
+            Action = new TriggerAction
+            {
+                Type = ActionType.SendWebhook,
+                WebhookUrl = "http://localhost/hook",
+            }
+        });
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            var alert = new SystemHealthAlert
+            {
+                Component = "cpu",
+                Severity = AlertSeverity.Critical,
+                Message = "cpu hot",
+            };
+            monitor.Raise(m => m.HealthAlert += null, new object(), alert);
+
+            var body = await WaitForBodyAsync(handler);
+            Assert.NotNull(body);
+            Assert.Equal("http://localhost/hook", handler.LastUrl);
+            using var doc = System.Text.Json.JsonDocument.Parse(body!);
+            Assert.Equal("cpu", doc.RootElement.GetProperty("component").GetString());
+            Assert.Equal("Critical", doc.RootElement.GetProperty("severity").GetString());
+            Assert.Equal("cpu hot", doc.RootElement.GetProperty("message").GetString());
+            Assert.True(doc.RootElement.TryGetProperty("alert_id", out _));
+            Assert.True(doc.RootElement.TryGetProperty("timestamp", out _));
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task HealthAlert_WebhookServerError_LogsWarningNotThrow()
+    {
+        var monitor = new Mock<ISystemHealthMonitor>();
+        var handler = new CapturingHandler { StatusToReturn = HttpStatusCode.InternalServerError };
+        var logger = new Mock<ILogger<EventDrivenRemediationService>>();
+        using var service = WebhookService(monitor, handler, logger);
+        service.AddTriggerRule("webhook-500", new TriggerRule
+        {
+            Name = "Webhook 500",
+            MinSeverity = AlertSeverity.Info,
+            Action = new TriggerAction
+            {
+                Type = ActionType.SendWebhook,
+                WebhookUrl = "http://localhost/hook",
+            }
+        });
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            monitor.Raise(m => m.HealthAlert += null, new object(), Alert("x", AlertSeverity.Warning));
+            await WaitForBodyAsync(handler);
+            await Task.Delay(100);
+
+            Assert.Equal(1, handler.CallCount);
+            logger.Verify(
+                l => l.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Warning,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Webhook送信に失敗")),
+                    It.IsAny<Exception>(),
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
+        }
+    }
+
+    [Fact]
+    public async Task HealthAlert_WebhookThrows_LogsErrorNotCrash()
+    {
+        var monitor = new Mock<ISystemHealthMonitor>();
+        var handler = new CapturingHandler { ExceptionToThrow = new HttpRequestException("conn refused") };
+        var logger = new Mock<ILogger<EventDrivenRemediationService>>();
+        using var service = WebhookService(monitor, handler, logger);
+        service.AddTriggerRule("webhook-throw", new TriggerRule
+        {
+            Name = "Webhook throw",
+            MinSeverity = AlertSeverity.Info,
+            Action = new TriggerAction
+            {
+                Type = ActionType.SendWebhook,
+                WebhookUrl = "http://localhost/hook",
+            }
+        });
+        await service.StartAsync(CancellationToken.None);
+        try
+        {
+            monitor.Raise(m => m.HealthAlert += null, new object(), Alert("x", AlertSeverity.Warning));
+            var deadline = DateTimeOffset.UtcNow.AddSeconds(5);
+            while (handler.CallCount == 0 && DateTimeOffset.UtcNow < deadline)
+            {
+                await Task.Delay(25);
+            }
+            await Task.Delay(100);
+
+            Assert.Equal(1, handler.CallCount);
+            logger.Verify(
+                l => l.Log(
+                    Microsoft.Extensions.Logging.LogLevel.Error,
+                    It.IsAny<EventId>(),
+                    It.Is<It.IsAnyType>((v, _) => v.ToString()!.Contains("Webhook送信中にエラー")),
+                    It.IsAny<HttpRequestException>(),
+                    It.IsAny<Func<It.IsAnyType, Exception?, string>>()),
+                Times.Once);
+        }
+        finally
+        {
+            await service.StopAsync(CancellationToken.None);
         }
     }
 }

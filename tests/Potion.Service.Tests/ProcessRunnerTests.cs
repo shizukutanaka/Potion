@@ -80,19 +80,19 @@ public class ProcessRunnerTests : IDisposable
     }
 
     [Fact]
-    public void RunAsync_NullStartInfo_ThrowsArgumentNullException()
+    public async Task RunAsync_NullStartInfo_ThrowsArgumentNullException()
     {
         // Arrange
         var timeout = TimeSpan.FromSeconds(10);
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentNullException>(
+        await Assert.ThrowsAsync<ArgumentNullException>(
             () => _processRunner.RunAsync(null!, timeout, cancellationToken));
     }
 
     [Fact]
-    public void RunAsync_NullFileName_ThrowsArgumentException()
+    public async Task RunAsync_NullFileName_ThrowsArgumentException()
     {
         // Arrange
         var startInfo = new ProcessStartInfo
@@ -104,12 +104,12 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
     [Fact]
-    public void RunAsync_EmptyFileName_ThrowsArgumentException()
+    public async Task RunAsync_EmptyFileName_ThrowsArgumentException()
     {
         // Arrange
         var startInfo = new ProcessStartInfo
@@ -121,12 +121,12 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
     [Fact]
-    public void RunAsync_WhitespaceFileName_ThrowsArgumentException()
+    public async Task RunAsync_WhitespaceFileName_ThrowsArgumentException()
     {
         // Arrange
         var startInfo = new ProcessStartInfo
@@ -138,14 +138,14 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentException>(
+        await Assert.ThrowsAsync<ArgumentException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
     [Theory]
     [InlineData(-1)]
     [InlineData(0)]
-    public void RunAsync_InvalidTimeout_ThrowsArgumentOutOfRangeException(int timeoutSeconds)
+    public async Task RunAsync_InvalidTimeout_ThrowsArgumentOutOfRangeException(int timeoutSeconds)
     {
         // Arrange
         var timeout = TimeSpan.FromSeconds(timeoutSeconds);
@@ -157,12 +157,12 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
     [Fact]
-    public void RunAsync_TimeoutTooLong_ThrowsArgumentOutOfRangeException()
+    public async Task RunAsync_TimeoutTooLong_ThrowsArgumentOutOfRangeException()
     {
         // Arrange
         var startInfo = new ProcessStartInfo
@@ -174,7 +174,7 @@ public class ProcessRunnerTests : IDisposable
         var cancellationToken = CancellationToken.None;
 
         // Act & Assert
-        Assert.ThrowsAsync<ArgumentOutOfRangeException>(
+        await Assert.ThrowsAsync<ArgumentOutOfRangeException>(
             () => _processRunner.RunAsync(startInfo, timeout, cancellationToken));
     }
 
@@ -271,5 +271,66 @@ public class ProcessRunnerTests : IDisposable
         Assert.NotNull(result);
         Assert.True(result.StandardOutput.Length <= 128000); // MaxCapturedCharacters
         Assert.Equal(0, result.ExitCode);
+    }
+
+    [Fact]
+    public async Task RunAsync_UnixTimeout_KillsChildProcess()
+    {
+        if (TestEnvironment.IsWindows) return; // /bin/sleep Unix 専用
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/sleep",
+            Arguments = "30",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        var sw = Stopwatch.StartNew();
+
+        await Assert.ThrowsAsync<TimeoutException>(
+            () => _processRunner.RunAsync(startInfo, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+
+        // TryTerminate must have killed the child — a leaked sleep would keep
+        // the run blocked until the 30s sleep exits on its own.
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public async Task RunAsync_UnixCancellationMidRun_KillsChildProcess()
+    {
+        if (TestEnvironment.IsWindows) return;
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/sleep",
+            Arguments = "30",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        using var cts = new CancellationTokenSource();
+        var sw = Stopwatch.StartNew();
+
+        var runTask = _processRunner.RunAsync(startInfo, Timeout.InfiniteTimeSpan, cts.Token);
+        await Task.Delay(200);
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runTask);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public async Task RunAsync_AfterDispose_ThrowsObjectDisposedException()
+    {
+        var runner = new ProcessRunner(Mock.Of<ILogger<ProcessRunner>>());
+        runner.Dispose();
+
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => runner.RunAsync(
+            new ProcessStartInfo { FileName = "cmd.exe" },
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None));
     }
 }

@@ -60,6 +60,7 @@ check_endpoint() {
 
 echo -e "${BLUE}Core endpoints${NC}"
 check_endpoint "Health probe"            "/health"
+check_endpoint "Readiness probe"         "/health/ready"
 check_endpoint "Health API"             "/api/health"
 check_endpoint "Health metrics"         "/api/health/metrics"
 check_endpoint "Security summary"       "/api/health/security/summary"

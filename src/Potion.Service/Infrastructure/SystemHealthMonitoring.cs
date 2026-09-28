@@ -194,7 +194,7 @@ public sealed record CompatibilityMetrics(
 /// <summary>
 /// システムヘルス監視の最小実装
 /// </summary>
-public sealed class SystemHealthMonitor : ISystemHealthMonitor
+public sealed class SystemHealthMonitor : ISystemHealthMonitor, IDisposable
 {
     private readonly ILogger<SystemHealthMonitor> _logger;
     private readonly EventCorrelationStats _correlationStats;
@@ -307,6 +307,8 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
 
     private readonly SystemMetricsSampler _sampler = new();
 
+    public void Dispose() => _sampler.Dispose();
+
     private SystemMetrics CreateMetrics()
     {
         var snapshotWatch = Stopwatch.StartNew();
@@ -386,7 +388,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor
 /// capacity via DriveInfo, network throughput from interface counters.
 /// Rate-type values need a previous sample — the first call returns 0.
 /// </summary>
-internal sealed class SystemMetricsSampler
+internal sealed class SystemMetricsSampler : IDisposable
 {
     private PerformanceCounter? _cpuCounter;
     private PerformanceCounter? _diskReadCounter;
@@ -1584,12 +1586,22 @@ internal sealed class SystemMetricsSampler
         }
         catch
         {
-            _cpuCounter = null;
-            _diskReadCounter = null;
-            _diskWriteCounter = null;
-            _cacheBytesCounter = null;
-            _ioOpsCounter = null;
+            Dispose();
         }
+    }
+
+    public void Dispose()
+    {
+        _cpuCounter?.Dispose();
+        _cpuCounter = null;
+        _diskReadCounter?.Dispose();
+        _diskReadCounter = null;
+        _diskWriteCounter?.Dispose();
+        _diskWriteCounter = null;
+        _cacheBytesCounter?.Dispose();
+        _cacheBytesCounter = null;
+        _ioOpsCounter?.Dispose();
+        _ioOpsCounter = null;
     }
 
     private double LinuxCpuPercent()

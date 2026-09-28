@@ -41,8 +41,8 @@ dotnet test tests/Potion.Service.Tests/Potion.Service.Tests.csproj
 
 1. Update documentation for any API changes
 2. Add tests for new functionality
-3. Ensure all tests pass: `dotnet test`
-4. Build in Release mode: `dotnet build -c Release`
+3. Ensure all tests pass: `dotnet test Potion.sln -c Release`
+4. Build with zero warnings: `dotnet build Potion.sln -c Release`
 5. Create PR with clear description of changes
 6. Link related issues
 
@@ -54,11 +54,11 @@ All code must include unit tests:
 # Run all tests
 dotnet test Potion.sln
 
-# Run specific test class
-dotnet test Potion.sln -k "TestClassName"
+# Run tests matching a name filter
+dotnet test Potion.sln --filter "FullyQualifiedName~TestClassName"
 
-# Generate coverage report
-dotnet test /p:CollectCoverage=true
+# Generate coverage report (coverlet.collector)
+dotnet test Potion.sln --collect:"XPlat Code Coverage"
 ```
 
 ## Security

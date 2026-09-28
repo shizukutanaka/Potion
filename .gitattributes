@@ -1,0 +1,26 @@
+# Line-ending policy: this is a Windows-targeted product with cross-platform
+# dev (macOS/Linux build+test) — pin the endings each file type requires.
+* text=auto
+
+# POSIX shells must stay LF or they break with `$'\r': command not found`
+# even when checked out on Windows (Git Bash, WSL, docker build contexts).
+*.sh    text eol=lf
+*.bash  text eol=lf
+
+# Batch files require CRLF — LF-only checkouts break goto/label parsing.
+*.cmd   text eol=crlf
+*.bat   text eol=crlf
+
+# Windows-native formats; keep CRLF by convention.
+*.ps1   text eol=crlf
+*.wxs   text eol=crlf
+
+# Binaries — never normalize.
+*.png   binary
+*.jpg   binary
+*.ico   binary
+*.pfx   binary
+*.dll   binary
+*.exe   binary
+*.msi   binary
+*.nupkg binary

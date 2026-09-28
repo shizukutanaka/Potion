@@ -8,26 +8,6 @@ using Potion.Service.Options;
 
 namespace Potion.Service.Infrastructure;
 
-/// <summary>
-/// システムパフォーマンスの最適化サービス
-/// </summary>
-public interface IPerformanceOptimizer
-{
-    /// <summary>
-    /// パフォーマンス最適化を実行します
-    /// </summary>
-    Task<OptimizationResult> OptimizeAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// パフォーマンス統計を取得します
-    /// </summary>
-    Task<PerformanceStatistics> GetStatisticsAsync(CancellationToken cancellationToken);
-
-    /// <summary>
-    /// 最適化の必要性を判断します
-    /// </summary>
-    Task<bool> ShouldOptimizeAsync(CancellationToken cancellationToken);
-}
 
 /// <summary>
 /// パフォーマンス最適化の結果
@@ -54,7 +34,7 @@ public sealed record PerformanceStatistics(
     int ActiveProcessCount,
     DateTimeOffset MeasuredAt);
 
-public sealed class PerformanceOptimizer : BackgroundService, IPerformanceOptimizer
+public sealed class PerformanceOptimizer : BackgroundService
 {
     private readonly ILogger<PerformanceOptimizer> _logger;
     private readonly IOptionsMonitor<PerformanceOptimizerOptions> _optionsMonitor;
