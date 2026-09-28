@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (`language`/`dateFormat` 設定を日時レンダリングへ接続 — 保存されるが無視されていた設定を実装)
+
+- 日時表示8箇所が `toLocaleString('ja-JP')` ハードコードで設定を一切参照していなかった → `formatDateTime`/`formatDate`/`relativeTime` ヘルパーを追加し設定に応じて出力（`YYYY-MM-DD`→ISO、`MM/DD/YYYY`→en-US、`DD/MM/YYYY`→en-GB、`relative`→相対時刻、未設定→language ロケール）
+- `updateLastUpdated` も言語ロケールに追従
+- `soundNotifications`/`retentionDays`/`criticalAlerts`/`warningAlerts` も同一系の未接続設定（実装は別サイクル候補）
+
 ### Fixed (localStorage 永続設定の死設定修正 — refreshInterval/compactMode/showTooltips が起動時に適用されなかった)
 
 - `refreshInterval` は秒で保存されるのに init が `refreshIntervalMs`（一度も書込まれないキー）を読んでいた — リロード毎にポーリング間隔が初期値へ戻る実バグ

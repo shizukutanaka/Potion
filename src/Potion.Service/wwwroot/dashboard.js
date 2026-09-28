@@ -829,10 +829,45 @@ class PotionDashboard {
         }
     }
 
+    getDisplayLocale() {
+        const lang = this.getStoredSettings().language || 'ja';
+        return { en: 'en-US', ja: 'ja-JP', zh: 'zh-CN', ko: 'ko-KR' }[lang] || 'ja-JP';
+    }
+
+    formatDateTime(value) {
+        const date = new Date(value);
+        switch (this.getStoredSettings().dateFormat) {
+            case 'MM/DD/YYYY': return date.toLocaleString('en-US');
+            case 'DD/MM/YYYY': return date.toLocaleString('en-GB');
+            case 'YYYY-MM-DD': return date.toLocaleString('sv-SE');
+            case 'relative': return this.relativeTime(date);
+            default: return date.toLocaleString(this.getDisplayLocale());
+        }
+    }
+
+    formatDate(value) {
+        const date = new Date(value);
+        switch (this.getStoredSettings().dateFormat) {
+            case 'MM/DD/YYYY': return date.toLocaleDateString('en-US');
+            case 'DD/MM/YYYY': return date.toLocaleDateString('en-GB');
+            case 'YYYY-MM-DD': return date.toLocaleDateString('sv-SE');
+            case 'relative': return this.relativeTime(date);
+            default: return date.toLocaleDateString(this.getDisplayLocale());
+        }
+    }
+
+    relativeTime(date) {
+        const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+        if (minutes < 60) return `${minutes} min ago`;
+        const hours = Math.round(minutes / 60);
+        if (hours < 24) return `${hours} h ago`;
+        return `${Math.round(hours / 24)} d ago`;
+    }
+
     updateLastUpdated() {
         const now = new Date();
         document.getElementById('last-updated').textContent =
-            now.toLocaleTimeString('ja-JP', {
+            now.toLocaleTimeString(this.getDisplayLocale(), {
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit'
@@ -963,7 +998,7 @@ class PotionDashboard {
         this.updateSecurityItem('firewall-status', security.firewallEnabled ? 'Enabled' : 'Disabled');
 
         const lastScan = security.lastSecurityScan ?
-            new Date(security.lastSecurityScan).toLocaleDateString('ja-JP') : 'Never';
+            this.formatDate(security.lastSecurityScan) : 'Never';
         document.getElementById('last-scan').textContent = lastScan;
     }
 
@@ -1054,7 +1089,7 @@ class PotionDashboard {
                     <span class="event-title">${this.esc(alert.message)}</span>
                     <span class="event-severity ${this.esc((alert.severity || 'info').toLowerCase())}">${this.esc(alert.severity)}</span>
                 </div>
-                <div class="event-time">${new Date(alert.timestamp).toLocaleString('ja-JP')}</div>
+                <div class="event-time">${this.formatDateTime(alert.timestamp)}</div>
             `;
 
             container.appendChild(eventItem);
@@ -1185,7 +1220,7 @@ class PotionDashboard {
         logs.forEach(log => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${log.timestamp.toLocaleString('ja-JP')}</td>
+                <td>${this.formatDateTime(log.timestamp)}</td>
                 <td><span class="event-level ${this.esc(log.level)}">${this.esc(log.level)}</span></td>
                 <td>${this.esc(log.source)}</td>
                 <td>${this.esc(log.eventId)}</td>
@@ -1305,7 +1340,7 @@ class PotionDashboard {
                 </div>
                 <div class="alert-message">${this.esc(alert.message)}</div>
                 <div class="alert-metadata">
-                    <span><i class="fas fa-clock"></i> ${new Date(alert.timestamp).toLocaleString('ja-JP')}</span>
+                    <span><i class="fas fa-clock"></i> ${this.formatDateTime(alert.timestamp)}</span>
                     <span><i class="fas fa-tag"></i> ${this.esc(alert.component)}</span>
                 </div>
             `;
@@ -1469,7 +1504,7 @@ class PotionDashboard {
                 title: 'Windows Defender',
                 description: 'Real-time antivirus protection',
                 status: sec.windowsDefenderEnabled ? 'enabled' : 'disabled',
-                lastUpdated: sec.lastSecurityScan ? new Date(sec.lastSecurityScan).toLocaleDateString('ja-JP') : '-'
+                lastUpdated: sec.lastSecurityScan ? this.formatDate(sec.lastSecurityScan) : '-'
             },
             {
                 title: 'Windows Firewall',
