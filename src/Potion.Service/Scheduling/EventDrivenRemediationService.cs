@@ -23,6 +23,7 @@ public sealed class EventDrivenRemediationService : BackgroundService
     private readonly IHttpClientFactory _httpClientFactory;
     private readonly ConcurrentDictionary<string, TriggerRule> _triggerRules = new();
     private readonly ConcurrentDictionary<string, DateTimeOffset> _lastExecutedAt = new();
+    private CancellationToken _serviceStoppingToken = CancellationToken.None;
 
     public EventDrivenRemediationService(
         ILogger<EventDrivenRemediationService> logger,
@@ -42,6 +43,10 @@ public sealed class EventDrivenRemediationService : BackgroundService
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("イベント駆動型修復サービスを開始");
+
+        // Propagate the host shutdown token so fire-and-forget repairs are
+        // canceled promptly instead of running to the host's hard-kill timeout.
+        _serviceStoppingToken = stoppingToken;
 
         // ヘルスモニターのイベントを購読
         _healthMonitor.HealthAlert += OnHealthAlert;
@@ -151,7 +156,7 @@ public sealed class EventDrivenRemediationService : BackgroundService
                 }
             );
 
-            await _taskExecutor.ExecuteAsync(taskDescriptor, CancellationToken.None);
+            await _taskExecutor.ExecuteAsync(taskDescriptor, _serviceStoppingToken);
         }
         catch (Exception ex)
         {

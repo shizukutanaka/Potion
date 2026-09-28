@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (イベント駆動修復タスクがホスト停止トークンを無視していた問題を修正)
+
+- `EventDrivenRemediationService` が `CancellationToken.None` で修復を実行 — **シャットダウン中も in-flight の修復が止まらず、ホストの 30 秒ハードキルまで待機していた** → `ExecuteAsync` の `stoppingToken` をフィールドに保持して fire-and-forget 修復へ伝播（MS ガイダンス「トークン発火時に即座に完了」に準拠）
+
 ### Improved (appsettings.json とオプションクラスの整合監査 — 変更不要を確認)
 
 - 11セクション全てが消費先と一致（Serilog=ReadFrom.Configuration・AllowedHosts/Kestrel=host 既定・6オプション=Bind + ValidateOnStart・FeatureFlags/Observability=GetValue 直読）
