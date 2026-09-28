@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (未定義 CSS 変数 `--gray-25` を定義 — ログテーブル hover がサイレントに無効だった)
+
+- `.logs-table tbody tr:hover` の `var(--gray-25)` が未定義で宣言ごと無効化されていた → `--gray-25: #FCFDFE` をパレットに追加（hover 効果が実際に出る）
+- 全44定義×33使用の照合で他の未解決参照なし・未使用パレット定義12件は意図的なスケールとして保持
+
 ### Removed (死 CSS `.banner` ブロック削除 — CSS クラス逆方向監査)
 
 - styles.css の全208クラス・全 `#id` セレクタを index.html/dashboard.js への参照で逆照合 — `.banner`（+`.banner.success/.error/.info/.banner .btn` の34行ブロック）のみ未参照で削除
