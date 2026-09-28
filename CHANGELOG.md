@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (ProcessRunner の終了・キャンセル時プロセス kill 経路へテスト追加)
+
+- Unix で `TryTerminate`（`Kill(entireProcessTree)`）を実機検証： タイムアウト時は `/bin/sleep 30` が 300ms で打ち切られ子プロセスが即終了（リークしていれば 30 秒ブロックするが 10 秒未満で完了を確認）、実行中のキャンセルでも同様に子を kill して伝播、`Dispose` 後の `RunAsync` は `ObjectDisposedException` — `ExecuteProcessAsync` のカバレッジ 87.7%
+- MeterListener テストの並行耐性を強化： 計器イベントはメーター dispatch スレッドで届くためリストへロック＋スナップショット化し、全アサートを一意タグでフィルタ（静的 Meter を共有する兄弟テストとの交差汚染を排除）
+- テスト総数 290 → 293（+3）
+
 ### Improved (PotionMetrics の OTel 計器へ MeterListener ベースの実測テスト追加)
 
 - 全公開 `Update*`/`Record*` メソッドを in-process `MeterListener` で実測検証： ゲージが直近値を吐く（health_score/cpu/memory/disk/concurrent/health_check_duration）、`RecordSelfHealingAttempt` が成功時のみ successes カウンタを増加、resilience 系（circuit_breaker/retry/bulkhead）と remediation 系（executed/succeeded/failed/duration）が正しい系列名・値で記録される — Prometheus スクレイプ面の契約を固定（`PotionMetrics.cs` 70.2% → 95.5%）

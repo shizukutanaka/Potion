@@ -272,4 +272,65 @@ public class ProcessRunnerTests : IDisposable
         Assert.True(result.StandardOutput.Length <= 128000); // MaxCapturedCharacters
         Assert.Equal(0, result.ExitCode);
     }
+
+    [Fact]
+    public async Task RunAsync_UnixTimeout_KillsChildProcess()
+    {
+        if (TestEnvironment.IsWindows) return; // /bin/sleep Unix 専用
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/sleep",
+            Arguments = "30",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        var sw = Stopwatch.StartNew();
+
+        await Assert.ThrowsAsync<TimeoutException>(
+            () => _processRunner.RunAsync(startInfo, TimeSpan.FromMilliseconds(300), CancellationToken.None));
+
+        // TryTerminate must have killed the child — a leaked sleep would keep
+        // the run blocked until the 30s sleep exits on its own.
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public async Task RunAsync_UnixCancellationMidRun_KillsChildProcess()
+    {
+        if (TestEnvironment.IsWindows) return;
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/sleep",
+            Arguments = "30",
+            UseShellExecute = false,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            CreateNoWindow = true
+        };
+        using var cts = new CancellationTokenSource();
+        var sw = Stopwatch.StartNew();
+
+        var runTask = _processRunner.RunAsync(startInfo, Timeout.InfiniteTimeSpan, cts.Token);
+        await Task.Delay(200);
+        cts.Cancel();
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runTask);
+        Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public async Task RunAsync_AfterDispose_ThrowsObjectDisposedException()
+    {
+        var runner = new ProcessRunner(Mock.Of<ILogger<ProcessRunner>>());
+        runner.Dispose();
+
+        await Assert.ThrowsAsync<ObjectDisposedException>(() => runner.RunAsync(
+            new ProcessStartInfo { FileName = "cmd.exe" },
+            TimeSpan.FromSeconds(1),
+            CancellationToken.None));
+    }
 }

@@ -10,36 +10,76 @@ namespace Potion.Service.Tests;
 /// <summary>
 /// PotionMetrics instruments are what Prometheus scrapes — MeterListener observes
 /// them in-process so the tests can pin real emitted values, not just no-throw.
+/// Measurements arrive on a meter dispatch thread, so lists are lock-guarded and
+/// every assertion filters by a unique per-test tag (the Meter is static and
+/// sibling tests share it).
 /// </summary>
 public sealed class PotionMetricsTests
 {
-    private static MeterListener CreateListener(
-        List<(string Name, double Value)> doubles,
-        List<(string Name, long Value)> longs,
-        List<(string Name, int Value)> ints)
+    private sealed record Measurement(string Name, double Value, IReadOnlyDictionary<string, object?> Tags);
+
+    private sealed class Listener : IDisposable
     {
-        var listener = new MeterListener();
-        listener.InstrumentPublished = (instrument, l) =>
+        private readonly MeterListener _inner = new();
+        private readonly object _gate = new();
+        private readonly List<Measurement> _measurements = new();
+
+        public Listener()
         {
-            if (instrument.Meter.Name == "Potion.Service")
+            _inner.InstrumentPublished = (instrument, listener) =>
             {
-                l.EnableMeasurementEvents(instrument);
+                if (instrument.Meter.Name == "Potion.Service")
+                {
+                    listener.EnableMeasurementEvents(instrument);
+                }
+            };
+            _inner.SetMeasurementEventCallback<double>(Record);
+            _inner.SetMeasurementEventCallback<long>((i, v, t, s) => Record(i, v, t, s));
+            _inner.SetMeasurementEventCallback<int>((i, v, t, s) => Record(i, v, t, s));
+            _inner.Start();
+        }
+
+        private void Record(Instrument instrument, double value,
+            ReadOnlySpan<KeyValuePair<string, object?>> tags, object? state)
+        {
+            var tagDict = tags.ToArray().ToDictionary(k => k.Key, v => v.Value);
+            lock (_gate)
+            {
+                _measurements.Add(new Measurement(instrument.Name, value, tagDict));
             }
-        };
-        listener.SetMeasurementEventCallback<double>((inst, value, _, _) => doubles.Add((inst.Name, value)));
-        listener.SetMeasurementEventCallback<long>((inst, value, _, _) => longs.Add((inst.Name, value)));
-        listener.SetMeasurementEventCallback<int>((inst, value, _, _) => ints.Add((inst.Name, value)));
-        listener.Start();
-        return listener;
+        }
+
+        public IReadOnlyList<Measurement> For(string instrument, string tagKey, object tagValue)
+        {
+            lock (_gate)
+            {
+                return _measurements
+                    .Where(m => m.Name == instrument
+                        && m.Tags.TryGetValue(tagKey, out var v)
+                        && Equals(v, tagValue))
+                    .ToList();
+            }
+        }
+
+        public IReadOnlyList<Measurement> For(string instrument)
+        {
+            lock (_gate)
+            {
+                return _measurements.Where(m => m.Name == instrument).ToList();
+            }
+        }
+
+        public void RecordObservable() => _inner.RecordObservableInstruments();
+
+        public void Dispose() => _inner.Dispose();
     }
+
+    private static string UniqueTag() => $"t-{Guid.NewGuid():N}";
 
     [Fact]
     public void Gauges_EmitLatestRecordedValues()
     {
-        var doubles = new List<(string, double)>();
-        var longs = new List<(string, long)>();
-        var ints = new List<(string, int)>();
-        using var listener = CreateListener(doubles, longs, ints);
+        using var listener = new Listener();
 
         PotionMetrics.UpdateHealthScore(0.75);
         PotionMetrics.UpdateCpuUsage(42.5);
@@ -48,80 +88,88 @@ public sealed class PotionMetricsTests
         PotionMetrics.UpdateConcurrentOperations(7);
         PotionMetrics.RecordHealthCheckDuration(321.5);
 
-        listener.RecordObservableInstruments();
+        listener.RecordObservable();
 
-        Assert.Contains(("potion.system.health_score", 0.75), doubles);
-        Assert.Contains(("potion.system.cpu_usage", 42.5), doubles);
-        Assert.Contains(("potion.system.memory_usage", 63.25), doubles);
-        Assert.Contains(("potion.system.disk_available", 128L), longs);
-        Assert.Contains(("potion.resilience.concurrent_operations", 7), ints);
-        Assert.Contains(("potion.monitoring.health_check_duration", 321.5), doubles);
+        Assert.Contains(listener.For("potion.system.health_score"), m => m.Value == 0.75);
+        Assert.Contains(listener.For("potion.system.cpu_usage"), m => m.Value == 42.5);
+        Assert.Contains(listener.For("potion.system.memory_usage"), m => m.Value == 63.25);
+        Assert.Contains(listener.For("potion.system.disk_available"), m => m.Value == 128);
+        Assert.Contains(listener.For("potion.resilience.concurrent_operations"), m => m.Value == 7);
+        Assert.Contains(listener.For("potion.monitoring.health_check_duration"), m => m.Value == 321.5);
     }
 
     [Fact]
     public void RecordSelfHealingAttempt_Success_IncrementsBothCounters()
     {
-        var longs = new List<(string, long)>();
-        var doubles = new List<(string, double)>();
-        var ints = new List<(string, int)>();
-        using var listener = CreateListener(doubles, longs, ints);
+        using var listener = new Listener();
+        var tag = UniqueTag();
 
-        PotionMetrics.RecordSelfHealingAttempt("test-issue", successful: true);
+        PotionMetrics.RecordSelfHealingAttempt(tag, successful: true);
 
-        Assert.True(longs.Count(m => m.Item1 == "potion.healing.attempts" && m.Item2 == 1) >= 1);
-        Assert.True(longs.Count(m => m.Item1 == "potion.healing.successes" && m.Item2 == 1) >= 1);
+        Assert.Single(listener.For("potion.healing.attempts", "issue_type", tag));
+        Assert.Single(listener.For("potion.healing.successes", "issue_type", tag));
     }
 
     [Fact]
     public void RecordSelfHealingAttempt_Failure_SkipsSuccessCounter()
     {
-        var longs = new List<(string, long)>();
-        var doubles = new List<(string, double)>();
-        var ints = new List<(string, int)>();
-        using var listener = CreateListener(doubles, longs, ints);
-        var failuresBefore = longs.Count(m => m.Item1 == "potion.healing.attempts");
+        using var listener = new Listener();
+        var tag = UniqueTag();
 
-        PotionMetrics.RecordSelfHealingAttempt("test-issue", successful: false);
+        PotionMetrics.RecordSelfHealingAttempt(tag, successful: false);
 
-        Assert.Equal(failuresBefore + 1,
-            longs.Count(m => m.Item1 == "potion.healing.attempts"));
-        Assert.DoesNotContain(longs, m => m.Item1 == "potion.healing.successes");
+        Assert.Single(listener.For("potion.healing.attempts", "issue_type", tag));
+        Assert.Empty(listener.For("potion.healing.successes", "issue_type", tag));
     }
 
     [Fact]
     public void ResilienceInstruments_RecordTransitionsAndAttempts()
     {
-        var longs = new List<(string, long)>();
-        var doubles = new List<(string, double)>();
-        var ints = new List<(string, int)>();
-        using var listener = CreateListener(doubles, longs, ints);
+        using var listener = new Listener();
+        var op = UniqueTag();
+        var check = UniqueTag();
 
-        PotionMetrics.RecordCircuitBreakerTransition("cleanup", "Open", "Closed");
-        PotionMetrics.RecordRetryAttempt("cleanup", 2, 150.0);
-        PotionMetrics.RecordBulkheadRejection("cleanup");
-        PotionMetrics.RecordDiagnosticCheck("health", 12.5);
+        PotionMetrics.RecordCircuitBreakerTransition(op, "Open", "Closed");
+        PotionMetrics.RecordRetryAttempt(op, 2, 150.0);
+        PotionMetrics.RecordBulkheadRejection(op);
+        PotionMetrics.RecordDiagnosticCheck(check, 12.5);
 
-        Assert.Contains(longs, m => m.Item1 == "potion.resilience.circuit_breaker_transitions");
-        Assert.Contains(longs, m => m.Item1 == "potion.resilience.retry_attempts");
-        Assert.Contains(doubles, m => m.Item1 == "potion.resilience.retry_delay" && m.Item2 == 150.0);
-        Assert.Contains(longs, m => m.Item1 == "potion.resilience.bulkhead_rejections");
-        Assert.Contains(doubles, m => m.Item1 == "potion.diagnostics.check_duration" && m.Item2 == 12.5);
+        var transitions = listener.For("potion.resilience.circuit_breaker_transitions", "operation", op);
+        var transition = Assert.Single(transitions);
+        Assert.Equal("Open", transition.Tags["new_state"]);
+        Assert.Equal("Closed", transition.Tags["previous_state"]);
+
+        Assert.Single(listener.For("potion.resilience.retry_attempts", "operation", op));
+        var delay = Assert.Single(listener.For("potion.resilience.retry_delay", "operation", op));
+        Assert.Equal(150.0, delay.Value);
+        Assert.Equal(2, delay.Tags["attempt_number"]);
+
+        Assert.Single(listener.For("potion.resilience.bulkhead_rejections", "operation", op));
+
+        var duration = Assert.Single(listener.For("potion.diagnostics.check_duration", "check.name", check));
+        Assert.Equal(12.5, duration.Value);
     }
 
     [Fact]
     public void RecordRemediationTask_SplitsIntoCountersAndDuration()
     {
-        var longs = new List<(string, long)>();
-        var doubles = new List<(string, double)>();
-        var ints = new List<(string, int)>();
-        using var listener = CreateListener(doubles, longs, ints);
+        using var listener = new Listener();
+        var task = UniqueTag();
 
-        PotionMetrics.RecordRemediationTask("disk-cleanup", success: true, TimeSpan.FromSeconds(2.5));
-        PotionMetrics.RecordRemediationTask("disk-cleanup", success: false, TimeSpan.FromSeconds(0.5));
+        PotionMetrics.RecordRemediationTask(task, success: true, TimeSpan.FromSeconds(2.5));
+        PotionMetrics.RecordRemediationTask(task, success: false, TimeSpan.FromSeconds(0.5));
 
-        Assert.Contains(longs, m => m.Item1 == "potion.remediation.tasks_executed");
-        Assert.Contains(longs, m => m.Item1 == "potion.remediation.tasks_succeeded");
-        Assert.Contains(longs, m => m.Item1 == "potion.remediation.tasks_failed");
-        Assert.True(doubles.Count(m => m.Item1 == "potion.remediation.task_duration") >= 2);
+        var executed = listener.For("potion.remediation.tasks_executed", "task.name", task);
+        Assert.Equal(2, executed.Count);
+        Assert.Contains(executed, m => Equals(m.Tags["status"], "success"));
+        Assert.Contains(executed, m => Equals(m.Tags["status"], "failure"));
+
+        Assert.Single(listener.For("potion.remediation.tasks_succeeded", "task.name", task));
+        Assert.Single(listener.For("potion.remediation.tasks_failed", "task.name", task));
+
+        var durations = listener.For("potion.remediation.task_duration", "task.name", task);
+        Assert.Equal(2, durations.Count);
+        Assert.Contains(durations, m => m.Value == 2.5);
+        Assert.Contains(durations, m => m.Value == 0.5);
     }
 }
