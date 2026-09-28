@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (モーダル・キーボード操作監査 — 変更不要を確認)
+
+- `modalStack` で開いたモーダルを追跡し Escape が最上位のみを閉じる設計・検索オーバーレイも個別 Escape 対応
+- Ctrl+K 検索・Ctrl+R 更新・数字キーセクション遷移のショートカット完備・検索オープン時は入力へ `.focus()`
+- フォーカストラップ未実装は既知の制約（modalStack+Escape で実用十分）
+
 ### Fixed (アラートコンテナへ aria-live="polite" 付与 — JS 更新がスクリーンリーダーに通知されなかった)
 
 - `alerts-container` は JS が innerHTML で更新するが live リージョン未宣言で支援技術に新着アラートが届かなかった → `aria-live="polite"` で追加点読み上げに対応
