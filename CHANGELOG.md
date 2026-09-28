@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (ダッシュボード DOM 注入面・CSP 整合の監査)
+
+- 監査クリア（変更不要）: innerHTML/insertAdjacentHTML 全箇所で `esc()` によるエスケープ適用・非 esc 補間は定数三項演算/数値/Date 出力のみ・`result.url`・`data-category` は全てリテラル固定値
+- `data-onchange`/`data-onkeyup` は inline ハンドラではなくデリゲーション属性 → `script-src 'self'`（unsafe-inline なし）と整合・`connect-src 'self' ws: wss:` が SignalR WebSocket を正規カバー
+
 ### Security (k8s Ingress から /metrics ルートを除去 + 死 egress ルール整理)
 
 - Ingress が `/metrics` を外部へルーティング — 認証なしで完全な内部テレメトリを公開していた → 削除（クラスタ内スクレイプは ServiceMonitor/pod アノテーションで継続）
