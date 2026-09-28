@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (CollaborationHub にテスト11件追加 — 匿名到達可能な Hub メソッドの契約を固定)
+
+- `tests/Potion.Service.Tests/CollaborationHubTests.cs` 新規：`HubCallerContext`/`IGroupManager`/`IHubCallerClients` をモック化し実 `CollaborationService` と組み合わせてトランスポート不要で検証 — 接続時 `system-monitors` グループ参加、上限到達時は `Context.Abort()` で切断しグループ不参加、切断でセッション除去、`alerts-{type}` 購読/解除と Caller 確認、`SendMessage` の 2000 文字上限（超過・空・空白は送信せず、ちょうど2000は送信 — 匿名クライアントの増幅攻撃を防ぐ上限）、`UserIdentifier` 優先の投稿者解決、`JoinRoom`/`LeaveRoom` のグループ管理
+- テスト総数 314 → **325**
+
 ### Improved (CollaborationService にテスト9件追加 — SignalR ブロードキャスト契約を固定)
 
 - `tests/Potion.Service.Tests/CollaborationServiceTests.cs` 新規：`IHubContext` をモック化し、トランスポートなしでブロードキャスト契約を検証 — ゴーストセッション防止（`MaxConcurrentUsers` 到達時に追跡せず拒否）、接続/切断時の `ActiveUserCount`+`UserConnected`/`UserDisconnected` 送信、不明 connectionId での送信なし、`EnableRealTimeAlerts=false` のゲート、hub 送信失敗を飲み込む fire-and-forget 契約、`HealthAlert`/`TaskCompleted` イベント→`alerts-{component}`/`alerts-task` グループ配線、1ユーザー複数接続の独立カウント
