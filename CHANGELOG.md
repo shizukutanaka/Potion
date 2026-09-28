@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (PotionMetrics 全メソッドの呼出し元監査 — 死メトリクスなしを確認)
+
+- 公開メトリクスメソッド13件を本番コード側呼出しと照合 — 全て実呼出しあり（先サイクルで削除した `RecordDiagnosticCheck` が唯一の死メトリクスだった）
+- `Update*` 系が ObservableGauge の `observeValues` バッキングを正しく供給していることも確認
+
 ### Removed (テストのみで消費される死パイプライン群を削除 — 本番は1パイプラインのみ使用)
 
 - `CreateRemediationPipeline`・`CreateHealthCheckPipeline`・`CreateDiagnosticPipeline`（本番は `CreateProcessExecutionPipeline` のみ登録・残り3つはテストだけが呼ぶ死コード）+ `ProcessResult`・`DiagnosticReport`/`Check`/`Recommendation`/`Severity` 型を削除
