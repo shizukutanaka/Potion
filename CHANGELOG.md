@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (PotionMetrics の OTel 計器へ MeterListener ベースの実測テスト追加)
+
+- 全公開 `Update*`/`Record*` メソッドを in-process `MeterListener` で実測検証： ゲージが直近値を吐く（health_score/cpu/memory/disk/concurrent/health_check_duration）、`RecordSelfHealingAttempt` が成功時のみ successes カウンタを増加、resilience 系（circuit_breaker/retry/bulkhead）と remediation 系（executed/succeeded/failed/duration）が正しい系列名・値で記録される — Prometheus スクレイプ面の契約を固定（`PotionMetrics.cs` 70.2% → 95.5%）
+- 併せて `IMemoryMonitor.StartMonitoringAsync` は呼出し側ゼロの死 public メソッドと判明（削除候補へ追加）
+- テスト総数 285 → 290（+5）
+
 ### Fixed (API 不通時にヘッダーが健全表示し続ける問題)
 
 - `loadOverviewData` の catch がバッジを offline にしながら例外を握り潰していたため、`refreshAllData` 側の `setConnectionStatus(false)` が決して走らずヘッダーが「System Healthy」のままだった → バッジ更新後に例外を再送出し、Promise.all の拒否経路でヘッダーも切断表示へ
