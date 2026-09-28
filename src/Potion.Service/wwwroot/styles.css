@@ -623,15 +623,7 @@ h4 { font-size: 16px; }
     color: var(--text-secondary);
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
 
-@keyframes loading-shimmer {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
 
 /* Modal Dialogs - Atlassian Design */
 .modal-overlay {
@@ -1286,16 +1278,6 @@ body.no-tooltips .tooltip:hover .tooltip-content {
 }
 
 /* Advanced Animations */
-@keyframes fadeInUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
 /* Responsive Enhancements */
 @media (max-width: 1024px) {
@@ -1519,10 +1501,6 @@ body.no-tooltips .tooltip:hover .tooltip-content {
     color: var(--text-muted);
 }
 
-@keyframes wave {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
 
 /* Advanced Status Indicators */
 .status-indicator-advanced {
@@ -1581,16 +1559,6 @@ body.no-tooltips .tooltip:hover .tooltip-content {
 }
 
 /* Advanced Animations */
-@keyframes slideInFromTop {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
-}
 
 @keyframes pulse {
     0% { transform: scale(1); }
@@ -1873,11 +1841,7 @@ body.no-tooltips .tooltip:hover .tooltip-content {
 /* Accessibility Enhancements */
 @media (prefers-reduced-motion: reduce) {
 
-    @keyframes wave {
-        0% { background-position: 200% 0; }
-        100% { background-position: -200% 0; }
     }
-}
 
 /* High Contrast Mode */
 @media (prefers-contrast: high) {
@@ -2135,11 +2099,6 @@ body.no-tooltips .tooltip:hover .tooltip-content {
     opacity: 1;
 }
 
-@keyframes pulse-blue {
-    0% { box-shadow: 0 0 0 0 rgba(0, 82, 204, 0.4); }
-    70% { box-shadow: 0 0 0 10px rgba(0, 82, 204, 0); }
-    100% { box-shadow: 0 0 0 0 rgba(0, 82, 204, 0); }
-}
 
 .progress-bar {
     width: 100%;
@@ -2563,21 +2522,7 @@ body.no-tooltips .tooltip:hover .tooltip-content {
     padding: var(--space-4);
 }
 
-@keyframes advanced-loading {
-    0% { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
-}
 
-@keyframes loading-wave {
-    0%, 80%, 100% {
-        transform: scale(0.8);
-        opacity: 0.5;
-    }
-    40% {
-        transform: scale(1);
-        opacity: 1;
-    }
-}
 
 /* Advanced Responsive Design */
 @media (max-width: 1400px) {

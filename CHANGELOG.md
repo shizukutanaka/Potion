@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (未参照 @keyframes 9件 + 残存監査ゼロ)
+
+- styles.css：`@keyframes` 全12定義と `animation:`/`animation-name:` 参照を照合 — 使用ゼロの9件（spin・loading-shimmer・fadeInUp・wave×2・slideInFromTop・pulse-blue・advanced-loading・loading-wave）を除去。`wave` は `@media (prefers-reduced-motion)` 内に重複定義されていた残骸も除去
+- 保持： slideIn・pulse・shimmer（実 `animation:` 参照あり）。ブレースバランス検証済みでメディアブロックの閉鎖を確認
+- 併せて監査： ソース全域に TODO/FIXME/NotImplemented **ゼロ**・全サービスが DI 登録+消費あり・モジュールスコープ JS 関数に死関数なし・k8s マニフェストに `potion-database` 死ルールなし
+- 検証： 299/299 テスト全パス・ビルド0警告
+
 ### Improved (SignalR クライアント配線 — リアルタイム更新を実現)
 
 - `/collaboration` ハブは配線済みで `Alert`（cpu/memory/disk/anomaly/task グループ）と `SystemHealthUpdate`（1分毎のヘルスティック）をプッシュしていたが、**ブラウザクライアントが存在せず受信者ゼロ**だった → 公式 SignalR JS クライアント（@microsoft/signalr 8.0.7、厳格 CSP 対応のため wwwroot/lib に vendored）を導入して接続
