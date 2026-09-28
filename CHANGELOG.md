@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (AutoRecoveryManager の非健全→回復試行パイプラインを検証)
+
+- `appsettings.json` を一時退避させて `Configuration` コンポーネントを非健全化（finally で必ず復元）：`CheckConfigurationHealth` の存在チェック分岐（66.7→77.8%）、`SystemHealthChanged` イベントの `CurrentHealth` ペイロード、および ExecuteAsync サイクル内の非健全→`AttemptRecoveryAsync`→`ResetConfiguration` 経路（正直に失敗を返す契約 — リセット機構未登録のため `Success=false`）を固定 — `PerformHealthCheckCycleAsync` 100%
+- テスト総数 303 → 305（+2）
+
 ### Improved (AutoRecoveryManager の常時稼働ループを実駆動テスト)
 
 - `ExecuteAsync`（BackgroundService 本体）を `StartAsync` 実起動で駆動 — 初回サイクルは遅延前に即実行されるため、ヘルスチェックサイクル（8コンポーネント診断→非健全コンポーネントへの回復試行→メトリクスログ）の全体が1テストで網羅される — `ExecuteAsync` 0% → 66.7%、`PerformHealthCheckCycleAsync` 0% → 71.4%、クラス全体 64.3% → 75.7%

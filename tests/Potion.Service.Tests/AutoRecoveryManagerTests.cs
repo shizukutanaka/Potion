@@ -113,4 +113,68 @@ public sealed class AutoRecoveryManagerTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
         await manager.StopAsync(cts.Token);
     }
+
+    [Fact]
+    public async Task HealthCheck_ConfigMissing_MarksComponentUnhealthyAndFiresChange()
+    {
+        // CheckConfigurationHealth reads appsettings.json from the test output
+        // dir — move it aside to force the unhealthy branch, then observe the
+        // SystemHealthChanged event payload. Restored in finally.
+        var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        var movedPath = configPath + ".testbak";
+        File.Move(configPath, movedPath);
+
+        try
+        {
+            using var manager = new AutoRecoveryManager(NullLogger<AutoRecoveryManager>.Instance);
+            SystemHealthChangedEventArgs? observed = null;
+            manager.SystemHealthChanged += (_, args) => observed = args;
+
+            var result = await manager.PerformHealthCheckAsync(CancellationToken.None);
+
+            Assert.False(result.IsHealthy);
+            var config = result.ComponentHealth["Configuration"];
+            Assert.False(config.IsHealthy);
+            Assert.Equal("Unhealthy", config.Status);
+            Assert.NotNull(observed);
+            Assert.False(observed.CurrentHealth["Configuration"].IsHealthy);
+        }
+        finally
+        {
+            File.Move(movedPath, configPath);
+        }
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_UnhealthyComponent_AttemptsRecoveryAndReportsFailure()
+    {
+        // Missing config -> Configuration unhealthy -> the cycle invokes
+        // AttemptRecoveryAsync -> ResetConfiguration (no reset manager is
+        // registered, so it honestly reports failure).
+        var configPath = Path.Combine(AppContext.BaseDirectory, "appsettings.json");
+        var movedPath = configPath + ".testbak";
+        File.Move(configPath, movedPath);
+
+        try
+        {
+            using var manager = new AutoRecoveryManager(NullLogger<AutoRecoveryManager>.Instance);
+            var attempts = new List<RecoveryAttemptEventArgs>();
+            manager.RecoveryAttempted += (_, args) => attempts.Add(args);
+
+            await manager.StartAsync(CancellationToken.None);
+            await Task.Delay(1500); // first cycle runs immediately
+
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            await manager.StopAsync(cts.Token);
+
+            var attempt = Assert.Single(attempts);
+            Assert.Equal("Configuration", attempt.Component);
+            Assert.Equal(RecoveryAction.ResetConfiguration, attempt.Action);
+            Assert.False(attempt.Success);
+        }
+        finally
+        {
+            File.Move(movedPath, configPath);
+        }
+    }
 }
