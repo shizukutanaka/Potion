@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (修復実行ティアの有効化パスを実機検証)
+
+- `FeatureFlags:RepairExecutionEnabled=true` で実起動：4つのポリシータスク（sfc/dism/cleanmgr/ngen）すべて `CommandAllowlist` を通過、`ValidateOnStart` + 3バリデータ（一意名・許可リスト・保守ウィンドウ）が起動時に通ることを実証 — フラグ有効化で起動が失敗する地雷なし
+- コード変更なし（検証のみ）
+
 ### Improved (SignalR ハブとフロントエンド↔API 対応を実機検証)
 
 - `/collaboration/negotiate` が実機で `connectionId`/`connectionToken` を発行し WebSockets/SSE/LongPolling 全3トランスポートを提供することを確認
