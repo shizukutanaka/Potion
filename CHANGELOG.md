@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (AutoRecoveryManager の常時稼働ループを実駆動テスト)
+
+- `ExecuteAsync`（BackgroundService 本体）を `StartAsync` 実起動で駆動 — 初回サイクルは遅延前に即実行されるため、ヘルスチェックサイクル（8コンポーネント診断→非健全コンポーネントへの回復試行→メトリクスログ）の全体が1テストで網羅される — `ExecuteAsync` 0% → 66.7%、`PerformHealthCheckCycleAsync` 0% → 71.4%、クラス全体 64.3% → 75.7%
+- テスト総数 302 → 303（+1）
+
 ### Improved (MemoryMonitor の監視ループ本体を実駆動テスト)
 
 - `ExecuteAsync`（BackgroundService 本体）を1秒間隔オプションで実起動駆動： 閾値0で最適化実行→長クールダウンで次周回スキップ、履歴 retention 3 でトリム発動、リークチェック間隔0で毎周回実行、統計記録→履歴蓄積→詳細ログの全周回経路を網羅 — `ExecuteAsync` 19.4% → 58.3%

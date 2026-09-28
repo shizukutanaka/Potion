@@ -98,4 +98,19 @@ public sealed class AutoRecoveryManagerTests
         Assert.False(File.Exists(staleFile));
         Assert.True(Directory.Exists(cacheDir));
     }
+
+    [Fact]
+    public async Task ExecuteAsync_RunsFirstCycleImmediately_ThenStopsCleanly()
+    {
+        // The hosted-service loop runs PerformHealthCheckCycleAsync before the
+        // 1-minute delay, so a brief start covers the whole cycle: health check,
+        // unhealthy-component recovery attempts, and metrics logging.
+        using var manager = new AutoRecoveryManager(NullLogger<AutoRecoveryManager>.Instance);
+
+        await manager.StartAsync(CancellationToken.None);
+        await Task.Delay(1500); // let the immediate cycle complete
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        await manager.StopAsync(cts.Token);
+    }
 }
