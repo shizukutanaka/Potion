@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (`dotnet format style`/`analyzers` 全診断ゼロを確認 — コーディング規約完全適合)
+
+- `dotnet format style --verify-no-changes` と `analyzers --verify-no-changes` が両方とも診断ゼロ — var 選好・式本体・未使用 using 等の IDE 診断が全て規約準拠
+- whitespace/style/analyzers の3面すべてがクリーン（ソリューション全体）
+
 ### Improved (`dotnet format` 整形ドリフト修正 + 検証パイプライン整備)
 
 - `AutoRecoveryManager.cs` のコメント段差ずれを `dotnet format whitespace` で修正 — ソリューション全体が整形規約に適合（`--verify-no-changes` パス）
