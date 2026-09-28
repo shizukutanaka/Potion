@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Localization;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Caching.Memory;
@@ -103,7 +104,9 @@ public class Startup
         services.AddSingleton<RequestMetricsTracker>();
         services.AddHostedService<EventCorrelationService>();
         services.AddHostedService<ComplianceReportService>();
-        services.AddHealthChecks();
+        services.AddSingleton<SystemReadinessCheck>();
+        services.AddHealthChecks()
+            .AddCheck<SystemReadinessCheck>("system_ready", tags: new[] { "ready" });
         services.AddRateLimiter(options =>
         {
             // The alertmanager webhook is the only anonymous write endpoint;
@@ -300,7 +303,10 @@ public class Startup
         app.UseEndpoints(endpoints =>
         {
             endpoints.MapHub<CollaborationHub>("/collaboration");
-            endpoints.MapHealthChecks("/health");
+            // /health = pure liveness (process responsive); /health/ready runs the
+            // 'ready'-tagged check that proves metric sampling works end-to-end.
+            endpoints.MapHealthChecks("/health", new HealthCheckOptions { Predicate = check => !check.Tags.Contains("ready") });
+            endpoints.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains("ready") });
 
             // Dashboard API: the wwwroot dashboard fetches these routes.
             // All data comes from the registered ISystemHealthMonitor snapshot.

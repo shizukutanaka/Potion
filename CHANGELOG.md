@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Improved (/health/ready 追加 — 本物のレディネスチェック)
+
+- `AddHealthChecks()` が**ゼロ件のチェック**で登録されており `/health` は状態に関わらず常に Healthy を返していた → `SystemReadinessCheck`（CPU/メモリ/ディスクの最悪値 ≥95% で Degraded、サンプリング失敗は Unhealthy へ、実サンプリング経路の健全性を端から端まで検証）を `ready` タグ付きで登録
+- **`/health` = 純粋なライブネス**（`Predicate` で ready チェックを除外 → 常に Healthy）・**`/health/ready` = 実用レディネス**に分離 — k8s の readinessProbe を `/health/ready` へ変更（liveness/startup は `/health` のまま = 負荷下での再起動ループを回避）
+- `deploy.sh`・`validate-system.sh` のスモーク対象に `/health/ready` を追加（実機で 200/Healthy 確認済み）
+- `SystemReadinessCheckTests` 新規（9件：正常/境界94.9%/各リソース95%超/飽和/例外伝播/キャンセル伝播）、テスト総数 361 → **370/370 全パス**
+
 ### Improved (scripts/ の全スクリプトを実機検証 — 不整合ゼロ)
 
 - `scripts/validate-system.sh` を稼働中サービスに対し実行：9エンドポイント全て PASS（`/health`・`/api/health`×3・`/metrics`・`/`・webhook 405・SignalR negotiate POST 200）— スクリプトの検査対象が実ルートと完全一致
