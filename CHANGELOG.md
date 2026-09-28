@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (ライセンスファイル重複を解消 — MIT 正規版に一本化)
+
+- `LICENSE`（MIT + 商業ライセンス付録 + `sales@potion-service.com` プレースホルダ + 存在しない `THIRD_PARTY_LICENSES.md` 参照）と `LICENSE.txt`（クリーンな MIT）の2ファイルが共存 — csproj の `PackageLicenseExpression=MIT`・README の参照と整合するよう、`LICENSE` をクリーンな MIT 本文に一本化し `LICENSE.txt` を削除
+- `setup/License.rtf`（インストーラ表示）の著作権表記を `2024-2026 Potion Contributors` に統一
+- 検証： ビルド0警告・315/315 テスト維持
+
 ### Improved (API エンドポイント監査 — 変更不要を確認)
 
 - GET 5件は全て読み取り専用で DI 経由の `ISystemHealthMonitor` スナップショットを返すのみ（ミューテーションなし）

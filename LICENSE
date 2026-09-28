@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2024 Potion Self-Healing Service
+Copyright (c) 2024-2026 Potion Contributors
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,21 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-## Commercial License Option
-
-For enterprises requiring:
-- Commercial use without attribution
-- Priority support and SLA guarantees
-- Custom feature development
-- On-premise deployment support
-- Dedicated security consulting
-
-Please contact: sales@potion-service.com
-
-## Third-Party Licenses
-
-This software includes components licensed under various open source licenses.
-See THIRD_PARTY_LICENSES.md for details.
