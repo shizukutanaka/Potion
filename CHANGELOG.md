@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (死んだ i18n ランタイムクラスタを除去 — コンシューマゼロ)
+
+- `InternationalizationService`（62行）は DI 登録されているが**注入・呼出し元がゼロ**の死コード — `GetLocalizedString`/`SetCulture`（プロセス全体の `CultureInfo.CurrentUICulture` を書き換える危険な死メソッド）の利用者不在を確認し除去
+- 併せて除去： `Resources/` の `ControllerStrings.*.resx` **48ファイル**（約50言語）、`AddLocalization`・`UseRequestLocalization` ミドルウェア・50カルチャの `RequestLocalizationOptions` 構成、`AddMemoryCache`（IMemoryCache の実利用は当該サービスと未登録の AdvancedCacheService のみ）、`Microsoft.Extensions.Localization` パッケージ参照、専用テストファイル（12件）
+- 検証： ビルド0警告・実起動で /health・/health/ready・ダッシュボード全て200・**358/358 テスト全パス**
+
 ### Improved (/health/ready 追加 — 本物のレディネスチェック)
 
 - `AddHealthChecks()` が**ゼロ件のチェック**で登録されており `/health` は状態に関わらず常に Healthy を返していた → `SystemReadinessCheck`（CPU/メモリ/ディスクの最悪値 ≥95% で Degraded、サンプリング失敗は Unhealthy へ、実サンプリング経路の健全性を端から端まで検証）を `ready` タグ付きで登録

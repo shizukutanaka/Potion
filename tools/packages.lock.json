@@ -255,22 +255,6 @@
           "System.ServiceProcess.ServiceController": "8.0.1"
         }
       },
-      "Microsoft.Extensions.Localization": {
-        "type": "Transitive",
-        "resolved": "8.0.31",
-        "contentHash": "rUuW7X0lOPb5wpiTqmXxV7Tns4iCzDDlyJRGI1pExYQQ3RHApYpk6JP2fHI7wAL9ri3AI7tsukSGM3KjlS9bKQ==",
-        "dependencies": {
-          "Microsoft.Extensions.DependencyInjection.Abstractions": "8.0.2",
-          "Microsoft.Extensions.Localization.Abstractions": "8.0.31",
-          "Microsoft.Extensions.Logging.Abstractions": "8.0.3",
-          "Microsoft.Extensions.Options": "8.0.2"
-        }
-      },
-      "Microsoft.Extensions.Localization.Abstractions": {
-        "type": "Transitive",
-        "resolved": "8.0.31",
-        "contentHash": "UP4ODaGqyubJPYZuY8D0quqBBS+dZDeK3aoxSZ6MNvdVCW2wV03DUsmPulZj7hn/wJ78rnEIPUrtN3GLqHrGgA=="
-      },
       "Microsoft.Extensions.Logging": {
         "type": "Transitive",
         "resolved": "9.0.0",
@@ -731,7 +715,6 @@
         "dependencies": {
           "Microsoft.Data.SqlClient": "[7.0.3, )",
           "Microsoft.Extensions.Hosting.WindowsServices": "[8.0.1, )",
-          "Microsoft.Extensions.Localization": "[8.0.31, )",
           "OpenTelemetry": "[1.19.1, )",
           "OpenTelemetry.Exporter.OpenTelemetryProtocol": "[1.19.1, )",
           "OpenTelemetry.Exporter.Prometheus.AspNetCore": "[1.19.1-beta.1, )",

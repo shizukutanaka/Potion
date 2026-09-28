@@ -98,7 +98,6 @@
     <PackageReference Include="System.Diagnostics.PerformanceCounter" Version="10.0.12" />
 
     <!-- Web API -->
-    <PackageReference Include="Microsoft.Extensions.Localization" Version="8.0.31" />
 
     <!-- Security / Data -->
     <PackageReference Include="Microsoft.Data.SqlClient" Version="7.0.3" />
