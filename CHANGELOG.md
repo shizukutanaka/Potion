@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (README のドリフトを修正)
+
+- テスト数 204/204 → 305/305、許可リストの記述を実態（sfc/dism/cleanmgr/chkdsk/ngen/powercfg/netsh）に更新、設定セクション一覧に `Observability`（`OtlpEndpoint`）を追記
+
 ### Improved (ブートストラップ失敗も Serilog へ記録するよう hardened)
 
 - `Program.cs`：`builder.Build()` が try の外にあり、DI 検証（`ValidateOnBuild`）や設定エラーでの Build 失敗が `Log.Fatal`/`CloseAndFlush` をスキップして生例外のみで終了していた → Build を try 内へ移動し、起動失敗も Fatal ログ＋フラッシュ経路を通るよう統一

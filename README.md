@@ -9,7 +9,7 @@ A production-grade Windows system automation and monitoring service with autonom
 - **Reliability**: Polly circuit-breaker/retry resilience pipelines, dependency injection validated at startup
 - **Observability**: Serilog logging, OpenTelemetry metrics + traces, Prometheus `/metrics` endpoint
 - **Collaboration**: SignalR hub at `/collaboration` and a static dashboard (`wwwroot/`)
-- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk) through the allowlist — the autonomous repair-execution services (`AutoRecoveryManager`, `PerformanceOptimizer`, `EventDrivenRemediationService`, `PredictiveRemediationService`) are wired behind the `FeatureFlags:RepairExecutionEnabled` flag, off by default (see CHANGELOG)
+- **Remediation**: Approved repair commands (sfc/dism/cleanmgr/chkdsk/ngen/powercfg/netsh) through the allowlist — the autonomous repair-execution services (`AutoRecoveryManager`, `PerformanceOptimizer`, `EventDrivenRemediationService`, `PredictiveRemediationService`) are wired behind the `FeatureFlags:RepairExecutionEnabled` flag, off by default (see CHANGELOG)
 
 ## Quick Start
 
@@ -53,12 +53,13 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 - `RemediationPolicy` — repair command allowlist and remediation policy options
 - `MemoryMonitor`, `PerformanceOptimizer`, `EventCorrelation`, `Compliance`, `Collaboration` — monitoring-service options (thresholds/`Enabled`); can also be set via env vars, e.g. `MemoryMonitor__MonitoringIntervalSeconds=60`
 - `FeatureFlags` — feature toggles read at startup; `RepairExecutionEnabled` (default `false`) activates the autonomous repair-execution services
+- `Observability` — `OtlpEndpoint` for OpenTelemetry OTLP export (default `http://localhost:4317`)
 - `Serilog`, `AllowedHosts`, `Kestrel` — framework settings
 
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 204/204 tests
+dotnet test Potion.sln   # 305/305 tests
 ```
 
 ## License
