@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (webhook 入力面・文字列文化・ファイル I/O の監査)
+
+- 監査クリア（変更不要）: webhook POST は 1MB ボディ上限（Kestrel `MaxRequestBodySize`）+ `JsonDocument.ParseAsync` ストリーミング解析 + malformed → 400 + 60/分レート制限
+- カルチャ依存の `ToLower`/`ToUpper` 呼出しゼロ・ファイル書込みは `WriteAllTextAsync` + temp→move アトミック保存（コンプライアンスレポート）・回復検証用テストファイルは意図的設計
+
 ### Improved (PeriodicAsyncLoop のユニットテスト追加 — 315→321)
 
 - 直列化（即時実行→周期反復）・反復例外の報告と継続・`DisposeAsync` の停止確定性と in-flight 待機・`CancelNow` の冪等性・初期遅延尊重の6ケースを追加
