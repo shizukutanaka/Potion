@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (テストのみが消費する public API の残存を削除 — ServicePaths・環境変数ヘルパー)
+
+- `ServicePaths`: 死メンバー14件削除 — ディレクトリ props 9件（Logs/Telemetry/Playbooks/Certificates/Security/Backups/Reports/BaseDirectory + dead メソッド専用だった State 派生）・`Get*Path` メソッド5件・`ToSafeFileName`。残は実呼出しのある `Base`/`State`/`ConfigBackups`（ConfigTool が使用）/`ConfigurationFile` のみ
+- `EnvironmentVariableHelper`: `GetInt/GetString/GetBool/GetTimeSpan` 4メソッド削除 — 本番呼出しは `GetLongFromEnvironment` のみ
+- `AddTriggerRule`/`GetActiveUsers`/`GetAnomalyScore` は正当な公開 API シームとして保持
+- 該当テストをトリム — 309→287/287 全パス
+
 ### Improved (PotionMetrics 全メソッドの呼出し元監査 — 死メトリクスなしを確認)
 
 - 公開メトリクスメソッド13件を本番コード側呼出しと照合 — 全て実呼出しあり（先サイクルで削除した `RecordDiagnosticCheck` が唯一の死メトリクスだった）
