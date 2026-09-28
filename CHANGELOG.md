@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Security (k8s Ingress から /metrics ルートを除去 + 死 egress ルール整理)
+
+- Ingress が `/metrics` を外部へルーティング — 認証なしで完全な内部テレメトリを公開していた → 削除（クラスタ内スクレイプは ServiceMonitor/pod アノテーションで継続）
+- egress NetworkPolicy の `potion-database:5432` ルールは存在しない Pod を指す死ルール（コードベースに DB 依存なし）→ 除去し、OTLP export（`Observability:OtlpEndpoint`）がこのポリシーでブロックされる旨の注記を追加
+- 検証： 全ドキュメント YAML パース成功
+
 ### Security (Docker ビルドで lock ファイル復元を有効化 — 依存ピンが無視されていた)
 
 - Dockerfile が `src/` のみをコピーしていたため、リポジトリルートの `Directory.Build.props`（`RestorePackagesWithLockFile`）がコンテナ内に存在せず — **`packages.lock.json` は COPY されているのに一切参照されず、Docker ビルドだけが依存解決を非固定で行っていた**

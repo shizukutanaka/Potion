@@ -174,13 +174,10 @@ spec:
             name: potion-service
             port:
               number: 80
-      - path: /metrics
-        pathType: Prefix
-        backend:
-          service:
-            name: potion-service
-            port:
-              number: 80
+      # /metrics is deliberately NOT routed here: Prometheus scrapes it
+      # in-cluster via the ServiceMonitor/pod annotations. Exposing it
+      # through the ingress would publish full internal telemetry to
+      # anyone who can reach the host.
       - path: /collaboration
         pathType: Prefix
         backend:
@@ -281,10 +278,7 @@ spec:
       port: 53
     - protocol: UDP
       port: 53
-  - to:
-    - podSelector:
-        matchLabels:
-          app: potion-database
-    ports:
-    - protocol: TCP
-      port: 5432
+  # OTLP export (Observability:OtlpEndpoint, default localhost:4317) is
+  # blocked by this policy — add an egress rule for your collector's
+  # namespace/port when enabling tracing, e.g. a namespaceSelector for
+  # the observability namespace on TCP/4317.
