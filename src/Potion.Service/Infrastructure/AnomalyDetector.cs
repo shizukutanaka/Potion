@@ -466,11 +466,6 @@ public class AnomalyDetector : IHostedService, IDisposable
             return slope;
         }
 
-        public double[] DetectRecentPattern()
-        {
-            return Patterns.Any() ? Patterns.Last() : _patternBuffer;
-        }
-
         public void UpdateMLModel(double latestValue)
         {
             // The pattern buffer/index and periodic pattern capture are already

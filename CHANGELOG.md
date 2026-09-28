@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Removed (残存の死メソッド `DetectRecentPattern` を削除)
+
+- `AnomalyDetector.DetectRecentPattern` — 宣言のみで本番・テスト両方に呼出しゼロ（ファイル内出現1回の完全な死コード）。同種の監査で残った唯一の孤立メソッド
+- `SystemReadinessCheck.CheckHealthAsync` は `IHealthCheck` 実装でフレームワーク経由のため保持、`UpdateMLModel`/`CountProcesses` 等は実呼出しありを確認
+
 ### Removed (テストのみが消費する public API の残存を削除 — ServicePaths・環境変数ヘルパー)
 
 - `ServicePaths`: 死メンバー14件削除 — ディレクトリ props 9件（Logs/Telemetry/Playbooks/Certificates/Security/Backups/Reports/BaseDirectory + dead メソッド専用だった State 派生）・`Get*Path` メソッド5件・`ToSafeFileName`。残は実呼出しのある `Base`/`State`/`ConfigBackups`（ConfigTool が使用）/`ConfigurationFile` のみ
