@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (イベント購読・セッションリークの監査)
+
+- 監査クリア（変更不要）: `CollaborationService` の ctor 購読3件は singleton ライフタイム一致（発行者・購読者が同寿命でリーク不成立）・`EventCorrelationService`/`EventDrivenRemediationService` は `StopAsync` で解除済み
+- `_activeUsers` ゴーストセッション: SignalR が transport timeout で `OnDisconnectedAsync` を発火 → `UserDisconnectedAsync` が `TryRemove` で確実に回収、rejected connection は辞書未登録
+
 ### Improved (ダッシュボード DOM 注入面・CSP 整合の監査)
 
 - 監査クリア（変更不要）: innerHTML/insertAdjacentHTML 全箇所で `esc()` によるエスケープ適用・非 esc 補間は定数三項演算/数値/Date 出力のみ・`result.url`・`data-category` は全てリテラル固定値
