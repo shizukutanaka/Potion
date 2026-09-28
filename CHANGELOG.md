@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (サービスの HTTP 面を実起動エンドツーエンド検証)
+
+- 実際に `dotnet run` で起動し全 HTTP 面を実機確認：`/health`・`/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary`・`/metrics`・ダッシュボード（index.html/dashboard.js）すべて 200 — メトリクスは実測値（CPU/メモリ/ディスク/プロセス数）を返却
+- セキュリティヘッダ（`X-Content-Type-Options: nosniff`・`X-Frame-Options: DENY`・`Referrer-Policy: no-referrer`）を応答で確認、Alertmanager webhook は正常ペイロード `{"received":1}`・不正 JSON `400`、レートリミットは 61 件目以降 `429` で正しく発動
+- コード変更なし（検証のみ）
+
 ### Improved (AutoRecoveryManager の非健全→回復試行パイプラインを検証)
 
 - `appsettings.json` を一時退避させて `Configuration` コンポーネントを非健全化（finally で必ず復元）：`CheckConfigurationHealth` の存在チェック分岐（66.7→77.8%）、`SystemHealthChanged` イベントの `CurrentHealth` ペイロード、および ExecuteAsync サイクル内の非健全→`AttemptRecoveryAsync`→`ResetConfiguration` 経路（正直に失敗を返す契約 — リセット機構未登録のため `Success=false`）を固定 — `PerformHealthCheckCycleAsync` 100%
