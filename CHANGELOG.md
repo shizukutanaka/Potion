@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Security (NuGet ロックファイルを CI ビルドで強制 — サプライチェーン固定)
+
+- `Directory.Build.props` に `RestoreLockedMode`（`ContinuousIntegrationBuild=true` 条件）を追加：`packages.lock.json` は生成されるだけでは何も強制せず、改竄・追加された依存もサイレントにロックを更新していた。CI ビルドではロックと `PackageReference` が不一致なら**リストア失敗**になり、汚染パッケージの混入を防ぐ。ローカルでは引き続き通常リストアで更新可能
+- `dotnet restore --locked-mode` で全3プロジェクトがロックと一致することを確認済み
+
 ### Fixed (dashboard.js の全 fetch に response.ok チェックを統一)
 
 - `/api/health/security*`・`/api/health/metrics`・`/api/health`（ログ用）の4箇所が `.json()` をガードなしで呼んでおり、500/404 の HTML エラーページが不透明なパースエラーになっていた → 既存パターンと同じく `if (!response.ok) throw new Error(\`GET {path} -> {status}\`)` を追加し、原因が切り分け可能なエラーメッセージに統一

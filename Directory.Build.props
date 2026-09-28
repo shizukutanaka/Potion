@@ -5,5 +5,11 @@
        files by running 'dotnet restore' with the force-evaluate option. -->
   <PropertyGroup>
     <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
+    <!-- Lock files only pin anything if a restore cannot silently update
+         them: in CI builds (ContinuousIntegrationBuild is set by dotnet
+         tooling and every major CI system) a packages.lock.json mismatch
+         fails the restore instead of rewriting the file. Local restores
+         stay unlocked so developers can update dependencies normally. -->
+    <RestoreLockedMode Condition="'$(ContinuousIntegrationBuild)' == 'true'">true</RestoreLockedMode>
   </PropertyGroup>
 </Project>
