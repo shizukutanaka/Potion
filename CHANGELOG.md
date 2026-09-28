@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Security (FontAwesome を vendored — CSP が完全 'self' に)
+
+- FontAwesome 6.4.0 を `wwwroot/lib/fontawesome/`（css + webfonts 8件・計1.9MB）に vendored — 最後に残った外部依存の cdnjs を排除
+- CSP から `https://cdnjs.cloudflare.com` を除去し `style-src 'self'`・`font-src 'self'` — **フロントエンドの外部リクエストが完全にゼロ**（scripts/styles/fonts 全て自己完結）
+- 検証： 実機起動で FA css/webfont 200・index.html の外部 URL ゼロ・CSP 反映確認・321/321 テスト全パス
+
 ### Security (Google Fonts をセルフホスト化 — 外部リクエストと CSP 例外を排除)
 
 - ダッシュボードが `fonts.googleapis.com`/`fonts.gstatic.com` へ外部リクエスト — SRI 不可の動的 CSS（UA で変化）でサプライチェーン面が残り、クライアント IP が Google へ漏洩していた

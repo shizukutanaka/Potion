@@ -194,8 +194,7 @@ public class Startup
             // is needed for either script-src or style-src.
             context.Response.Headers["Content-Security-Policy"] =
                 "default-src 'self'; script-src 'self'; " +
-                "style-src 'self' https://cdnjs.cloudflare.com; " +
-                "font-src 'self' https://cdnjs.cloudflare.com; " +
+                "style-src 'self'; font-src 'self'; " +
                 "img-src 'self' data:; connect-src 'self' ws: wss:; " +
                 "object-src 'none'; base-uri 'self'";
             if (context.Request.IsHttps)
