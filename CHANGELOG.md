@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (Prometheus rules.yml アラート↔実発行 series 実機検証 — 死ルールゼロを確認)
+
+- 実機 `/metrics` で5ルール全ての式を検証：`up{job="potion-service"}`・`potion_system_cpu_usage`・`potion_system_memory_usage`・`potion_system_disk_available_gigabytes`（`unit: "GB"` が exporter で `gigabytes` 接尾辞に正規化）・`potion_system_health_score` — 全て実在の series と一致
+- 参照メトリクス未発行による「発火しない死アラート」は存在しない
+
 ### Improved (compose healthcheck・Prometheus スクレイプ設定監査 — 変更不要を確認)
 
 - `depends_on` は list 形式（起動順序のみ）で不整合なし。healthcheck 未設定は妥当 — aspnet ランタイムイメージに curl/wget がなくシェルヘルスチェック不可、k8s プローブが実環境の健全性ゲートを担う
