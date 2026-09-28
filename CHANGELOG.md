@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (private メソッド・フィールドの死コード監査 — 全階層で孤立ゼロを確認)
+
+- private メソッド107件・private フィールド146件をファイル内出現数で精査 — 宣言のみの孤立はゼロ
+- public/internal/private 全階層で死コード監査が完了（ServicePaths・環境変数ヘルパー・`DetectRecentPattern` が最後の残骸だった）
+
 ### Improved (TODO/FIXME ゼロ・ダッシュボード委譲ハンドラ整合監査 — 終了条件確認)
 
 - TODO/FIXME/HACK/XXX コメントが src/tools/wwwroot 全体でゼロ（リリース終了条件を満たす）
