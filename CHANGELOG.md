@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (品質アンチパターン一括監査 — 変更不要を確認)
+
+- `async void`・空 catch・`DateTime.Now`・`Console.WriteLine` 全てゼロ — 42箇所の catch は全て意図的なサンプラーフォールバック（「poll を失敗させずゼロを報告」は監視エージェントとして正しい設計）か説明コメント付き
+- SignalR 配線の双方向照合: クライアント `invoke('SubscribeToAlerts')` ↔ Hub メソッド・サーバ `SendAsync("Alert"/"SystemHealthUpdate")` ↔ クライアント `.on()`・`alerts-{type}`/`system-monitors` グループ名一致を確認
+- `BroadcastAlertAsync` は fire-and-forget 呼出しでも SendAsync 失敗が unobserved exception にならない設計（catch+LogWarning）
+
 ### Improved (オプション検証網羅監査 — 変更不要を確認)
 
 - 全6オプションクラス（Collaboration・Memory・PerformanceOptimizer・EventCorrelation・Compliance・RemediationPolicy）が `ValidateOnStart()` 登録済み — DataAnnotations 3件は `ValidateDataAnnotations()` あり、ラムダ検証3件は実制約を網羅（MaxConcurrentUsers>0・ReportIntervalHours 1-1193・相関パラメータ）
