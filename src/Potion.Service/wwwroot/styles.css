@@ -1,5 +1,15 @@
 /* Atlassian Design System Inspired Styles */
 
+/* Self-hosted Inter variable font — keeps the dashboard fully first-party
+   (no Google Fonts request) so font-src can stay 'self'. */
+@font-face {
+    font-family: 'Inter';
+    src: url('fonts/InterVariable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* Color Palette */
 :root {
     --primary-blue: #0052CC;

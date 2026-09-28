@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Security (Google Fonts をセルフホスト化 — 外部リクエストと CSP 例外を排除)
+
+- ダッシュボードが `fonts.googleapis.com`/`fonts.gstatic.com` へ外部リクエスト — SRI 不可の動的 CSS（UA で変化）でサプライチェーン面が残り、クライアント IP が Google へ漏洩していた
+- Inter バリアブルフォント（352KB・woff2）を `wwwroot/fonts/` に vendored + `@font-face`（weight 100-900・`font-display: swap`）を styles.css に定義し Google Fonts リンクを除去
+- CSP から `fonts.googleapis.com`（style-src）と `fonts.gstatic.com`（font-src）を除去 — 外部許可は SRI 済み FontAwesome の cdnjs のみに縮小
+- 検証： 実機起動で `fonts/InterVariable.woff2` 200・CSP ヘッダ反映確認・321/321 テスト全パス
+
 ### Improved (webhook 入力面・文字列文化・ファイル I/O の監査)
 
 - 監査クリア（変更不要）: webhook POST は 1MB ボディ上限（Kestrel `MaxRequestBodySize`）+ `JsonDocument.ParseAsync` ストリーミング解析 + malformed → 400 + 60/分レート制限
