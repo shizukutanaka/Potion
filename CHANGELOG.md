@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (ドキュメント・設定のドリフト監査 + 死 Activity ファクトリ)
+
+- **ドリフト監査（変更なし確認）**：README/CONTRIBUTING/Dockerfile/docker-compose/k8s/monitoring/scripts/setup 全域で削除済み資産（Resources・helm・kubernetes-enterprise・ErrorHandler 等）への参照ゼロを確認 — `monitoring/rules.yml` の5アラート（`potion_system_*`）は全て実エミットメトリクスと一致、prometheus/alertmanager/WiX/install.cmd も実態と整合
+- `.dockerignore` の `helm/`・`kubernetes-enterprise.yml` 行を除去（削除済みパスへの no-op 参照）
+- `PotionActivitySource.StartDiagnosticActivity`：呼出し元ゼロの死 Activity ファクトリを除去（他3ファクトリは実使用中）
+- 検証： 299/299 テスト全パス・ビルド0警告
+
 ### Removed (未注入の死インターフェース4件を除去)
 
 - `IMemoryMonitor`・`IPerformanceOptimizer`・`IAnomalyDetector`・`IAutoRecoveryManager`：DI 解決・注入・Mock 化されるコードが皆無（実型をそのまま登録・消費）のため除去 — クラスは実型のまま継続稼働
