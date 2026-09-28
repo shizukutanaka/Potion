@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Removed (死 CSS `.banner` ブロック削除 — CSS クラス逆方向監査)
+
+- styles.css の全208クラス・全 `#id` セレクタを index.html/dashboard.js への参照で逆照合 — `.banner`（+`.banner.success/.error/.info/.banner .btn` の34行ブロック）のみ未参照で削除
+- JS 付与の状態クラス15件（compact-mode・no-tooltips・dark-theme 等）は全て CSS ルール実在を確認（`light-theme` は「light=既定」設計で意図的にルールなし）
+
 ### Fixed (Advanced Filters の収集値を実フィルタへ接続 — severity チェック・コンポーネント・期間が無視されていた)
 
 - `applyAdvancedFilters` が severity/timeRange/component を収集しながら severity しか適用していなかった → `filterAlerts` が3条件を全て適用（severity 複数選択の allowlist・コンポーネント名部分一致・1h/24h/7d/30d の期間 bound）

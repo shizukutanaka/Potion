@@ -1193,40 +1193,6 @@ body.no-tooltips .tooltip:hover .tooltip-content {
     border-color: var(--primary-blue);
 }
 
-/* Banner Notifications */
-.banner {
-    background: var(--warning-yellow);
-    color: #5f3811;
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--gray-200);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.banner.success {
-    background: var(--accent-green);
-    color: #094c33;
-}
-
-.banner.error {
-    background: var(--error-red);
-    color: white;
-}
-
-.banner.info {
-    background: var(--info-blue);
-    color: #005f82;
-}
-
-.banner .btn {
-    font-size: 12px;
-    padding: var(--space-2) var(--space-3);
-}
-
 /* Tabs */
 .tabs {
     display: flex;
