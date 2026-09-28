@@ -187,4 +187,61 @@ public sealed class RemediationPolicyValidatorsTests
         Assert.Contains("empty", ex.Message);
         Assert.Contains("day of week", ex.Message, System.StringComparison.OrdinalIgnoreCase);
     }
+
+    [Fact]
+    public void ArgumentsAreSafe_AcceptsBenignArguments()
+    {
+        var options = new RemediationPolicyOptions
+        {
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "a", Command = "sfc.exe", Arguments = "/scannow", Enabled = true }
+            }
+        };
+        Assert.True(RemediationPolicyOptionsValidators.ArgumentsAreSafe(options));
+    }
+
+    [Fact]
+    public void ArgumentsAreSafe_IgnoresDisabledTasks()
+    {
+        var options = new RemediationPolicyOptions
+        {
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "a", Command = "net.exe", Arguments = "user \" /add", Enabled = false }
+            }
+        };
+        Assert.True(RemediationPolicyOptionsValidators.ArgumentsAreSafe(options));
+    }
+
+    [Fact]
+    public void ArgumentsAreSafe_RejectsQuoteSmugglingAndControlChars()
+    {
+        var options = new RemediationPolicyOptions
+        {
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "a", Command = "net.exe", Arguments = "user \" /add", Enabled = true },
+                new() { Name = "b", Command = "sfc.exe", Arguments = "/scannow\nx", Enabled = true }
+            }
+        };
+        var ex = Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+            () => RemediationPolicyOptionsValidators.ArgumentsAreSafe(options));
+        Assert.Contains("a", ex.Message);
+        Assert.Contains("b", ex.Message);
+    }
+
+    [Fact]
+    public void ArgumentsAreSafe_RejectsOversizedArguments()
+    {
+        var options = new RemediationPolicyOptions
+        {
+            Tasks = new List<RemediationTaskOption>
+            {
+                new() { Name = "a", Command = "sfc.exe", Arguments = new string('a', 2049), Enabled = true }
+            }
+        };
+        Assert.Throws<System.ComponentModel.DataAnnotations.ValidationException>(
+            () => RemediationPolicyOptionsValidators.ArgumentsAreSafe(options));
+    }
 }

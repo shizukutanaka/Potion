@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Security (引数検証を設定レイヤに反映 — 起動時 fail-fast)
+
+- `RemediationPolicyOptionsValidators.ArgumentsAreSafe` を追加し `ValidateOnStart()` に登録 — 実行時ガードと同一ルール（`"`・制御文字・2048文字超過）を起動時に検証、不正なポリシーが実行時エラーではなくブート失敗で検出される
+- Disabled タスクはスキップ（無効な設定に誤検知しない）
+- テスト +4件（正常引数・Disabled 除外・クォート/制御文字・サイズ超過）
+- 検証： 308/308 テスト全パス・ビルド0警告
+
 ### Security (修復コマンド引数の検証を追加 — コマンドラインスマグリング防止)
 
 - `EnsureCommandIsAllowed` は `option.Command` のみ検証し、`option.Arguments` は `ProcessStartInfo.Arguments` へ無検証で流れていた — 引数内の `"` や制御文字がクォートを破壊し、許可リスト済みバイナリへ任意引数を注入可能だった（例: 許可済み `net.exe` に `" /add` で脱線）

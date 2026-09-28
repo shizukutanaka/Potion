@@ -129,6 +129,7 @@ public class Startup
                 .ValidateDataAnnotations()
                 .Validate(RemediationPolicyOptionsValidators.HasUniqueTaskNames, "Remediation policy contains duplicate task names.")
                 .Validate(RemediationPolicyOptionsValidators.CommandsAreAllowlisted, "Remediation policy references commands outside the allowlist.")
+                .Validate(RemediationPolicyOptionsValidators.ArgumentsAreSafe, "Remediation policy contains unsafe task arguments.")
                 .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowsAreValid, "Remediation policy contains invalid maintenance windows.")
                 .ValidateOnStart();
             services.AddSingleton<IProcessRunner, ProcessRunner>();

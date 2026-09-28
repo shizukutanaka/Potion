@@ -152,6 +152,27 @@ public static class RemediationPolicyOptionsValidators
         return true;
     }
 
+    public static bool ArgumentsAreSafe(RemediationPolicyOptions options)
+    {
+        // Same rule as CommandValidator.EnsureArgumentsAreAllowed — validated at
+        // startup so a bad policy fails boot instead of failing per-execution.
+        var unsafeTasks = options.Tasks
+            .Where(task => task.Enabled && !string.IsNullOrEmpty(task.Arguments) &&
+                (task.Arguments.Length > 2048 ||
+                 task.Arguments.IndexOf('"') >= 0 ||
+                 task.Arguments.Any(char.IsControl)))
+            .Select(task => task.Name)
+            .ToList();
+
+        if (unsafeTasks.Any())
+        {
+            throw new ValidationException(
+                $"The following tasks contain unsafe arguments (quote/control characters or > 2048 chars): {string.Join(", ", unsafeTasks)}");
+        }
+
+        return true;
+    }
+
     public static bool MaintenanceWindowsAreValid(RemediationPolicyOptions options)
     {
         if (options.MaintenanceWindows.Count == 0)
