@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Improved (appsettings.Production.json オーバーレイ整合監査 — 変更不要を確認)
+
+- セクション・キーとも base のサブセット（欠落セクションはオーバーレイ継承で正当、未知キーゼロ）— 全4環境（base/Dev/Prod/Container）で appsettings↔バインド整合が確認済み
+
 ### Improved (alertmanager.yml ルーティング・webhook 宛先整合監査 — 変更不要を確認)
 
 - webhook `http://potion-service:80/api/health/alerts/webhook` → `MapPost` 登録と一致・route の receiver 名は定義済み
