@@ -8,6 +8,13 @@
 - 判明: PR #38–#54 は closed-未マージ（#55/#56 統合PRに集約済み）のためブランチは保持 — 削除はマージ済みのみに限定
 - 残り: 統合済み closed-未マージ17本 + chore/hygiene ブランチ3本 + 旧 tray-self-healing + 現行ブランチ — リモート57→24本
 
+### Improved (リモートブランチ棚卸し続報 — stale 21本を削除し main+現行+1本のみに)
+
+- closed-未マージのスタックブランチ16本（#38–#54）：内容は統合PR #55/#56 と本PR(#60)に集約済みを確認（コミット件名の main 履歴突合 + 対象ファイルの main 存在確認）— GitHub の `refs/pull/N` で参照保持されるため削除しても履歴は残存
+- chore/dependabot-automerge + hygiene-* 3本：main への祖先で未マージコミットゼロ — 削除
+- `devin/1788274082-tray-self-healing` は**保持**：未マージコミット20件・対応PRなし（削除すると作業が孤立する）— 要ユーザー判断（マージ/破棄/PR化）
+- リモートブランチ 57→3本（main・現行・tray-self-healing）
+
 ### Security (コマンド別引数許可リスト — 許可済みバイナリの任意引数を遮断)
 
 - 文字レベル検証（`"`・制御文字拒否）だけでは、許可済み `net.exe` に `user badguy /add` のような合法だが悪意ある引数が通過していた — `CommandArgumentAllowlist`（`Dictionary<string, List<string>>`）を追加し、マップに列挙されたコマンドはリスト内の引数文字列との完全一致のみ許可
