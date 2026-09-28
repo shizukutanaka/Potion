@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Improved (分散トレース・設定レイヤ・UI ID の実配線監査 — 変更不要を確認)
+
+- `PotionActivitySource.Source` は `AddOpenTelemetry().WithTracing().AddSource("Potion.Service")` に登録済みで DI singleton として dispose 管理 — 3つの `Start*Activity` 呼出し（修復タスク・セルフヒーリング・ヘルスチェック）は全て実稼働
+- `appsettings.Container.json` は `ASPNETCORE_ENVIRONMENT=Container` で自動読込 + docker-compose で正しくマウント — Development/Production/Container 3層ともバインド対象セクションと整合
+- index.html 全84要素 ID を照合 — `${x}-section`/`${x}-tab` 動的参照と `data-onchange`/`data-onkeyup` アクションキー経由で全て到達可能、死 ID ゼロ
+- 検証： 変更なし（監査のみ）・299/299 テスト全パス維持
+
 ### Removed (バインド済み・未読取りオプション2件を除去)
 
 - `MemoryMonitorOptions.LeakDetectionThresholdMb`・`MaxOptimizationAttempts`：設定ファイルにキーがあり DI バインドされるが**読み取るコードが一切存在しない**（リーク検知・最適化回数カウント機能は既に撤去済み）— プロパティと appsettings.json のキーを除去
