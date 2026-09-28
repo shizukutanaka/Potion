@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (dashboard の死メソッド・死モーダル・死 CSS を除去)
+
+- 呼出し経路ゼロのクラスメソッド9件を除去：`showModal`（唯一の呼出し元が死メソッド）・`showSettingsModal`・**`saveSettings`（同名メソッドが2つ定義されておりクラス定義上は後者に黙って上書きされていた＝到達不能かつ自己再帰バグを内包）**・`toggleAutoRefresh`・`showFileUpload`・`showProgressModal`・`closeProgressModal`・`updateProgress`・`playNotificationSound`（計166行）
+- 死メソッドのみが操作していた `#progress-modal` モーダル HTML（39行）と、その内部でのみ使われていた CSS 31ルール（progress-tracker/stage/dot/message 等）を除去 — `progress-bar`/`progress-fill` は稼働中のメトリクスバーで使用中のため保持
+- 検証： `node --check` 構文OK・実起動でダッシュボード200・配信ファイルに死コード残留ゼロ・299/299 テスト全パス・ビルド0警告
+
 ### Removed (PotionEventSource の未発火 ETW イベント27件を除去)
 
 - 33イベントメソッド中、実際に呼び出されるのは6件のみ（`RemediationTaskStarted/Completed/Failed`・`CircuitBreakerStateChanged`・`RetryAttempt`・`PerformanceAlert`）— 残り27件（`SelfHealing*`・`Rollback*`・`Security*`・`Maintenance*`・`Diagnostic*` 等）は発火経路ゼロで除去（343→約110行）

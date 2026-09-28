@@ -230,35 +230,6 @@ class PotionDashboard {
         });
     }
 
-    showModal(content, options = {}) {
-        const modalId = `modal-${Date.now()}`;
-        const modalHTML = `
-            <div class="modal-overlay active" id="${modalId}">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h3 class="modal-title">${options.title || 'Modal'}</h3>
-                        <button class="modal-close" data-action="close-modal" data-arg="${modalId}">&times;</button>
-                    </div>
-                    <div class="modal-body">
-                        ${content}
-                    </div>
-                    ${options.footer ? `<div class="modal-footer">${options.footer}</div>` : ''}
-                </div>
-            </div>
-        `;
-
-        document.body.insertAdjacentHTML('beforeend', modalHTML);
-        this.modalStack.push(modalId);
-
-        // Focus management
-        const modal = document.getElementById(modalId);
-        const focusableElements = modal.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-        if (focusableElements.length > 0) {
-            focusableElements[0].focus();
-        }
-
-        return modalId;
-    }
 
     closeModal(modalId) {
         const modal = document.getElementById(modalId);
@@ -372,69 +343,7 @@ class PotionDashboard {
         }
     }
 
-    showSettingsModal() {
-        const content = `
-            <div class="form-group">
-                <label class="form-label">Refresh Interval (seconds)</label>
-                <input type="number" class="form-input" id="refresh-interval" value="${this.refreshInterval / 1000}" min="5" max="300">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Theme</label>
-                <select class="form-input" id="theme-select">
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                    <option value="auto">Auto</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label class="form-label">
-                    <input type="checkbox" id="auto-refresh-toggle" checked> Enable Auto-refresh
-                </label>
-            </div>
-        `;
 
-        const footer = `
-            <button class="btn btn-secondary" data-action="close-top-modal">Cancel</button>
-            <button class="btn btn-primary" data-action="dash-save-settings">Save Settings</button>
-        `;
-
-        this.showModal(content, {
-            title: 'Dashboard Settings',
-            footer: footer
-        });
-    }
-
-    saveSettings() {
-        const refreshInterval = parseInt(document.getElementById('refresh-interval').value) * 1000;
-        const theme = document.getElementById('theme-select').value;
-        const autoRefresh = document.getElementById('auto-refresh-toggle').checked;
-
-        // Update settings
-        this.refreshInterval = refreshInterval;
-
-        // Apply theme
-        this.applyTheme(theme);
-
-        // Update auto-refresh — restart the timer so a changed interval
-        // applies immediately (the previous code only started one when it
-        // was absent, so interval changes silently waited for a reload).
-        if (autoRefresh) {
-            if (this.autoRefreshTimer) {
-                clearInterval(this.autoRefreshTimer);
-            }
-            this.startAutoRefresh();
-        } else if (this.autoRefreshTimer) {
-            clearInterval(this.autoRefreshTimer);
-            this.autoRefreshTimer = null;
-        }
-
-        // Persist so the choices survive a reload.
-        const stored = this.getStoredSettings();
-        this.saveSettings({ ...stored, theme, autoRefresh, refreshIntervalMs: refreshInterval });
-
-        this.closeTopModal();
-        this.showNotification('Settings saved successfully', 'success');
-    }
 
     applyTheme(theme) {
         this.theme = theme;
@@ -451,16 +360,6 @@ class PotionDashboard {
         // light theme is default
     }
 
-    toggleAutoRefresh() {
-        if (this.autoRefreshTimer) {
-            clearInterval(this.autoRefreshTimer);
-            this.autoRefreshTimer = null;
-            this.showNotification('Auto-refresh disabled', 'info');
-        } else {
-            this.startAutoRefresh();
-            this.showNotification('Auto-refresh enabled', 'success');
-        }
-    }
 
     // Advanced Settings Modal
     openAdvancedSettingsModal() {
@@ -591,11 +490,6 @@ class PotionDashboard {
         this.showNotification('Settings reset to defaults', 'info');
     }
 
-    // File Upload Functionality
-    showFileUpload() {
-        const uploadZone = document.getElementById('file-upload-zone');
-        uploadZone.style.display = 'flex';
-    }
 
     hideFileUpload() {
         const uploadZone = document.getElementById('file-upload-zone');
@@ -617,46 +511,8 @@ class PotionDashboard {
         }
     }
 
-    // Progress Modal Functionality
-    showProgressModal(title, initialMessage) {
-        const modal = document.getElementById('progress-modal');
-        document.getElementById('progress-title').textContent = title;
-        document.getElementById('progress-message').textContent = initialMessage;
-        this.updateProgress(0, initialMessage);
-        modal.style.display = 'flex';
-        modal.classList.add('active');
-    }
 
-    closeProgressModal() {
-        const modal = document.getElementById('progress-modal');
-        modal.classList.remove('active');
-        setTimeout(() => {
-            modal.style.display = 'none';
-        }, 300);
-    }
 
-    updateProgress(percentage, message) {
-        const fill = document.getElementById('progress-fill');
-        const percentageEl = document.getElementById('progress-percentage');
-        const messageEl = document.getElementById('progress-message');
-
-        fill.style.width = `${percentage}%`;
-        percentageEl.textContent = `${Math.round(percentage)}%`;
-        messageEl.textContent = message;
-
-        // Update progress stages
-        const stages = [25, 50, 75, 100];
-        stages.forEach((stage, index) => {
-            const dot = document.querySelector(`[data-step="${index + 1}"]`);
-            if (percentage >= stage) {
-                dot.classList.remove('active');
-                dot.classList.add('completed');
-            } else if (percentage >= stage - 10) {
-                dot.classList.add('active');
-                dot.classList.remove('completed');
-            }
-        });
-    }
 
     // Help and Documentation
     showHelp() {
@@ -912,28 +768,6 @@ class PotionDashboard {
         this.clearSearchResults();
     }
 
-    playNotificationSound() {
-        // Create a simple beep sound using Web Audio API
-        try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-
-            oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
-            oscillator.frequency.setValueAtTime(600, audioContext.currentTime + 0.1);
-
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
-
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.3);
-        } catch (error) {
-            console.warn('Could not play notification sound:', error);
-        }
-    }
 
     // Reflect the backend reachability in the header status pill.
     setConnectionStatus(connected) {
