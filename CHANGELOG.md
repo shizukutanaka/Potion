@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (API エンドポイント監査 — 変更不要を確認)
+
+- GET 5件は全て読み取り専用で DI 経由の `ISystemHealthMonitor` スナップショットを返すのみ（ミューテーションなし）
+- 唯一の POST `/api/health/alerts/webhook`: malformed JSON → 400・`"webhook"` 固定窓レートリミット（60/分）登録済み + `UseRateLimiter()` がパイプライン内・ペイロードは列挙+ログのみで状態変更なし
+- セキュリティヘッダミドルウェア（nosniff/DENY/no-referrer/CSP）はルーティング前の `app.Use` で全レスポンスに適用 — `/api/*`・`/metrics` も対象
+
 ### Improved (品質アンチパターン一括監査 — 変更不要を確認)
 
 - `async void`・空 catch・`DateTime.Now`・`Console.WriteLine` 全てゼロ — 42箇所の catch は全て意図的なサンプラーフォールバック（「poll を失敗させずゼロを報告」は監視エージェントとして正しい設計）か説明コメント付き
