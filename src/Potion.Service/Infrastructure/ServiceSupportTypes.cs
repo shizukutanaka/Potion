@@ -68,6 +68,8 @@ public interface ICommandValidator
 {
     string EnsureCommandIsAllowed(string command);
 
+    void EnsureArgumentsAreAllowed(string command, string? arguments);
+
     IReadOnlyCollection<string> GetCurrentAllowlist();
 }
 
@@ -123,6 +125,27 @@ public sealed class CommandValidator : ICommandValidator
         }
 
         return command;
+    }
+
+    public void EnsureArgumentsAreAllowed(string command, string? arguments)
+    {
+        if (string.IsNullOrEmpty(arguments))
+        {
+            return;
+        }
+
+        // Arguments land verbatim on the spawned command line; a double-quote or
+        // control character can break quoting and smuggle extra arguments into
+        // an allowlisted binary (e.g. `net.exe` -> net user /add).
+        if (arguments.Length > 2048)
+        {
+            throw new ArgumentException("Arguments exceed the maximum length of 2048 characters.", nameof(arguments));
+        }
+        if (arguments.IndexOf('"') >= 0 || arguments.Any(char.IsControl))
+        {
+            _logger.LogWarning("Blocked arguments containing quote/control characters for command {Command}", command);
+            throw new InvalidOperationException("Arguments contain characters that could alter the spawned command line.");
+        }
     }
 
     public IReadOnlyCollection<string> GetCurrentAllowlist()

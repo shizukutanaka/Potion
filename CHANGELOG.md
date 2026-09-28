@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Security (修復コマンド引数の検証を追加 — コマンドラインスマグリング防止)
+
+- `EnsureCommandIsAllowed` は `option.Command` のみ検証し、`option.Arguments` は `ProcessStartInfo.Arguments` へ無検証で流れていた — 引数内の `"` や制御文字がクォートを破壊し、許可リスト済みバイナリへ任意引数を注入可能だった（例: 許可済み `net.exe` に `" /add` で脱線）
+- `ICommandValidator.EnsureArgumentsAreAllowed` を追加： `"`・制御文字（\n・\t・NUL 等）を拒否 + 2048文字上限 — `RemediationTaskExecutor` で実行前に呼出し
+- テスト +5件（正常引数・null/空・ダブルクォート注入・制御文字・サイズ超過）
+- 検証： 304/304 テスト全パス・ビルド0警告
+
 ### Improved (分散トレース・設定レイヤ・UI ID の実配線監査 — 変更不要を確認)
 
 - `PotionActivitySource.Source` は `AddOpenTelemetry().WithTracing().AddSource("Potion.Service")` に登録済みで DI singleton として dispose 管理 — 3つの `Start*Activity` 呼出し（修復タスク・セルフヒーリング・ヘルスチェック）は全て実稼働

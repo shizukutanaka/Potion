@@ -47,6 +47,7 @@ public sealed class RemediationTaskExecutor : IRemediationTaskExecutor
         var startUtc = DateTimeOffset.UtcNow;
 
         _commandValidator.EnsureCommandIsAllowed(option.Command);
+        _commandValidator.EnsureArgumentsAreAllowed(option.Command, option.Arguments);
         using var activity = PotionActivitySource.StartRemediationActivity(option.Name);
         _logger.LogInformation("Executing remediation task: {TaskName}", option.Name);
 

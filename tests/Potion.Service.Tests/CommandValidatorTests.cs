@@ -108,4 +108,45 @@ public class CommandValidatorTests
         };
         Assert.True(RemediationPolicyOptionsValidators.CommandsAreAllowlisted(options));
     }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_AcceptsBenignArguments()
+    {
+        var validator = CreateValidator(new[] { "sfc.exe" });
+        validator.EnsureArgumentsAreAllowed("sfc.exe", "/scannow /offbootdir=C:\\");
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_AcceptsNullAndEmpty()
+    {
+        var validator = CreateValidator(new[] { "sfc.exe" });
+        validator.EnsureArgumentsAreAllowed("sfc.exe", null);
+        validator.EnsureArgumentsAreAllowed("sfc.exe", "");
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_RejectsDoubleQuoteSmuggling()
+    {
+        var validator = CreateValidator(new[] { "net.exe" });
+        Assert.Throws<InvalidOperationException>(() =>
+            validator.EnsureArgumentsAreAllowed("net.exe", "user \" /add"));
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_RejectsControlCharacters()
+    {
+        var validator = CreateValidator(new[] { "sfc.exe" });
+        Assert.Throws<InvalidOperationException>(() =>
+            validator.EnsureArgumentsAreAllowed("sfc.exe", "/scannow\nmalicious"));
+        Assert.Throws<InvalidOperationException>(() =>
+            validator.EnsureArgumentsAreAllowed("sfc.exe", "/scannow\tmalicious"));
+    }
+
+    [Fact]
+    public void EnsureArgumentsAreAllowed_RejectsOversizedArguments()
+    {
+        var validator = CreateValidator(new[] { "sfc.exe" });
+        Assert.Throws<ArgumentException>(() =>
+            validator.EnsureArgumentsAreAllowed("sfc.exe", new string('a', 2049)));
+    }
 }
