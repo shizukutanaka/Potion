@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (scripts/ の全スクリプトを実機検証 — 不整合ゼロ)
+
+- `scripts/validate-system.sh` を稼働中サービスに対し実行：9エンドポイント全て PASS（`/health`・`/api/health`×3・`/metrics`・`/`・webhook 405・SignalR negotiate POST 200）— スクリプトの検査対象が実ルートと完全一致
+- `deploy.sh`（kubectl apply + port-forward スモーク）・3つの PowerShell スクリプト（build-release/deploy-windows/package-installer）を監査：削除済み機能への参照なし・k8s 対象は実在の `deployment.yaml` のみ — コード変更なし
+
 ### Security (CSP 完全厳格化 — style-src の unsafe-inline も除去)
 
 - 残存11箇所のインライン `style=` 属性（進捗バー初期幅・非表示要素・ポリシー更新表示）を `u-hidden`/`u-w0`/`u-w45`/`policy-updated` ユーティリティクラスへ移行 — JS の `el.style.*` プロパティ代入は CSP の対象外のため動的更新は継続動作
