@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (TODO/FIXME ゼロ・ダッシュボード委譲ハンドラ整合監査 — 終了条件確認)
+
+- TODO/FIXME/HACK/XXX コメントが src/tools/wwwroot 全体でゼロ（リリース終了条件を満たす）
+- index.html の `data-onchange`/`data-onkeyup` ハンドラ4件・`data-action` 24件が全て dashboard.js の委譲マップに実装済み（過去バグ系の未接続ハンドラなしを確認）
+
 ### Removed (残存の死メソッド `DetectRecentPattern` を削除)
 
 - `AnomalyDetector.DetectRecentPattern` — 宣言のみで本番・テスト両方に呼出しゼロ（ファイル内出現1回の完全な死コード）。同種の監査で残った唯一の孤立メソッド
