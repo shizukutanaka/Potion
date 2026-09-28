@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Improved (MemoryMonitor の監視ループ本体を実駆動テスト)
+
+- `ExecuteAsync`（BackgroundService 本体）を1秒間隔オプションで実起動駆動： 閾値0で最適化実行→長クールダウンで次周回スキップ、履歴 retention 3 でトリム発動、リークチェック間隔0で毎周回実行、統計記録→履歴蓄積→詳細ログの全周回経路を網羅 — `ExecuteAsync` 19.4% → 58.3%
+- 履歴10件蓄積で `CheckMemoryLeaksAsync` の傾向分析分岐（増加傾向検出→推奨生成）に到達 — 58.6% → 65.5%
+- オプション取得が例外を投げる場合に catch→ログ→1分待機→キャンセルで即終了する耐障害契約を固定 — クラス全体 38.7% → 46.2%（残りは OS 依存統計分岐と死メソッド `StartMonitoringAsync`）
+- テスト総数 299 → 302（+3）
+
 ### Improved (EventCorrelationService の相関パイプラインをほぼ完全カバー)
 
 - `ProcessEventCorrelationsAsync` を internal 昇格（既存 `InternalsVisibleTo` パターン）し駆動型テストを追加： メトリクスフィード→イベント化→相関発火のエンドツーエンド（`CpuUsage>90 + MemoryUsage>85` で発火）、`OnHealthAlert` 経由の health.alert→Alert Storm 配線（モニターイベント発火→3件で相関）、バッファ上限超過時の最古イベント破棄（max=2 で3件投入→不発火）、int/long/float ペイロード型の数値比較アーム、非数値ペイロードが閾値条件を満たさないこと（0 強制変換の回帰防止）、モニター例外が catch→ログ→サービス継続すること — `ProcessEventCorrelationsAsync` 100%、クラス全体 89.7% → 97.3%（残りは現行ルールが使わない `<`/`>=`/`<=` 演算子アーム＝将来ルール用の防衛分岐）

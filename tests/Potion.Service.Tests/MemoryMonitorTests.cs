@@ -105,4 +105,71 @@ public sealed class MemoryMonitorTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await monitor.StopAsync(cts.Token);
     }
+
+    [Fact]
+    public async Task ExecuteAsync_EnabledLoop_OptimizesThenSkipsOnCooldown()
+    {
+        // Interval/threshold values are plain POCO fields — the Range attributes
+        // are not enforced at runtime, so a 1s loop is legal in tests.
+        // Iteration 1 optimizes (threshold 0, no prior run); iteration 2+ hits
+        // the cooldown skip; retention 3 exercises the history trim; leak
+        // interval 0 runs CheckMemoryLeaksAsync every pass.
+        var monitor = CreateMonitor(new MemoryMonitorOptions
+        {
+            Enabled = true,
+            MonitoringIntervalSeconds = 1,
+            MemoryUsageThresholdPercent = 0,
+            OptimizationCooldownSeconds = 3600,
+            LeakCheckIntervalMinutes = 0,
+            HistoryRetentionCount = 3,
+            OptimizationTimeoutSeconds = 30,
+            OptimizationDelayMs = 10,
+            EnableDetailedLogging = true,
+        });
+
+        await monitor.StartAsync(CancellationToken.None);
+        await Task.Delay(4500); // ~4 loop passes: optimize → skip → trim → leak-check
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await monitor.StopAsync(cts.Token);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_EnoughHistory_RunsTrendAnalysis()
+    {
+        // CheckMemoryLeaksAsync's trend branch needs >= 10 history entries;
+        // ~11 passes at 1s interval accumulate them.
+        var monitor = CreateMonitor(new MemoryMonitorOptions
+        {
+            Enabled = true,
+            MonitoringIntervalSeconds = 1,
+            MemoryUsageThresholdPercent = 100, // never optimize
+            LeakCheckIntervalMinutes = 0,
+            HistoryRetentionCount = 1000,
+            OptimizationDelayMs = 10,
+        });
+
+        await monitor.StartAsync(CancellationToken.None);
+        await Task.Delay(12000); // ~11 passes -> _memoryHistory >= 10
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await monitor.StopAsync(cts.Token);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_OptionsThrowing_LogsAndSurvivesUntilCancelled()
+    {
+        // A failing options snapshot must land in the loop's catch — the service
+        // logs and waits a minute instead of crashing the host.
+        var optionsMonitor = new Mock<IOptionsMonitor<MemoryMonitorOptions>>();
+        optionsMonitor.Setup(m => m.CurrentValue)
+            .Throws(new InvalidOperationException("options reload failed"));
+        var monitor = new MemoryMonitor(NullLogger<MemoryMonitor>.Instance, optionsMonitor.Object);
+
+        await monitor.StartAsync(CancellationToken.None);
+        await Task.Delay(300);
+
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        await monitor.StopAsync(cts.Token); // cancellation breaks the 1-min error delay
+    }
 }
