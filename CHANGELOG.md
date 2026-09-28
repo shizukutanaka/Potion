@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (dashboard.js の全 fetch に response.ok チェックを統一)
+
+- `/api/health/security*`・`/api/health/metrics`・`/api/health`（ログ用）の4箇所が `.json()` をガードなしで呼んでおり、500/404 の HTML エラーページが不透明なパースエラーになっていた → 既存パターンと同じく `if (!response.ok) throw new Error(\`GET {path} -> {status}\`)` を追加し、原因が切り分け可能なエラーメッセージに統一
+- 実ブラウザで描画確認： Event Logs タブの空状態・System Healthy バッジともに正常（`node --check` 構文 OK）
+
 ### Improved (EnvironmentVariableHelper と ResiliencePipelines にテスト36件追加)
 
 - `EnvironmentVariableHelperTests.cs` 新規（24件）：env-var オーバーライド層の契約を固定 — 未設定・空白・パース不能・**非正数（0/負）のすべてが既定値へフォールバック**（`parsed > 0` の positive-only 意味論）、bool は true/false のみ受理（"1"/"yes" は既定値）、TimeSpan/int/long 同様

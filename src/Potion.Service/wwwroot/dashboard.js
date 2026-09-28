@@ -1112,6 +1112,14 @@ class PotionDashboard {
                 fetch(`${this.apiBaseUrl}/api/health/security/summary`),
                 fetch(`${this.apiBaseUrl}/api/health/security`)
             ]);
+            for (const [path, res] of [
+                ['/api/health/security/summary', summaryResponse],
+                ['/api/health/security', dashboardResponse]
+            ]) {
+                if (!res.ok) {
+                    throw new Error(`GET ${path} -> ${res.status}`);
+                }
+            }
 
             const summary = await summaryResponse.json();
             const dashboard = await dashboardResponse.json();
@@ -1183,6 +1191,9 @@ class PotionDashboard {
     async loadPerformanceData() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/health/metrics`);
+            if (!response.ok) {
+                throw new Error(`GET /api/health/metrics -> ${response.status}`);
+            }
             const metrics = await response.json();
 
             this.updatePerformanceMetrics(metrics);
@@ -1216,6 +1227,9 @@ class PotionDashboard {
         try {
             // Real event stream: health alerts raised by the monitor.
             const response = await fetch(`${this.apiBaseUrl}/api/health`);
+            if (!response.ok) {
+                throw new Error(`GET /api/health -> ${response.status}`);
+            }
             const data = await response.json();
             this.logsData = (data.alerts || []).map(a => ({
                 timestamp: new Date(a.timestamp),
@@ -1761,6 +1775,9 @@ class PotionDashboard {
     async updatePerformanceDrawer() {
         try {
             const response = await fetch(`${this.apiBaseUrl}/api/health/metrics`);
+            if (!response.ok) {
+                throw new Error(`GET /api/health/metrics -> ${response.status}`);
+            }
             const metrics = await response.json();
             this.renderPerformanceDrawer(metrics);
         } catch (error) {
