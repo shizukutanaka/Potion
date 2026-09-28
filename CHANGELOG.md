@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (設定フォーム6コントロールのラベル関連付け — スクリーンリーダーが名前を読まなかった)
+
+- `Dashboard Theme`・`Language`・`Refresh Interval`・`Data Retention`・`Items per page`・`Date Format` — 可視 `<label>` はあったが `for=` 未指定かつ input を包んでいないためプログラム的関連付けがなく、支援技術は無名コントロールとして読み上げていた
+- 正規の HTML 機構 `for=`+`id` で関連付け（aria-label より堅牢 — ラベルクリックでもフォーカス可能に）
+- 残りの34コントロールは `<label>` 内包か `aria-label` で名前付き（テーブルは `<th>` あり・`lang="ja"` 宣言済み）
+
 ### Improved (appsettings.Production.json オーバーレイ整合監査 — 変更不要を確認)
 
 - セクション・キーとも base のサブセット（欠落セクションはオーバーレイ継承で正当、未知キーゼロ）— 全4環境（base/Dev/Prod/Container）で appsettings↔バインド整合が確認済み
