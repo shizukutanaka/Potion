@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (csproj NuGet メタデータ監査 — 変更不要を確認)
+
+- 出荷成果物 `Potion.Service` は `PackageId`・`Description`・`PackageLicenseExpression MIT`・`Authors`・`Version 2.0.0` + `InformationalVersion 2.0.0-dev` を完備
+- `Potion.ConfigTool`/`Tests` は非配布 exe のためパッケージメタデータ不要 — 構成は妥当
+
 ### Improved (SignalR クライアント再接続設定監査 — 変更不要を確認)
 
 - `withAutomaticReconnect()`（既定バックオフ 0/2/10/30s）・`withUrl('/collaboration')` は `MapHub` と一致・5トピック購読
