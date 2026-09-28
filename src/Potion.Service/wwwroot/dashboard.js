@@ -66,11 +66,17 @@ class PotionDashboard {
         if (storedSettings.theme) {
             this.applyTheme(storedSettings.theme);
         }
-        if (Number.isFinite(storedSettings.refreshIntervalMs) && storedSettings.refreshIntervalMs > 0) {
-            this.refreshInterval = storedSettings.refreshIntervalMs;
+        if (Number.isFinite(storedSettings.refreshInterval) && storedSettings.refreshInterval > 0) {
+            this.refreshInterval = storedSettings.refreshInterval * 1000;
         }
         if (Number.isFinite(storedSettings.itemsPerPage) && storedSettings.itemsPerPage > 0) {
             this.pageSize = storedSettings.itemsPerPage;
+        }
+        if (storedSettings.compactMode === true) {
+            document.body.classList.add('compact-mode');
+        }
+        if (storedSettings.showTooltips === false) {
+            document.body.classList.add('no-tooltips');
         }
         if (storedSettings.autoRefresh !== false) {
             this.startAutoRefresh();

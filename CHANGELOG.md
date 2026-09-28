@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (localStorage 永続設定の死設定修正 — refreshInterval/compactMode/showTooltips が起動時に適用されなかった)
+
+- `refreshInterval` は秒で保存されるのに init が `refreshIntervalMs`（一度も書込まれないキー）を読んでいた — リロード毎にポーリング間隔が初期値へ戻る実バグ
+- `compactMode`・`showTooltips` も保存時のみ適用で起動時に復元されていなかった → body class を復元
+
 ### Improved (README エンドポイント記述↔実登録ルート双方向照合 — ドリフトなしを確認)
 
 - README 記載の全ルート（`/api/health`・`/metrics`・`/collaboration`・webhook 等）が実登録に存在・`/collaboration/negotiate` は SignalR サブプロトコルとして正当
