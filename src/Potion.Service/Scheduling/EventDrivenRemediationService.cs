@@ -184,7 +184,7 @@ public sealed class EventDrivenRemediationService : BackgroundService
                 "application/json"
             );
 
-            var response = await _httpClientFactory.CreateClient().PostAsync(webhookUrl, content);
+            var response = await _httpClientFactory.CreateClient().PostAsync(webhookUrl, content, _serviceStoppingToken);
             if (response.IsSuccessStatusCode)
             {
                 _logger.LogInformation("Webhookを正常に送信しました: {WebhookUrl}", webhookUrl);

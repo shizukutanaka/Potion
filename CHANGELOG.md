@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (イベント駆動 webhook も停止トークンを伝播 — 横展開監査で発見)
+
+- `SendWebhookAsync` の `PostAsync` がトークン未指定 — シャットダウン中も webhook が応答なし待機し得た → `_serviceStoppingToken` を伝播（サイクル379修正の兄弟経路）
+- `GetCurrentHealthAsync` の `CancellationToken.None` 2箇所は同期インメモリ読取りのため問題なし・`Task.Run` はブロッキングキュードレインの正当な用法
+
 ### Fixed (イベント駆動修復タスクがホスト停止トークンを無視していた問題を修正)
 
 - `EventDrivenRemediationService` が `CancellationToken.None` で修復を実行 — **シャットダウン中も in-flight の修復が止まらず、ホストの 30 秒ハードキルまで待機していた** → `ExecuteAsync` の `stoppingToken` をフィールドに保持して fire-and-forget 修復へ伝播（MS ガイダンス「トークン発火時に即座に完了」に準拠）
