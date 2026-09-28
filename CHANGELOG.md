@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (実行パスの cancellation 配線・タイマー上限記述の監査)
+
+- 監査クリア: プロセス実行は `ResilienceContext` の CT を `RunAsync` へ正しく伝播（パイプラインタイムアウトでプロセスツリーごと kill）・`new Timer` 残存ゼロ・`.Result`/`.Wait()` 同期ブロックゼロ
+- `Compliance:ReportIntervalHours` の上限1193時間は `System.Threading.Timer` 由来の記述だったが PeriodicTimer 化で不要に — オプションバリデーション上限として整合維持し、誤った根拠記述のみ修正（`StartAsync` ガードは `ValidateOnStart` をバイパスするテスト構築経路のため保持）
+
 ### Improved (周期タイマーを PeriodicTimer ベースへ置換 — 実行の直列化と失敗の可視化)
 
 - `EventCorrelationService`・`ComplianceReportService`・`AnomalyDetector`・`CollaborationService` の4箇所が `new Timer(_ => _ = work(), ...)` で fire-and-forget 実行 — **前回実行が未完了でも次回が重複起動し、コールバック内で捕捉漏れした例外は unobserved task exception として静かに消失**していた

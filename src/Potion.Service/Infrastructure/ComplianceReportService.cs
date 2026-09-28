@@ -51,14 +51,13 @@ public class ComplianceReportService : IHostedService, IDisposable
                 "Compliance:ReportIntervalHours must be a positive number of hours when compliance reporting is enabled.");
         }
 
-        // Timer periods cannot exceed 4294967294 ms (~1193 hours); a larger
-        // configured interval would crash this hosted service inside the
-        // Timer constructor rather than being reported as a config error.
-        // Compare the raw hours so huge values never reach TimeSpan.FromHours.
+        // Mirrors the ComplianceOptions validator (1-1193 hours): keep the
+        // bound here as well because tests construct the service directly,
+        // bypassing ValidateOnStart.
         if (_options.ReportIntervalHours > 1193)
         {
             throw new InvalidOperationException(
-                "Compliance:ReportIntervalHours cannot exceed 1193 hours (the maximum System.Threading.Timer period).");
+                "Compliance:ReportIntervalHours cannot exceed 1193 hours.");
         }
 
         _logger.LogInformation("Starting compliance report service with standards: {Standards}",

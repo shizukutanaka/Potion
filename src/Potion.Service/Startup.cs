@@ -115,7 +115,7 @@ public class Startup
         services.AddOptions<ComplianceOptions>()
             .Bind(Configuration.GetSection("Compliance"))
             .Validate(o => !o.Enabled || o.ReportIntervalHours is >= 1 and <= 1193,
-                "Compliance:ReportIntervalHours must be 1-1193 hours when enabled (1193 is the maximum System.Threading.Timer period).")
+                "Compliance:ReportIntervalHours must be 1-1193 hours when enabled.")
             .ValidateOnStart();
 
         // Repair-execution tier: these services run OS-level repairs
