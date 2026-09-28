@@ -338,8 +338,14 @@ class Program
                 return 1;
             }
 
-            // Refuse to overwrite live config with a corrupt backup.
-            JsonDocument.Parse(File.ReadAllText(backupPath)).Dispose();
+            // Refuse to overwrite live config with a backup that fails the same
+            // checks `validate` applies — a syntactically valid file can still
+            // break startup (empty allowlist, duplicate task names, etc.).
+            if (ValidateConfiguration(backupPath) != 0)
+            {
+                Console.WriteLine("✗ Backup failed validation; live configuration left untouched");
+                return 1;
+            }
 
             var destinationDir = Path.GetDirectoryName(configPath);
             if (!string.IsNullOrEmpty(destinationDir) && !Directory.Exists(destinationDir))

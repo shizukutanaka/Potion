@@ -986,13 +986,15 @@ class PotionDashboard {
 
         } catch (error) {
             // The badge must not keep reporting the last-known-good state
-            // while the API is unreachable — surface the disconnect.
+            // while the API is unreachable — surface the disconnect, then let
+            // refreshAllData flip the header via its rejection path.
             console.error('Failed to load overview data:', error);
             const statusEl = document.getElementById('overall-status');
             if (statusEl) {
                 statusEl.className = 'status-badge offline';
                 statusEl.textContent = 'Unreachable';
             }
+            throw error;
         }
     }
 

@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (API 不通時にヘッダーが健全表示し続ける問題)
+
+- `loadOverviewData` の catch がバッジを offline にしながら例外を握り潰していたため、`refreshAllData` 側の `setConnectionStatus(false)` が決して走らずヘッダーが「System Healthy」のままだった → バッジ更新後に例外を再送出し、Promise.all の拒否経路でヘッダーも切断表示へ
+
+### Security (restore が起動不能なバックアップを受け付ける問題)
+
+- ConfigTool の `restore` が JSON 構文のみ検証していたため、意味的に不正（空の CommandAllowlist・重複タスク名・許可外コマンド）なバックアップで live config を上書きできた → `ValidateConfiguration`（`validate` コマンドと同一規則）を事前ゲート化し、失敗時は live config を触らず中断。実機で不成立バックアップの拒否と正常バックアップの復元＋prerestore .bak 保存を確認
+
 ### Improved (修復ポリシーのバリデータへテスト追加)
 
 - `RemediationPolicyOptionsValidators` の3静的バリデータを全分岐で固定： タスク名重複は大小文字不問で `ValidationException`（重複名列挙）、空タスク集合は有効、`CommandAllowlist` 空は無効、無効化タスクはスキップ、**パス修飾コマンドは裸名エントリで許可されない**（CommandValidator と同一バイパス規則のリグレッション固定）、許可外コマンドは `タスク名: コマンド` 列挙で例外、保守ウィンドウは空=有効・タグ重複/不正時刻/空曜日で例外 — `RemediationPolicyOptions.cs` 59.7% → **100%**
