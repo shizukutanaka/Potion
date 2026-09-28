@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (SignalR ハブとフロントエンド↔API 対応を実機検証)
+
+- `/collaboration/negotiate` が実機で `connectionId`/`connectionToken` を発行し WebSockets/SSE/LongPolling 全3トランスポートを提供することを確認
+- ダッシュボード JS の全 fetch 呼出し（`/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary`）とマップ済みエンドポイントを突合 — ドリフトゼロ
+- コード変更なし（検証のみ）
+
 ### Improved (環境別設定のドリフト監査 — 不整合なし)
 
 - appsettings.{Development,Container,Production}.json の全セクションをベースと突合：レイヤリング継承・セクション整合・Sink/Enricher パッケージ参照（`Serilog.Sinks.EventLog`・`WithEnvironmentUserName`）・Kestrel↔Dockerfile EXPOSE↔compose ポートマッピングすべて一致を確認
