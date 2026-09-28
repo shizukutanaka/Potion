@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (セキュリティヘッダに Permissions-Policy と Report-Only CSP を追加)
+
+- `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()` — ダッシュボードはこれらのブラウザAPIを使わないため安全に無効化
+- `Content-Security-Policy-Report-Only` を追加（`default-src 'self'`＋実際の外部依存 cdnjs/googleapis/gstatic を許可、SignalR 用に `connect-src 'self' ws: wss:`）— 厳格 CSP はインライン `onclick`/`style` が39+11箇所あるため不可能（既存コメントで既知）だが、Report-Only で外部オリジンへの注入/読込みを可視化できる
+- 実機で両ヘッダの送出とページ 200 を確認
+
 ### Improved (README のドリフトを修正)
 
 - テスト数 204/204 → 305/305、許可リストの記述を実態（sfc/dism/cleanmgr/chkdsk/ngen/powercfg/netsh）に更新、設定セクション一覧に `Observability`（`OtlpEndpoint`）を追記

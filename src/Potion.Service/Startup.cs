@@ -263,14 +263,23 @@ public class Startup
             });
         });
 
-        // Browser-facing dashboard hardening. No CSP: the dashboard uses inline
+        // Browser-facing dashboard hardening. No enforced CSP: the dashboard uses inline
         // onclick/style attributes pervasively, so a useful policy is impossible
-        // without a markup refactor.
+        // without a markup refactor — a Report-Only policy still surfaces attempts
+        // to load resources from unexpected origins.
         app.Use(async (context, next) =>
         {
             context.Response.Headers["X-Content-Type-Options"] = "nosniff";
             context.Response.Headers["X-Frame-Options"] = "DENY";
             context.Response.Headers["Referrer-Policy"] = "no-referrer";
+            context.Response.Headers["Permissions-Policy"] =
+                "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+            context.Response.Headers["Content-Security-Policy-Report-Only"] =
+                "default-src 'self'; script-src 'self' 'unsafe-inline'; " +
+                "style-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
+                "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
+                "img-src 'self' data:; connect-src 'self' ws: wss:; " +
+                "object-src 'none'; base-uri 'self'";
             if (context.Request.IsHttps)
             {
                 context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000";
