@@ -277,7 +277,6 @@ public enum ActionType
 {
     ExecuteTask,
     SendWebhook,
-    LogAlert,
-    SendEmail
+    LogAlert
 }
 

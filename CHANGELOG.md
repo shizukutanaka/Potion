@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (死 public メンバー2件を除去)
+
+- `IMemoryMonitor.StartMonitoringAsync` + 実装：呼出し元ゼロで、実体は「監視ループは ExecuteAsync が既に実行中」のコメントどおり**ログを書くだけの no-op スタブ** — インターフェース契約と実装の双方から除去
+- `ActionType.SendEmail`：switch に対応 case がなく `default` の「未知のアクションタイプ」警告に落ちるだけの死 enum メンバー — 除去により無効設定は警告ではなくデシリアライズ失敗として検出されるように
+- 併せて検証： `EnvironmentVariableHelper` の5メソッドは全て実使用中（既報の「未使用4メソッド」候補は解消済み）
+- 検証： ビルド0警告・299/299 テスト全パス
+
 ### Removed (参照ゼロの死ファイル13件を除去)
 
 - `kubernetes-enterprise.yml`（439行）：`k8s/deployment.yaml` に取って代わられた旧エンタープライズ構成 — README/scripts/CI いずれからも未参照
