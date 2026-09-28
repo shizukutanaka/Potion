@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (アラートコンテナへ aria-live="polite" 付与 — JS 更新がスクリーンリーダーに通知されなかった)
+
+- `alerts-container` は JS が innerHTML で更新するが live リージョン未宣言で支援技術に新着アラートが届かなかった → `aria-live="polite"` で追加点読み上げに対応
+- ステータス数値（health-score 等の30秒更新カウンタ）は live 化せず（過剰発話を回避する設計）
+
 ### Fixed (設定フォーム6コントロールのラベル関連付け — スクリーンリーダーが名前を読まなかった)
 
 - `Dashboard Theme`・`Language`・`Refresh Interval`・`Data Retention`・`Items per page`・`Date Format` — 可視 `<label>` はあったが `for=` 未指定かつ input を包んでいないためプログラム的関連付けがなく、支援技術は無名コントロールとして読み上げていた
