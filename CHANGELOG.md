@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (CollaborationService にテスト9件追加 — SignalR ブロードキャスト契約を固定)
+
+- `tests/Potion.Service.Tests/CollaborationServiceTests.cs` 新規：`IHubContext` をモック化し、トランスポートなしでブロードキャスト契約を検証 — ゴーストセッション防止（`MaxConcurrentUsers` 到達時に追跡せず拒否）、接続/切断時の `ActiveUserCount`+`UserConnected`/`UserDisconnected` 送信、不明 connectionId での送信なし、`EnableRealTimeAlerts=false` のゲート、hub 送信失敗を飲み込む fire-and-forget 契約、`HealthAlert`/`TaskCompleted` イベント→`alerts-{component}`/`alerts-task` グループ配線、1ユーザー複数接続の独立カウント
+- テスト総数 305 → **314**
+
 ### Improved (Prometheus アラートにヘルススコア低下ルールを追加 + 監視スタック監査)
 
 - `monitoring/rules.yml` に `PotionDegradedHealthScore` を追加：`potion_system_health_score < 0.7`（5分継続で warning）— 複合スコアは `1.0 - worst(CPU,Mem,Disk)%` の 0-1 スケールで、最悪メトリクス 70% 超を捉える。従来の個別メトリクス閾値（CPU/Mem 95%、Disk 5GB）では拾えない「単独では閾値未満だが複合で劣化」状態を検出
