@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (隠れていた設定セクションを appsettings.json に明示)
+
+- `MemoryMonitor`・`PerformanceOptimizer`・`Observability:OtlpEndpoint` はコードで Bind/参照されるのに appsettings.json にセクションが存在せず、デフォルト値が発見不能だった → 全ノブを既定値つきで明示（`ValidateOnStart`/`ValidateDataAnnotations` が実値を検証するようになり、運用者が変更点を発見可能に）
+- 実起動でバインド＋起動時検証の通過を確認（`/health` 200）
+
 ### Improved (Prometheus に HTTP サーバーメトリクスを追加)
 
 - OTel `WithMetrics` に `AddAspNetCoreInstrumentation()` を配線（パッケージは既参照・トレース側は済みでメトリクス側だけ未接続だった）— `/metrics` で `http_server_request_duration_seconds` ヒストグラム・`http_server_active_requests`・`aspnetcore_routing_match_attempts_total` が実出力されることを実機確認
