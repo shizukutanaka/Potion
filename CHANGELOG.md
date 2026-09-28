@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (SignalR クライアント再接続設定監査 — 変更不要を確認)
+
+- `withAutomaticReconnect()`（既定バックオフ 0/2/10/30s）・`withUrl('/collaboration')` は `MapHub` と一致・5トピック購読
+- 接続失敗は catch でポーリングへフォールバック・初期化例外も捕捉・ライブラリ未読込は早期 return — 完全なグレースフルデグラデーション
+
 ### Improved (モーダル・キーボード操作監査 — 変更不要を確認)
 
 - `modalStack` で開いたモーダルを追跡し Escape が最上位のみを閉じる設計・検索オーバーレイも個別 Escape 対応
