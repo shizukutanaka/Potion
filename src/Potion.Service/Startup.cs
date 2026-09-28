@@ -63,6 +63,10 @@ public class Startup
 
         services.AddSignalR();
         services.AddHttpClient();
+        // ~230KB of text dashboard assets ship uncompressed otherwise; the
+        // default provider set (Brotli + Gzip) covers css/js/html/json and
+        // correctly skips already-compressed binaries like woff2.
+        services.AddResponseCompression();
         services.AddSingleton<CollaborationService>();
         services.AddOptions<CollaborationOptions>()
             .Bind(Configuration.GetSection("Collaboration"))
@@ -203,6 +207,11 @@ public class Startup
             }
             await next();
         });
+
+        // Compression must precede static-file/API responses to wrap them;
+        // EnableForHttps stays off (default) to avoid the compression+
+        // reflected-secret BREACH consideration on the HTTPS endpoint.
+        app.UseResponseCompression();
 
         app.UseDefaultFiles();
         app.UseStaticFiles(new StaticFileOptions

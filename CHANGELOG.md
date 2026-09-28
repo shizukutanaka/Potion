@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (Brotli/Gzip レスポンス圧縮を有効化 — テキスト資産の転送量を約70%削減)
+
+- 約230KBのテキスト資産（dashboard.js・styles.css・FA css・API JSON）が無圧縮配信だった → `AddResponseCompression`/`UseResponseCompression`（デフォルトの Brotli+Gzip）を配線
+- 実測： dashboard.js 72→23KB・FA css 102→32KB・styles.css 56→15KB・woff2 は正しくスキップ・`EnableForHttps` は既定のまま（BREACH 考慮）
+- 検証： 実機起動で `Content-Encoding: br` 確認・321/321 テスト全パス
+
 ### Improved (静的資産の Cache-Control 分離 — vendored 資産を immutable 化)
 
 - `UseStaticFiles()` がデフォルトのままで Cache-Control 未設定 — 約2MBの vendored フォント/ライブラリが毎ダッシュボードロードで再検証されていた
