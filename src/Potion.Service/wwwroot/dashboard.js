@@ -80,6 +80,39 @@ class PotionDashboard {
         this.hideLoadingState();
         this.showSection('overview');
         this.initializeCharts();
+        this.connectSignalR();
+    }
+
+    // Connects to the /collaboration hub for live alerts and health updates.
+    // Polling stays the fallback — every push also triggers a REST refresh.
+    connectSignalR() {
+        if (typeof signalR === 'undefined') {
+            return;
+        }
+        try {
+            const connection = new signalR.HubConnectionBuilder()
+                .withUrl('/collaboration')
+                .withAutomaticReconnect()
+                .build();
+
+            connection.on('SystemHealthUpdate', () => {
+                this.refreshAllData();
+            });
+            connection.on('Alert', (alert) => {
+                const severity = alert && alert.data && alert.data.severity >= 2 ? 'error' : 'warning';
+                this.showNotification((alert && alert.message) || 'System alert', severity);
+                this.refreshAllData();
+            });
+
+            connection.start()
+                .then(() => Promise.all(
+                    ['cpu', 'memory', 'disk', 'anomaly', 'task'].map(t =>
+                        connection.invoke('SubscribeToAlerts', t).catch(() => {}))
+                ))
+                .catch(() => { /* hub unreachable — polling already covers updates */ });
+        } catch {
+            // SignalR client init failure must not break the dashboard.
+        }
     }
 
     setupDragAndDrop() {

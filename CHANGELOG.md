@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (SignalR クライアント配線 — リアルタイム更新を実現)
+
+- `/collaboration` ハブは配線済みで `Alert`（cpu/memory/disk/anomaly/task グループ）と `SystemHealthUpdate`（1分毎のヘルスティック）をプッシュしていたが、**ブラウザクライアントが存在せず受信者ゼロ**だった → 公式 SignalR JS クライアント（@microsoft/signalr 8.0.7、厳格 CSP 対応のため wwwroot/lib に vendored）を導入して接続
+- dashboard.js：`connectSignalR()` で自動再接続つき接続 + 5アラートグループへ `SubscribeToAlerts` — `Alert` 受信で通知トースト + データ更新、`SystemHealthUpdate` 受信で即時リフレッシュ（既存ポーリングはフォールバックとして継続）
+- 検証： 実機で negotiate 200 + WebSocket 利用可能確認・実ブラウザでダッシュボード描画正常・299/299 テスト全パス・ビルド0警告
+
 ### Removed (ドキュメント・設定のドリフト監査 + 死 Activity ファクトリ)
 
 - **ドリフト監査（変更なし確認）**：README/CONTRIBUTING/Dockerfile/docker-compose/k8s/monitoring/scripts/setup 全域で削除済み資産（Resources・helm・kubernetes-enterprise・ErrorHandler 等）への参照ゼロを確認 — `monitoring/rules.yml` の5アラート（`potion_system_*`）は全て実エミットメトリクスと一致、prometheus/alertmanager/WiX/install.cmd も実態と整合
