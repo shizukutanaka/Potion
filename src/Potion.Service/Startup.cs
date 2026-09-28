@@ -205,7 +205,22 @@ public class Startup
         });
 
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            OnPrepareResponse = ctx =>
+            {
+                // Vendored assets under /lib and /fonts are versioned and never
+                // change — cache them immutably instead of revalidating ~2MB of
+                // webfonts on every dashboard load. App files (dashboard.js,
+                // styles.css) are edited by releases, so they must revalidate.
+                var path = ctx.Context.Request.Path.Value ?? string.Empty;
+                ctx.Context.Response.Headers.CacheControl =
+                    path.StartsWith("/lib/", StringComparison.OrdinalIgnoreCase)
+                        || path.StartsWith("/fonts/", StringComparison.OrdinalIgnoreCase)
+                        ? "public,max-age=31536000,immutable"
+                        : "no-cache";
+            }
+        });
         app.UseMiddleware<RequestMetricsMiddleware>();
         app.UseRouting();
         app.UseRateLimiter();

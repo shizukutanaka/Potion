@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (静的資産の Cache-Control 分離 — vendored 資産を immutable 化)
+
+- `UseStaticFiles()` がデフォルトのままで Cache-Control 未設定 — 約2MBの vendored フォント/ライブラリが毎ダッシュボードロードで再検証されていた
+- `/lib/`・`/fonts/` は `public,max-age=31536000,immutable`（バージョン固定で不変）・アプリファイル（dashboard.js/styles.css/index.html）は `no-cache` で必ず再検証 — リリース時の古いJS/CSS残留も防止
+- 検証： 実機起動で両パスのヘッダ確認・321/321 テスト全パス
+
 ### Security (FontAwesome を vendored — CSP が完全 'self' に)
 
 - FontAwesome 6.4.0 を `wwwroot/lib/fontawesome/`（css + webfonts 8件・計1.9MB）に vendored — 最後に残った外部依存の cdnjs を排除
