@@ -36,6 +36,7 @@ public class Startup
             {
                 metrics
                     .AddMeter("Potion.Service")
+                    .AddAspNetCoreInstrumentation()
                     .AddRuntimeInstrumentation()
                     .AddProcessInstrumentation()
                     .AddPrometheusExporter()

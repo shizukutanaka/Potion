@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (Prometheus に HTTP サーバーメトリクスを追加)
+
+- OTel `WithMetrics` に `AddAspNetCoreInstrumentation()` を配線（パッケージは既参照・トレース側は済みでメトリクス側だけ未接続だった）— `/metrics` で `http_server_request_duration_seconds` ヒストグラム・`http_server_active_requests`・`aspnetcore_routing_match_attempts_total` が実出力されることを実機確認
+- Devin Review の2件（dashboard offline ヘッダー・ConfigTool restore 検証）を `report_triage` 代替としてスレッド resolve で処理完了
+
 ### Improved (サービスの HTTP 面を実起動エンドツーエンド検証)
 
 - 実際に `dotnet run` で起動し全 HTTP 面を実機確認：`/health`・`/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary`・`/metrics`・ダッシュボード（index.html/dashboard.js）すべて 200 — メトリクスは実測値（CPU/メモリ/ディスク/プロセス数）を返却
