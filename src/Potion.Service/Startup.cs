@@ -63,6 +63,10 @@ public class Startup
 
         services.AddSignalR();
         services.AddHttpClient();
+        // ~230KB of text dashboard assets ship uncompressed otherwise; the
+        // default provider set (Brotli + Gzip) covers css/js/html/json and
+        // correctly skips already-compressed binaries like woff2.
+        services.AddResponseCompression();
         services.AddSingleton<CollaborationService>();
         services.AddOptions<CollaborationOptions>()
             .Bind(Configuration.GetSection("Collaboration"))
@@ -115,7 +119,7 @@ public class Startup
         services.AddOptions<ComplianceOptions>()
             .Bind(Configuration.GetSection("Compliance"))
             .Validate(o => !o.Enabled || o.ReportIntervalHours is >= 1 and <= 1193,
-                "Compliance:ReportIntervalHours must be 1-1193 hours when enabled (1193 is the maximum System.Threading.Timer period).")
+                "Compliance:ReportIntervalHours must be 1-1193 hours when enabled.")
             .ValidateOnStart();
 
         // Repair-execution tier: these services run OS-level repairs
@@ -194,8 +198,7 @@ public class Startup
             // is needed for either script-src or style-src.
             context.Response.Headers["Content-Security-Policy"] =
                 "default-src 'self'; script-src 'self'; " +
-                "style-src 'self' https://cdnjs.cloudflare.com https://fonts.googleapis.com; " +
-                "font-src 'self' https://cdnjs.cloudflare.com https://fonts.gstatic.com; " +
+                "style-src 'self'; font-src 'self'; " +
                 "img-src 'self' data:; connect-src 'self' ws: wss:; " +
                 "object-src 'none'; base-uri 'self'";
             if (context.Request.IsHttps)
@@ -205,8 +208,24 @@ public class Startup
             await next();
         });
 
+        // Compression must precede static-file/API responses to wrap them;
+        // EnableForHttps stays off (default) to avoid the compression+
+        // reflected-secret BREACH consideration on the HTTPS endpoint.
+        app.UseResponseCompression();
+
         app.UseDefaultFiles();
-        app.UseStaticFiles();
+        app.UseStaticFiles(new StaticFileOptions
+        {
+            OnPrepareResponse = ctx =>
+            {
+                // All URLs are stable (no content hashes), so nothing may be
+                // marked immutable — an upgraded vendored font or stylesheet at
+                // the same path must not stay cached. no-cache still allows
+                // caching but forces ETag revalidation, so unchanged assets
+                // revalidate cheap (304) and upgraded ones are picked up.
+                ctx.Context.Response.Headers.CacheControl = "no-cache";
+            }
+        });
         app.UseMiddleware<RequestMetricsMiddleware>();
         app.UseRouting();
         app.UseRateLimiter();

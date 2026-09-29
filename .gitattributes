@@ -24,3 +24,9 @@
 *.exe   binary
 *.msi   binary
 *.nupkg binary
+
+# Vendored web fonts — binary even though text=auto's NUL sniffing already
+# happens to catch them; explicit declaration keeps future files safe.
+*.woff  binary
+*.woff2 binary
+*.ttf   binary

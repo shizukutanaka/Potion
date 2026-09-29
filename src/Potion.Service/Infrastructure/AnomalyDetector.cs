@@ -11,7 +11,7 @@ public class AnomalyDetector : IHostedService, IDisposable
     private readonly ILogger<AnomalyDetector> _logger;
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly ConcurrentDictionary<string, AdvancedMetricTimeSeries> _metricHistory = new();
-    private Timer? _analysisTimer;
+    private PeriodicAsyncLoop? _analysisLoop;
 
     public event EventHandler<DetectedAnomaly>? AnomalyDetected;
 
@@ -28,7 +28,11 @@ public class AnomalyDetector : IHostedService, IDisposable
         _logger.LogInformation("Starting advanced ML-based anomaly detector with pattern recognition");
 
         // Analyze metrics every 3 minutes for more responsive detection
-        _analysisTimer = new Timer(_ => _ = AnalyzeMetricsAsync(), null, TimeSpan.Zero, TimeSpan.FromMinutes(3));
+        _analysisLoop = new PeriodicAsyncLoop(
+            TimeSpan.Zero,
+            TimeSpan.FromMinutes(3),
+            _ => AnalyzeMetricsAsync(),
+            ex => _logger.LogError(ex, "Anomaly analysis iteration failed"));
 
         return Task.CompletedTask;
     }
@@ -258,15 +262,17 @@ public class AnomalyDetector : IHostedService, IDisposable
         return timeSeries.CalculateAnomalyScore(recentValues.Last());
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
-        _analysisTimer?.Change(Timeout.Infinite, 0);
-        return Task.CompletedTask;
+        if (_analysisLoop is not null)
+        {
+            await _analysisLoop.DisposeAsync();
+        }
     }
 
     public void Dispose()
     {
-        _analysisTimer?.Dispose();
+        _analysisLoop?.CancelNow();
     }
 
     /// <summary>
@@ -458,11 +464,6 @@ public class AnomalyDetector : IHostedService, IDisposable
 
             var slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
             return slope;
-        }
-
-        public double[] DetectRecentPattern()
-        {
-            return Patterns.Any() ? Patterns.Last() : _patternBuffer;
         }
 
         public void UpdateMLModel(double latestValue)

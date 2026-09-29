@@ -11,6 +11,9 @@ class PotionDashboard {
         this.selectedAlerts = new Set();
         this.acknowledgedAlertIds = new Set();
         this.currentAlertFilter = 'all';
+        this.currentAlertSeverities = null;
+        this.currentAlertComponents = null;
+        this.currentAlertTimeRange = null;
         this.currentAlertSearch = '';
         this.currentSecurityTab = 'components';
         this.currentChartRange = '24h';
@@ -66,11 +69,17 @@ class PotionDashboard {
         if (storedSettings.theme) {
             this.applyTheme(storedSettings.theme);
         }
-        if (Number.isFinite(storedSettings.refreshIntervalMs) && storedSettings.refreshIntervalMs > 0) {
-            this.refreshInterval = storedSettings.refreshIntervalMs;
+        if (Number.isFinite(storedSettings.refreshInterval) && storedSettings.refreshInterval > 0) {
+            this.refreshInterval = storedSettings.refreshInterval * 1000;
         }
         if (Number.isFinite(storedSettings.itemsPerPage) && storedSettings.itemsPerPage > 0) {
             this.pageSize = storedSettings.itemsPerPage;
+        }
+        if (storedSettings.compactMode === true) {
+            document.body.classList.add('compact-mode');
+        }
+        if (storedSettings.showTooltips === false) {
+            document.body.classList.add('no-tooltips');
         }
         if (storedSettings.autoRefresh !== false) {
             this.startAutoRefresh();
@@ -101,6 +110,7 @@ class PotionDashboard {
             connection.on('Alert', (alert) => {
                 const severity = alert && alert.data && alert.data.severity >= 2 ? 'error' : 'warning';
                 this.showNotification((alert && alert.message) || 'System alert', severity);
+                this.deliverAlert(severity, (alert && alert.message) || 'System alert');
                 this.refreshAllData();
             });
 
@@ -276,6 +286,42 @@ class PotionDashboard {
         if (this.modalStack.length > 0) {
             const topModalId = this.modalStack[this.modalStack.length - 1];
             this.closeModal(topModalId);
+        }
+    }
+
+    deliverAlert(severity, message) {
+        const settings = this.getStoredSettings();
+        // Form defaults apply before the user ever saves: criticalAlerts='none',
+        // warningAlerts='browser' (see the checked radios in index.html).
+        const pref = severity === 'error'
+            ? (settings.criticalAlerts ?? 'none')
+            : (settings.warningAlerts ?? 'browser');
+        if (settings.soundNotifications && severity === 'error') {
+            this.playAlertSound();
+        }
+        if (pref === 'browser' && 'Notification' in window) {
+            if (Notification.permission === 'granted') {
+                new Notification(severity === 'error' ? 'Critical alert' : 'Warning', { body: message });
+            } else if (Notification.permission !== 'denied') {
+                Notification.requestPermission();
+            }
+        }
+    }
+
+    playAlertSound() {
+        try {
+            const ctx = this._audioCtx || (this._audioCtx = new (window.AudioContext || window.webkitAudioContext)());
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.connect(gain).connect(ctx.destination);
+            osc.type = 'sine';
+            osc.frequency.value = 880;
+            gain.gain.setValueAtTime(0.1, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.5);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.5);
+        } catch {
+            // AudioContext unavailable or blocked — the notification itself is enough.
         }
     }
 
@@ -460,6 +506,13 @@ class PotionDashboard {
 
         // Apply settings
         this.applyAdvancedSettings(settings);
+
+        // Browser notification permission must be requested inside a user
+        // gesture — the settings save click is one, a SignalR alert is not.
+        if ((settings.criticalAlerts === 'browser' || settings.warningAlerts === 'browser') &&
+            'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
 
         this.closeAdvancedSettingsModal();
         this.showNotification('Advanced settings saved successfully', 'success');
@@ -823,10 +876,45 @@ class PotionDashboard {
         }
     }
 
+    getDisplayLocale() {
+        const lang = this.getStoredSettings().language || 'ja';
+        return { en: 'en-US', ja: 'ja-JP', zh: 'zh-CN', ko: 'ko-KR' }[lang] || 'ja-JP';
+    }
+
+    formatDateTime(value) {
+        const date = new Date(value);
+        switch (this.getStoredSettings().dateFormat) {
+            case 'MM/DD/YYYY': return date.toLocaleString('en-US');
+            case 'DD/MM/YYYY': return date.toLocaleString('en-GB');
+            case 'YYYY-MM-DD': return date.toLocaleString('sv-SE');
+            case 'relative': return this.relativeTime(date);
+            default: return date.toLocaleString(this.getDisplayLocale());
+        }
+    }
+
+    formatDate(value) {
+        const date = new Date(value);
+        switch (this.getStoredSettings().dateFormat) {
+            case 'MM/DD/YYYY': return date.toLocaleDateString('en-US');
+            case 'DD/MM/YYYY': return date.toLocaleDateString('en-GB');
+            case 'YYYY-MM-DD': return date.toLocaleDateString('sv-SE');
+            case 'relative': return this.relativeTime(date);
+            default: return date.toLocaleDateString(this.getDisplayLocale());
+        }
+    }
+
+    relativeTime(date) {
+        const minutes = Math.max(0, Math.round((Date.now() - date.getTime()) / 60000));
+        if (minutes < 60) return `${minutes} min ago`;
+        const hours = Math.round(minutes / 60);
+        if (hours < 24) return `${hours} h ago`;
+        return `${Math.round(hours / 24)} d ago`;
+    }
+
     updateLastUpdated() {
         const now = new Date();
         document.getElementById('last-updated').textContent =
-            now.toLocaleTimeString('ja-JP', {
+            now.toLocaleTimeString(this.getDisplayLocale(), {
                 hour: '2-digit',
                 minute: '2-digit',
                 second: '2-digit'
@@ -957,7 +1045,7 @@ class PotionDashboard {
         this.updateSecurityItem('firewall-status', security.firewallEnabled ? 'Enabled' : 'Disabled');
 
         const lastScan = security.lastSecurityScan ?
-            new Date(security.lastSecurityScan).toLocaleDateString('ja-JP') : 'Never';
+            this.formatDate(security.lastSecurityScan) : 'Never';
         document.getElementById('last-scan').textContent = lastScan;
     }
 
@@ -1048,7 +1136,7 @@ class PotionDashboard {
                     <span class="event-title">${this.esc(alert.message)}</span>
                     <span class="event-severity ${this.esc((alert.severity || 'info').toLowerCase())}">${this.esc(alert.severity)}</span>
                 </div>
-                <div class="event-time">${new Date(alert.timestamp).toLocaleString('ja-JP')}</div>
+                <div class="event-time">${this.formatDateTime(alert.timestamp)}</div>
             `;
 
             container.appendChild(eventItem);
@@ -1098,13 +1186,17 @@ class PotionDashboard {
                 throw new Error(`GET /api/health -> ${response.status}`);
             }
             const data = await response.json();
+            const retentionDays = this.getStoredSettings().retentionDays;
+            const cutoff = Number.isFinite(retentionDays) && retentionDays > 0
+                ? Date.now() - retentionDays * 86400000
+                : -Infinity;
             this.logsData = (data.alerts || []).map(a => ({
                 timestamp: new Date(a.timestamp),
                 level: (a.severity || 'info').toLowerCase(),
                 source: 'HealthMonitor',
                 eventId: a.component || '-',
                 message: `${a.title}: ${a.message}`
-            }));
+            })).filter(log => log.timestamp.getTime() >= cutoff);
             this.renderLogsTable();
         } catch (error) {
             console.error('Failed to load logs data:', error);
@@ -1179,7 +1271,7 @@ class PotionDashboard {
         logs.forEach(log => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${log.timestamp.toLocaleString('ja-JP')}</td>
+                <td>${this.formatDateTime(log.timestamp)}</td>
                 <td><span class="event-level ${this.esc(log.level)}">${this.esc(log.level)}</span></td>
                 <td>${this.esc(log.source)}</td>
                 <td>${this.esc(log.eventId)}</td>
@@ -1299,7 +1391,7 @@ class PotionDashboard {
                 </div>
                 <div class="alert-message">${this.esc(alert.message)}</div>
                 <div class="alert-metadata">
-                    <span><i class="fas fa-clock"></i> ${new Date(alert.timestamp).toLocaleString('ja-JP')}</span>
+                    <span><i class="fas fa-clock"></i> ${this.formatDateTime(alert.timestamp)}</span>
                     <span><i class="fas fa-tag"></i> ${this.esc(alert.component)}</span>
                 </div>
             `;
@@ -1318,9 +1410,26 @@ class PotionDashboard {
     }
 
     filterAlerts(alerts) {
+        const timeRangeMs = { '1h': 3600000, '24h': 86400000, '7d': 604800000, '30d': 2592000000 }[this.currentAlertTimeRange];
         return alerts.filter(alert => {
             // Apply severity filter
             if (this.currentAlertFilter !== 'all' && alert.severity.toLowerCase() !== this.currentAlertFilter) {
+                return false;
+            }
+
+            // Apply advanced severity allowlist (checkboxes)
+            if (this.currentAlertSeverities && !this.currentAlertSeverities.includes(alert.severity.toLowerCase())) {
+                return false;
+            }
+
+            // Apply component allowlist
+            if (this.currentAlertComponents &&
+                !this.currentAlertComponents.some(cf => (alert.component || '').toLowerCase().includes(cf.toLowerCase()))) {
+                return false;
+            }
+
+            // Apply time-range bound
+            if (timeRangeMs && Date.now() - new Date(alert.timestamp).getTime() > timeRangeMs) {
                 return false;
             }
 
@@ -1463,7 +1572,7 @@ class PotionDashboard {
                 title: 'Windows Defender',
                 description: 'Real-time antivirus protection',
                 status: sec.windowsDefenderEnabled ? 'enabled' : 'disabled',
-                lastUpdated: sec.lastSecurityScan ? new Date(sec.lastSecurityScan).toLocaleDateString('ja-JP') : '-'
+                lastUpdated: sec.lastSecurityScan ? this.formatDate(sec.lastSecurityScan) : '-'
             },
             {
                 title: 'Windows Firewall',
@@ -1695,7 +1804,9 @@ class PotionDashboard {
 
         // Apply filters to alerts
         this.currentAlertFilter = severityFilters.length === 1 ? severityFilters[0] : 'all';
-        // In a real implementation, more complex filtering would be applied
+        this.currentAlertSeverities = severityFilters.length > 0 ? severityFilters : [];
+        this.currentAlertComponents = componentFilters.length > 0 ? componentFilters : [];
+        this.currentAlertTimeRange = timeRange;
 
         this.refreshAllData();
         this.toggleAdvancedSearch();

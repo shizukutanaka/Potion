@@ -127,12 +127,10 @@ public sealed class PotionMetricsTests
     {
         using var listener = new Listener();
         var op = UniqueTag();
-        var check = UniqueTag();
 
         PotionMetrics.RecordCircuitBreakerTransition(op, "Open", "Closed");
         PotionMetrics.RecordRetryAttempt(op, 2, 150.0);
         PotionMetrics.RecordBulkheadRejection(op);
-        PotionMetrics.RecordDiagnosticCheck(check, 12.5);
 
         var transitions = listener.For("potion.resilience.circuit_breaker_transitions", "operation", op);
         var transition = Assert.Single(transitions);
@@ -145,9 +143,6 @@ public sealed class PotionMetricsTests
         Assert.Equal(2, delay.Tags["attempt_number"]);
 
         Assert.Single(listener.For("potion.resilience.bulkhead_rejections", "operation", op));
-
-        var duration = Assert.Single(listener.For("potion.diagnostics.check_duration", "check.name", check));
-        Assert.Equal(12.5, duration.Value);
     }
 
     [Fact]

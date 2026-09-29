@@ -90,14 +90,14 @@ public class CollaborationHub : Hub
     }
 }
 
-public class CollaborationService : IDisposable
+public class CollaborationService : IDisposable, IAsyncDisposable
 {
     private readonly ILogger<CollaborationService> _logger;
     private readonly CollaborationOptions _options;
     private readonly IHubContext<CollaborationHub> _hubContext;
     private readonly ISystemHealthMonitor _healthMonitor;
     private readonly ConcurrentDictionary<string, UserSession> _activeUsers = new();
-    private readonly Timer _healthBroadcastTimer;
+    private readonly PeriodicAsyncLoop _healthBroadcastLoop;
     private static readonly TimeSpan HealthBroadcastInterval = TimeSpan.FromMinutes(1);
 
     public CollaborationService(
@@ -125,8 +125,11 @@ public class CollaborationService : IDisposable
         {
             _ = NotifyTaskCompletedAsync(task.TaskName, task.Success, task);
         };
-        _healthBroadcastTimer = new Timer(_ => _ = BroadcastHealthTickAsync(), null,
-            HealthBroadcastInterval, HealthBroadcastInterval);
+        _healthBroadcastLoop = new PeriodicAsyncLoop(
+            HealthBroadcastInterval,
+            HealthBroadcastInterval,
+            _ => BroadcastHealthTickAsync(),
+            ex => _logger.LogError(ex, "Health broadcast iteration failed"));
     }
 
     private async Task BroadcastHealthTickAsync()
@@ -149,7 +152,17 @@ public class CollaborationService : IDisposable
 
     public void Dispose()
     {
-        _healthBroadcastTimer.Dispose();
+        _healthBroadcastLoop.CancelNow();
+    }
+
+    // Preferred shutdown path: the host awaits IAsyncDisposable, so the
+    // in-flight broadcast finishes before the service provider (and the
+    // SignalR context it uses) is torn down. Sync Dispose stays as the
+    // non-blocking fallback for containers that cannot await.
+    public async ValueTask DisposeAsync()
+    {
+        await _healthBroadcastLoop.DisposeAsync().ConfigureAwait(false);
+        GC.SuppressFinalize(this);
     }
 
     public async Task<bool> UserConnectedAsync(string userId, string connectionId)

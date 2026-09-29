@@ -2,6 +2,289 @@
 
 ## Unreleased
 
+### Fixed (PR #61 Devin Review 対応 — 5件の指摘を修正)
+
+- 🔴 Dockerfile: `dotnet restore` が locked モードで `packages.lock.json` 未配置のため失敗 → csproj と並行して lock ファイルも COPY
+- 🟥 k8s: `/` prefix ルート経由で `/metrics` が Ingress 公開のままだった → `server-snippet` で `location = /metrics { return 404; }` を追加（snippet 許可が必要な旨コメント明記）
+- 🟡 静的アセット: `/lib/`・`/fonts/` の `immutable` 1年キャッシュはアップグレード時に旧アセットを最大1年配信し続ける → 全アセット `no-cache`（ETag 304 再検証）に変更（URL が content-hash なしのため）
+- 🟡 CollaborationService: `Dispose` は broadcast loop をキャンセルするのみで実行中 broadcast を待たない → `IAsyncDisposable` を実装し `_healthBroadcastLoop.DisposeAsync()` を await
+- 🟡 dashboard.js: `deliverAlert` が通知権限未許可時にリクエストのみで当該アラートを通知しない・`warningAlerts` のフォーム既定 `'browser'` が未保存時に無視される → 既定値フォールバックを追加し、権限リクエストを settings 保存（ユーザージェスチャ）時へ移動
+- Audit: dashboard.js が読む JSON フィールド名を C# レスポンス形状と全件照合（metrics/cpu/memory/disk/network/services・alerts の全パス一致・JsonStringEnumConverter で severity 文字列化確認）— ドリフトなし
+
+### Fixed (favicon 追加 — /favicon.ico の自動リクエストが毎回404になっていた)
+
+- index.html にインライン SVG favicon を追加（`img-src 'self' data:` の CSP 内で data URI が許可されているため追加ファイル不要・追加リクエストも発生しない）
+- 全 src/href 参照アセットと CSS `url()` アセットは存在確認済み（missing なし）
+
+### Audit (フロント fetch URL↔サーバルート一致を監査 — 変更不要を確認)
+
+- dashboard.js の `fetch()` は `/api/health`・`/api/health/metrics`・`/api/health/security`・`/api/health/security/summary` の4件のみ・全て Startup.cs の登録ルートと一致（`/api/health/alerts/webhook` は alertmanager 宛に登録済み）
+- フロント→API のドリフト（存在しないエンドポイントへの dead call）なし
+
+### Fixed (未定義 CSS 変数 `--gray-25` を定義 — ログテーブル hover がサイレントに無効だった)
+
+- `.logs-table tbody tr:hover` の `var(--gray-25)` が未定義で宣言ごと無効化されていた → `--gray-25: #FCFDFE` をパレットに追加（hover 効果が実際に出る）
+- 全44定義×33使用の照合で他の未解決参照なし・未使用パレット定義12件は意図的なスケールとして保持
+
+### Removed (死 CSS `.banner` ブロック削除 — CSS クラス逆方向監査)
+
+- styles.css の全208クラス・全 `#id` セレクタを index.html/dashboard.js への参照で逆照合 — `.banner`（+`.banner.success/.error/.info/.banner .btn` の34行ブロック）のみ未参照で削除
+- JS 付与の状態クラス15件（compact-mode・no-tooltips・dark-theme 等）は全て CSS ルール実在を確認（`light-theme` は「light=既定」設計で意図的にルールなし）
+
+### Fixed (Advanced Filters の収集値を実フィルタへ接続 — severity チェック・コンポーネント・期間が無視されていた)
+
+- `applyAdvancedFilters` が severity/timeRange/component を収集しながら severity しか適用していなかった → `filterAlerts` が3条件を全て適用（severity 複数選択の allowlist・コンポーネント名部分一致・1h/24h/7d/30d の期間 bound）
+- 全 `data-action` ハンドラ28件の実体を監査 — 空スタブ・未定義・単一参照の孤立はなし（この1件のみが収集値未適用の実ギャップ）
+
+### Fixed (残りの死設定を実装 — soundNotifications・criticalAlerts/warningAlerts・retentionDays)
+
+- `soundNotifications`（critical アラート音）→ WebAudio 880Hz ビープを SignalR `Alert` ハンドラへ配線
+- `criticalAlerts`/`warningAlerts` の `browser` 配信 → `Notification` API 発火（権限未許可時は requestPermission・denied なら黙殺）; `email` はサーバ側送信機能がないため未実装（UI 上の選択肢として残存）
+- `retentionDays` → `logsData` ロード時に保持期間外のアラートを除外（クライアント側表示履歴の bounds として実装）
+
+### Fixed (`language`/`dateFormat` 設定を日時レンダリングへ接続 — 保存されるが無視されていた設定を実装)
+
+- 日時表示8箇所が `toLocaleString('ja-JP')` ハードコードで設定を一切参照していなかった → `formatDateTime`/`formatDate`/`relativeTime` ヘルパーを追加し設定に応じて出力（`YYYY-MM-DD`→ISO、`MM/DD/YYYY`→en-US、`DD/MM/YYYY`→en-GB、`relative`→相対時刻、未設定→language ロケール）
+- `updateLastUpdated` も言語ロケールに追従
+- `soundNotifications`/`retentionDays`/`criticalAlerts`/`warningAlerts` も同一系の未接続設定（実装は別サイクル候補）
+
+### Fixed (localStorage 永続設定の死設定修正 — refreshInterval/compactMode/showTooltips が起動時に適用されなかった)
+
+- `refreshInterval` は秒で保存されるのに init が `refreshIntervalMs`（一度も書込まれないキー）を読んでいた — リロード毎にポーリング間隔が初期値へ戻る実バグ
+- `compactMode`・`showTooltips` も保存時のみ適用で起動時に復元されていなかった → body class を復元
+
+### Improved (README エンドポイント記述↔実登録ルート双方向照合 — ドリフトなしを確認)
+
+- README 記載の全ルート（`/api/health`・`/metrics`・`/collaboration`・webhook 等）が実登録に存在・`/collaboration/negotiate` は SignalR サブプロトコルとして正当
+- 逆方向も一致 — README に未記載の登録ルートなし
+
+### Improved (csproj NuGet メタデータ監査 — 変更不要を確認)
+
+- 出荷成果物 `Potion.Service` は `PackageId`・`Description`・`PackageLicenseExpression MIT`・`Authors`・`Version 2.0.0` + `InformationalVersion 2.0.0-dev` を完備
+- `Potion.ConfigTool`/`Tests` は非配布 exe のためパッケージメタデータ不要 — 構成は妥当
+
+### Improved (SignalR クライアント再接続設定監査 — 変更不要を確認)
+
+- `withAutomaticReconnect()`（既定バックオフ 0/2/10/30s）・`withUrl('/collaboration')` は `MapHub` と一致・5トピック購読
+- 接続失敗は catch でポーリングへフォールバック・初期化例外も捕捉・ライブラリ未読込は早期 return — 完全なグレースフルデグラデーション
+
+### Improved (モーダル・キーボード操作監査 — 変更不要を確認)
+
+- `modalStack` で開いたモーダルを追跡し Escape が最上位のみを閉じる設計・検索オーバーレイも個別 Escape 対応
+- Ctrl+K 検索・Ctrl+R 更新・数字キーセクション遷移のショートカット完備・検索オープン時は入力へ `.focus()`
+- フォーカストラップ未実装は既知の制約（modalStack+Escape で実用十分）
+
+### Fixed (アラートコンテナへ aria-live="polite" 付与 — JS 更新がスクリーンリーダーに通知されなかった)
+
+- `alerts-container` は JS が innerHTML で更新するが live リージョン未宣言で支援技術に新着アラートが届かなかった → `aria-live="polite"` で追加点読み上げに対応
+- ステータス数値（health-score 等の30秒更新カウンタ）は live 化せず（過剰発話を回避する設計）
+
+### Fixed (設定フォーム6コントロールのラベル関連付け — スクリーンリーダーが名前を読まなかった)
+
+- `Dashboard Theme`・`Language`・`Refresh Interval`・`Data Retention`・`Items per page`・`Date Format` — 可視 `<label>` はあったが `for=` 未指定かつ input を包んでいないためプログラム的関連付けがなく、支援技術は無名コントロールとして読み上げていた
+- 正規の HTML 機構 `for=`+`id` で関連付け（aria-label より堅牢 — ラベルクリックでもフォーカス可能に）
+- 残りの34コントロールは `<label>` 内包か `aria-label` で名前付き（テーブルは `<th>` あり・`lang="ja"` 宣言済み）
+
+### Improved (appsettings.Production.json オーバーレイ整合監査 — 変更不要を確認)
+
+- セクション・キーとも base のサブセット（欠落セクションはオーバーレイ継承で正当、未知キーゼロ）— 全4環境（base/Dev/Prod/Container）で appsettings↔バインド整合が確認済み
+
+### Improved (alertmanager.yml ルーティング・webhook 宛先整合監査 — 変更不要を確認)
+
+- webhook `http://potion-service:80/api/health/alerts/webhook` → `MapPost` 登録と一致・route の receiver 名は定義済み
+- inhibit_rule が参照する `severity`/`service` ラベルは rules.yml の全アラートが設定済み
+- プレースホルダーホスト・未定義 receiver なし
+
+### Improved (Prometheus rules.yml アラート↔実発行 series 実機検証 — 死ルールゼロを確認)
+
+- 実機 `/metrics` で5ルール全ての式を検証：`up{job="potion-service"}`・`potion_system_cpu_usage`・`potion_system_memory_usage`・`potion_system_disk_available_gigabytes`（`unit: "GB"` が exporter で `gigabytes` 接尾辞に正規化）・`potion_system_health_score` — 全て実在の series と一致
+- 参照メトリクス未発行による「発火しない死アラート」は存在しない
+
+### Improved (compose healthcheck・Prometheus スクレイプ設定監査 — 変更不要を確認)
+
+- `depends_on` は list 形式（起動順序のみ）で不整合なし。healthcheck 未設定は妥当 — aspnet ランタイムイメージに curl/wget がなくシェルヘルスチェック不可、k8s プローブが実環境の健全性ゲートを担う
+- `prometheus.yml` の `potion-service:80` + `/metrics` は Container バインド（`+:80`）と `MapPrometheusScrapingEndpoint()` に一致
+
+### Improved (ConfigTool 引数処理・restore 安全設計監査 — 変更不要を確認)
+
+- 未登録コマンド → ヘルプ + exit 1、`--config` の bounds check、restore 引数必須チェック — CLI 面は完全
+- `restore` は上書き前に `validate` と同一検証をバックアップへ適用 + 現行設定を `.prerestore-*.bak` へ自動退避（破壊的操作の安全設計として完備）
+- 全ハンドラが例外を捕捉し意味のある終了コードを返す
+
+### Improved (k8s プローブ・Ingress・ServiceMonitor パスのエンドポイント一致検証 — 変更不要を確認)
+
+- liveness/startup `/health`・readiness `/health/ready` → `MapHealthChecks` 両方登録済み（readiness は sampling 完走を要求する ready タグ設計）
+- scrape `/metrics` → `MapPrometheusScrapingEndpoint()` が提供・ServiceMonitor の `port: http` は Service の named port と一致
+- Ingress ルート（/api・/health・/collaboration・/）は全て実在、/metrics は外部非公開のまま
+
+### Improved (.sln↔csproj 登録ドリフト・.gitignore 網羅性監査 — 変更不要を確認)
+
+- Potion.sln がディスク上の3 csproj（Service・Tests・ConfigTool）と完全一致 — ConfigTool もソリューションビルドに含まれる
+- .gitignore は OS/エディタ/依存/シークレット/ビルド成果物/ログ/検証成果物を網羅。`claudedocs/` は意図的に追跡される調査ドキュメントで、.dockerignore によるイメージ除外は正しい設計
+
+### Fixed (.dockerignore の正体不明パターン `C*/` を除去 — 将来の C 始まりトップレベルディレクトリの誤除外を防止)
+
+- `C*/` は現在何にもマッチしない残骸パターン — 将来 `Config/` `Certs/` 等を追加した際にサイレントに Docker コンテキストから除外されるフットガンだった
+- scripts/*.sh は `bash -n` 構文検証を両方パス。Docker ビルドに必要な `src/`・`Directory.Build.props`・lock ファイルが除外されていないことを確認
+- *.ps1 は pwsh 未導入のため Windows 実機検証待ち（既知ブロッカー）
+
+### Improved (`dotnet format style`/`analyzers` 全診断ゼロを確認 — コーディング規約完全適合)
+
+- `dotnet format style --verify-no-changes` と `analyzers --verify-no-changes` が両方とも診断ゼロ — var 選好・式本体・未使用 using 等の IDE 診断が全て規約準拠
+- whitespace/style/analyzers の3面すべてがクリーン（ソリューション全体）
+
+### Improved (`dotnet format` 整形ドリフト修正 + 検証パイプライン整備)
+
+- `AutoRecoveryManager.cs` のコメント段差ずれを `dotnet format whitespace` で修正 — ソリューション全体が整形規約に適合（`--verify-no-changes` パス）
+
+### Improved (private メソッド・フィールドの死コード監査 — 全階層で孤立ゼロを確認)
+
+- private メソッド107件・private フィールド146件をファイル内出現数で精査 — 宣言のみの孤立はゼロ
+- public/internal/private 全階層で死コード監査が完了（ServicePaths・環境変数ヘルパー・`DetectRecentPattern` が最後の残骸だった）
+
+### Improved (TODO/FIXME ゼロ・ダッシュボード委譲ハンドラ整合監査 — 終了条件確認)
+
+- TODO/FIXME/HACK/XXX コメントが src/tools/wwwroot 全体でゼロ（リリース終了条件を満たす）
+- index.html の `data-onchange`/`data-onkeyup` ハンドラ4件・`data-action` 24件が全て dashboard.js の委譲マップに実装済み（過去バグ系の未接続ハンドラなしを確認）
+
+### Removed (残存の死メソッド `DetectRecentPattern` を削除)
+
+- `AnomalyDetector.DetectRecentPattern` — 宣言のみで本番・テスト両方に呼出しゼロ（ファイル内出現1回の完全な死コード）。同種の監査で残った唯一の孤立メソッド
+- `SystemReadinessCheck.CheckHealthAsync` は `IHealthCheck` 実装でフレームワーク経由のため保持、`UpdateMLModel`/`CountProcesses` 等は実呼出しありを確認
+
+### Removed (テストのみが消費する public API の残存を削除 — ServicePaths・環境変数ヘルパー)
+
+- `ServicePaths`: 死メンバー14件削除 — ディレクトリ props 9件（Logs/Telemetry/Playbooks/Certificates/Security/Backups/Reports/BaseDirectory + dead メソッド専用だった State 派生）・`Get*Path` メソッド5件・`ToSafeFileName`。残は実呼出しのある `Base`/`State`/`ConfigBackups`（ConfigTool が使用）/`ConfigurationFile` のみ
+- `EnvironmentVariableHelper`: `GetInt/GetString/GetBool/GetTimeSpan` 4メソッド削除 — 本番呼出しは `GetLongFromEnvironment` のみ
+- `AddTriggerRule`/`GetActiveUsers`/`GetAnomalyScore` は正当な公開 API シームとして保持
+- 該当テストをトリム — 309→287/287 全パス
+
+### Improved (PotionMetrics 全メソッドの呼出し元監査 — 死メトリクスなしを確認)
+
+- 公開メトリクスメソッド13件を本番コード側呼出しと照合 — 全て実呼出しあり（先サイクルで削除した `RecordDiagnosticCheck` が唯一の死メトリクスだった）
+- `Update*` 系が ObservableGauge の `observeValues` バッキングを正しく供給していることも確認
+
+### Removed (テストのみで消費される死パイプライン群を削除 — 本番は1パイプラインのみ使用)
+
+- `CreateRemediationPipeline`・`CreateHealthCheckPipeline`・`CreateDiagnosticPipeline`（本番は `CreateProcessExecutionPipeline` のみ登録・残り3つはテストだけが呼ぶ死コード）+ `ProcessResult`・`DiagnosticReport`/`Check`/`Recommendation`/`Severity` 型を削除
+- `PotionMetrics.RecordDiagnosticCheck` + `potion.diagnostics.check_duration` ヒストグラム（呼出し元なし）も削除
+- 併せて該当テストファイル（ResiliencePipelinesTests.cs・12テスト）削除 — 321→309/309 全パス
+
+### Fixed (Docker イメージが素の `docker run` で Production 設定にフォールバックする問題を修正)
+
+- Dockerfile に `ENV ASPNETCORE_ENVIRONMENT=Container` を追加 — env 未指定の `docker run` は Production.json（localhost バインド + Windows 証明書パス）を読み、公開ポートが到達不能 or 起動失敗していた → イメージが自前で Container 設定（Kestrel `+:80`）を選択（compose/k8s は同値を明示設定済み・`-e` 上書き可能）
+- `EXPOSE 5000` を削除 — Container 環境では :80 のみバインドするため実態と不一致だった
+- `appsettings.Container.json` 監査もクリア: セクション欠落はオーバーレイ継承による正規設計・Serilog/Kestrel の差分のみを宣言
+
+### Fixed (イベント駆動 webhook も停止トークンを伝播 — 横展開監査で発見)
+
+- `SendWebhookAsync` の `PostAsync` がトークン未指定 — シャットダウン中も webhook が応答なし待機し得た → `_serviceStoppingToken` を伝播（サイクル379修正の兄弟経路）
+- `GetCurrentHealthAsync` の `CancellationToken.None` 2箇所は同期インメモリ読取りのため問題なし・`Task.Run` はブロッキングキュードレインの正当な用法
+
+### Fixed (イベント駆動修復タスクがホスト停止トークンを無視していた問題を修正)
+
+- `EventDrivenRemediationService` が `CancellationToken.None` で修復を実行 — **シャットダウン中も in-flight の修復が止まらず、ホストの 30 秒ハードキルまで待機していた** → `ExecuteAsync` の `stoppingToken` をフィールドに保持して fire-and-forget 修復へ伝播（MS ガイダンス「トークン発火時に即座に完了」に準拠）
+
+### Improved (appsettings.json とオプションクラスの整合監査 — 変更不要を確認)
+
+- 11セクション全てが消費先と一致（Serilog=ReadFrom.Configuration・AllowedHosts/Kestrel=host 既定・6オプション=Bind + ValidateOnStart・FeatureFlags/Observability=GetValue 直読）
+- セクション内キーは全て対応オプションクラスのプロパティに存在（死キーなし）
+
+### Improved (NuGet パッケージの脆弱性スキャン + 安全な minor/patch アップデート)
+
+- `dotnet list package --vulnerable`： 推移的依存含め脆弱性ゼロを確認
+- 更新3件： Serilog 4.3.1→4.4.0・Serilog.Sinks.Console 6.0.0→6.1.1・Moq 4.20.72→4.21.0（lock ファイル更新済み・321/321 全パス）
+- 意図的に保留： FluentAssertions 6→8（7.x で再ライセンス・導入リスク）、Serilog.Extensions/Settings 9→10・Microsoft.Extensions.* →10.0.12（net10 系メジャー・net8 プロジェクトへの混入不可）、Serilog.Sinks.File 6→7（メジャー・要個別検証）
+
+### Improved (テスト並列化を無効化 — OS 実測値アサートのフレーキング要因を除去)
+
+- `CollectionBehavior(DisableTestParallelization = true)` を追加 — ProcessRunner・SystemMetricsSampler・GC カウンタ・ドライブ列挙の実測値に依存するテストが並列クラスにリソースを奪われてフレークする可能性を根本解消
+- 実行時間は ~17s→55s（全テスト直列化のコスト）だが結果の決定性と引き換えに許容範囲 — 321/321 全パス
+
+### Fixed (.gitattributes にフォントバイナリ宣言を追加 + scripts 監査)
+
+- `*.woff2`/`*.woff`/`*.ttf` が未宣言で `* text=auto` の対象 — 現行ファイルは NUL 検出で偶然救われているだけで、将来の追加フォントは改行正規化で破損し得た → 明示的 `binary` 宣言（コミット済みファイルのバイト一致も検証）
+- `scripts/deploy.sh`（k8s 適用 + rollout 検証 + 実エンドポイント smoke）と `validate-system.sh`（実エンドポイントのみ対象）は実態と一致を確認
+
+### Improved (HSTS・fetch エラーハンドリング・Program.cs の監査)
+
+- 監査クリア（変更不要）: `Strict-Transport-Security` は HTTPS 応答で設定済み（max-age=1年）・dashboard.js の fetch 6箇所は全て try/catch 内（unhandled rejection なし）・SignalR 接続失敗はポーリングへフォールバック
+- `Program.cs`： `ValidateOnBuild`/`ValidateScopes`・Serilog 設定読込・オペレーター設定オーバーレイ・Windows サービス統合の全てが正規配線
+
+### Improved (Brotli/Gzip レスポンス圧縮を有効化 — テキスト資産の転送量を約70%削減)
+
+- 約230KBのテキスト資産（dashboard.js・styles.css・FA css・API JSON）が無圧縮配信だった → `AddResponseCompression`/`UseResponseCompression`（デフォルトの Brotli+Gzip）を配線
+- 実測： dashboard.js 72→23KB・FA css 102→32KB・styles.css 56→15KB・woff2 は正しくスキップ・`EnableForHttps` は既定のまま（BREACH 考慮）
+- 検証： 実機起動で `Content-Encoding: br` 確認・321/321 テスト全パス
+
+### Improved (静的資産の Cache-Control 分離 — vendored 資産を immutable 化)
+
+- `UseStaticFiles()` がデフォルトのままで Cache-Control 未設定 — 約2MBの vendored フォント/ライブラリが毎ダッシュボードロードで再検証されていた
+- `/lib/`・`/fonts/` は `public,max-age=31536000,immutable`（バージョン固定で不変）・アプリファイル（dashboard.js/styles.css/index.html）は `no-cache` で必ず再検証 — リリース時の古いJS/CSS残留も防止
+- 検証： 実機起動で両パスのヘッダ確認・321/321 テスト全パス
+
+### Security (FontAwesome を vendored — CSP が完全 'self' に)
+
+- FontAwesome 6.4.0 を `wwwroot/lib/fontawesome/`（css + webfonts 8件・計1.9MB）に vendored — 最後に残った外部依存の cdnjs を排除
+- CSP から `https://cdnjs.cloudflare.com` を除去し `style-src 'self'`・`font-src 'self'` — **フロントエンドの外部リクエストが完全にゼロ**（scripts/styles/fonts 全て自己完結）
+- 検証： 実機起動で FA css/webfont 200・index.html の外部 URL ゼロ・CSP 反映確認・321/321 テスト全パス
+
+### Security (Google Fonts をセルフホスト化 — 外部リクエストと CSP 例外を排除)
+
+- ダッシュボードが `fonts.googleapis.com`/`fonts.gstatic.com` へ外部リクエスト — SRI 不可の動的 CSS（UA で変化）でサプライチェーン面が残り、クライアント IP が Google へ漏洩していた
+- Inter バリアブルフォント（352KB・woff2）を `wwwroot/fonts/` に vendored + `@font-face`（weight 100-900・`font-display: swap`）を styles.css に定義し Google Fonts リンクを除去
+- CSP から `fonts.googleapis.com`（style-src）と `fonts.gstatic.com`（font-src）を除去 — 外部許可は SRI 済み FontAwesome の cdnjs のみに縮小
+- 検証： 実機起動で `fonts/InterVariable.woff2` 200・CSP ヘッダ反映確認・321/321 テスト全パス
+
+### Improved (webhook 入力面・文字列文化・ファイル I/O の監査)
+
+- 監査クリア（変更不要）: webhook POST は 1MB ボディ上限（Kestrel `MaxRequestBodySize`）+ `JsonDocument.ParseAsync` ストリーミング解析 + malformed → 400 + 60/分レート制限
+- カルチャ依存の `ToLower`/`ToUpper` 呼出しゼロ・ファイル書込みは `WriteAllTextAsync` + temp→move アトミック保存（コンプライアンスレポート）・回復検証用テストファイルは意図的設計
+
+### Improved (PeriodicAsyncLoop のユニットテスト追加 — 315→321)
+
+- 直列化（即時実行→周期反復）・反復例外の報告と継続・`DisposeAsync` の停止確定性と in-flight 待機・`CancelNow` の冪等性・初期遅延尊重の6ケースを追加
+- README テスト数を実態に更新（315→321）
+
+### Improved (イベント購読・セッションリークの監査)
+
+- 監査クリア（変更不要）: `CollaborationService` の ctor 購読3件は singleton ライフタイム一致（発行者・購読者が同寿命でリーク不成立）・`EventCorrelationService`/`EventDrivenRemediationService` は `StopAsync` で解除済み
+- `_activeUsers` ゴーストセッション: SignalR が transport timeout で `OnDisconnectedAsync` を発火 → `UserDisconnectedAsync` が `TryRemove` で確実に回収、rejected connection は辞書未登録
+
+### Improved (ダッシュボード DOM 注入面・CSP 整合の監査)
+
+- 監査クリア（変更不要）: innerHTML/insertAdjacentHTML 全箇所で `esc()` によるエスケープ適用・非 esc 補間は定数三項演算/数値/Date 出力のみ・`result.url`・`data-category` は全てリテラル固定値
+- `data-onchange`/`data-onkeyup` は inline ハンドラではなくデリゲーション属性 → `script-src 'self'`（unsafe-inline なし）と整合・`connect-src 'self' ws: wss:` が SignalR WebSocket を正規カバー
+
+### Security (k8s Ingress から /metrics ルートを除去 + 死 egress ルール整理)
+
+- Ingress が `/metrics` を外部へルーティング — 認証なしで完全な内部テレメトリを公開していた → 削除（クラスタ内スクレイプは ServiceMonitor/pod アノテーションで継続）
+- egress NetworkPolicy の `potion-database:5432` ルールは存在しない Pod を指す死ルール（コードベースに DB 依存なし）→ 除去し、OTLP export（`Observability:OtlpEndpoint`）がこのポリシーでブロックされる旨の注記を追加
+- 検証： 全ドキュメント YAML パース成功
+
+### Security (Docker ビルドで lock ファイル復元を有効化 — 依存ピンが無視されていた)
+
+- Dockerfile が `src/` のみをコピーしていたため、リポジトリルートの `Directory.Build.props`（`RestorePackagesWithLockFile`）がコンテナ内に存在せず — **`packages.lock.json` は COPY されているのに一切参照されず、Docker ビルドだけが依存解決を非固定で行っていた**
+- `Directory.Build.props` を build context へ COPY + `ContinuousIntegrationBuild=true` を build ステージに設定（コンテナビルドは CI ビルド → `RestoreLockedMode` が発動し lock 不整合でビルド失敗）
+- 検証： `--locked-mode` 復元がローカルで成功・`.dockerignore` が props/lock を除外していないこと確認
+
+### Improved (実行パスの cancellation 配線・タイマー上限記述の監査)
+
+- 監査クリア: プロセス実行は `ResilienceContext` の CT を `RunAsync` へ正しく伝播（パイプラインタイムアウトでプロセスツリーごと kill）・`new Timer` 残存ゼロ・`.Result`/`.Wait()` 同期ブロックゼロ
+- `Compliance:ReportIntervalHours` の上限1193時間は `System.Threading.Timer` 由来の記述だったが PeriodicTimer 化で不要に — オプションバリデーション上限として整合維持し、誤った根拠記述のみ修正（`StartAsync` ガードは `ValidateOnStart` をバイパスするテスト構築経路のため保持）
+
+### Improved (周期タイマーを PeriodicTimer ベースへ置換 — 実行の直列化と失敗の可視化)
+
+- `EventCorrelationService`・`ComplianceReportService`・`AnomalyDetector`・`CollaborationService` の4箇所が `new Timer(_ => _ = work(), ...)` で fire-and-forget 実行 — **前回実行が未完了でも次回が重複起動し、コールバック内で捕捉漏れした例外は unobserved task exception として静かに消失**していた
+- `PeriodicAsyncLoop`（`PeriodicTimer` ベース）を新設： 実行の直列化・反復ごとの例外ログ・`StopAsync` での確定的停止（in-flight 実行の完了待機）を実現
+- 検証： 315/315 テスト全パス・ビルド0警告
+
+### Security (docker-compose 公開ポートをループバックにバインド)
+
+- `5000:80`・`9090:9090`・`9093:9093` は全ホストインターフェースに公開され、**認証なしのダッシュボード・メトリクス・webhook が LAN から到達可能**だった — `127.0.0.1:` プレフィックスでループバックのみに公開を限定
+- コンテナ間通信は内部ネットワークのサービス DNS（`potion-service:80`・`alertmanager:9093`）を使用するため影響なし — ブラウザ経由のユーザーアクセスのみループバックに制限
+- 検証： compose YAML 妥当性確認・prometheus/alertmanager の内部ターゲット不変
+
 ### Fixed (README ドリフト解消 — テスト数・エンドポイント一覧を実態に更新)
 
 - テスト数記載 `305/305` → 実態の **315/315** に修正（`dotnet test Potion.sln` で実測確認）

@@ -1,5 +1,15 @@
 /* Atlassian Design System Inspired Styles */
 
+/* Self-hosted Inter variable font — keeps the dashboard fully first-party
+   (no Google Fonts request) so font-src can stay 'self'. */
+@font-face {
+    font-family: 'Inter';
+    src: url('fonts/InterVariable.woff2') format('woff2');
+    font-weight: 100 900;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* Color Palette */
 :root {
     --primary-blue: #0052CC;
@@ -15,6 +25,7 @@
     --info-blue-hover: #00A3BF;
 
     /* Neutral Colors */
+    --gray-25: #FCFDFE;
     --gray-50: #FAFBFC;
     --gray-100: #F4F5F7;
     --gray-200: #EBECF0;
@@ -1181,40 +1192,6 @@ body.no-tooltips .tooltip:hover .tooltip-content {
     background: var(--primary-blue);
     color: white;
     border-color: var(--primary-blue);
-}
-
-/* Banner Notifications */
-.banner {
-    background: var(--warning-yellow);
-    color: #5f3811;
-    padding: var(--space-3) var(--space-4);
-    border-bottom: 1px solid var(--gray-200);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-
-.banner.success {
-    background: var(--accent-green);
-    color: #094c33;
-}
-
-.banner.error {
-    background: var(--error-red);
-    color: white;
-}
-
-.banner.info {
-    background: var(--info-blue);
-    color: #005f82;
-}
-
-.banner .btn {
-    font-size: 12px;
-    padding: var(--space-2) var(--space-3);
 }
 
 /* Tabs */

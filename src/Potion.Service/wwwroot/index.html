@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Potion Service Dashboard</title>
+    <!-- Inline SVG favicon: img-src 'self' data: in the CSP permits data URIs, so this needs no extra request. -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230067ff'/%3E%3Cpath d='M8 3l4 1.6v3.2c0 2.8-1.9 4.6-4 5.2-2.1-.6-4-2.4-4-5.2V4.6z' fill='%23fff'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="styles.css">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha384-iw3OoTErCYJJB9mCa8LNS2hbsQ7M3C0EpIsO/H5+EGAkPGc6rk+V8i04oW/K5xq0" crossorigin="anonymous">
+    <!-- Inter is self-hosted via @font-face in styles.css — no external font request. -->
+    <link rel="stylesheet" href="lib/fontawesome/css/all.min.css">
 </head>
 <body>
     <div class="dashboard-layout">
@@ -356,7 +358,7 @@
                 </div>
             </div>
 
-            <div class="alerts-container" id="alerts-container">
+            <div class="alerts-container" id="alerts-container" aria-live="polite">
                 <!-- Populated by JavaScript -->
             </div>
         </section>
@@ -761,7 +763,7 @@
                         <h4 class="form-section-title">General Settings</h4>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Dashboard Theme</label>
+                                <label class="form-label" for="theme-select-advanced">Dashboard Theme</label>
                                 <select class="form-input" id="theme-select-advanced" name="theme">
                                     <option value="light">Light</option>
                                     <option value="dark">Dark</option>
@@ -770,7 +772,7 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Language</label>
+                                <label class="form-label" for="language-select">Language</label>
                                 <select class="form-input" id="language-select" name="language">
                                     <option value="en">English</option>
                                     <option value="ja">日本語</option>
@@ -785,12 +787,12 @@
                         <h4 class="form-section-title">Performance Settings</h4>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Refresh Interval (seconds)</label>
+                                <label class="form-label" for="refresh-interval-advanced">Refresh Interval (seconds)</label>
                                 <input type="number" class="form-input" id="refresh-interval-advanced" name="refreshInterval" min="5" max="300" value="30">
                                 <div class="form-help">How often to refresh dashboard data</div>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Data Retention (days)</label>
+                                <label class="form-label" for="retention-days">Data Retention (days)</label>
                                 <input type="number" class="form-input" id="retention-days" name="retentionDays" min="1" max="365" value="30">
                                 <div class="form-help">How long to keep historical data</div>
                             </div>
@@ -815,7 +817,7 @@
                         <h4 class="form-section-title">Display Preferences</h4>
                         <div class="form-row">
                             <div class="form-group">
-                                <label class="form-label">Items per page</label>
+                                <label class="form-label" for="items-per-page">Items per page</label>
                                 <select class="form-input" id="items-per-page" name="itemsPerPage">
                                     <option value="25">25</option>
                                     <option value="50" selected>50</option>
@@ -824,7 +826,7 @@
                                 </select>
                             </div>
                             <div class="form-group">
-                                <label class="form-label">Date Format</label>
+                                <label class="form-label" for="date-format">Date Format</label>
                                 <select class="form-input" id="date-format" name="dateFormat">
                                     <option value="YYYY-MM-DD">YYYY-MM-DD</option>
                                     <option value="MM/DD/YYYY">MM/DD/YYYY</option>

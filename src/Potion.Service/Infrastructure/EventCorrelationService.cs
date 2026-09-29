@@ -38,7 +38,7 @@ public class EventCorrelationService : IHostedService, IDisposable
     // otherwise re-log the same correlation every window indefinitely.
     private readonly ConcurrentDictionary<string, DateTimeOffset> _lastCorrelationAt = new();
     private static readonly TimeSpan CorrelationCooldown = TimeSpan.FromMinutes(15);
-    private Timer? _correlationTimer;
+    private PeriodicAsyncLoop? _correlationLoop;
 
     public EventCorrelationService(
         ILogger<EventCorrelationService> logger,
@@ -117,8 +117,11 @@ public class EventCorrelationService : IHostedService, IDisposable
 
         _logger.LogInformation("Starting event correlation service");
 
-        _correlationTimer = new Timer(_ => _ = ProcessEventCorrelationsAsync(), null, TimeSpan.Zero,
-            TimeSpan.FromMinutes(_options.CorrelationWindowMinutes));
+        _correlationLoop = new PeriodicAsyncLoop(
+            TimeSpan.Zero,
+            TimeSpan.FromMinutes(_options.CorrelationWindowMinutes),
+            _ => ProcessEventCorrelationsAsync(),
+            ex => _logger.LogError(ex, "Event correlation iteration failed"));
 
         _healthMonitor.HealthAlert += OnHealthAlert;
 
@@ -318,16 +321,18 @@ public class EventCorrelationService : IHostedService, IDisposable
         _logger.LogInformation("Correlation data: {Data}", correlationJson);
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken)
     {
         _healthMonitor.HealthAlert -= OnHealthAlert;
-        _correlationTimer?.Change(Timeout.Infinite, 0);
-        return Task.CompletedTask;
+        if (_correlationLoop is not null)
+        {
+            await _correlationLoop.DisposeAsync();
+        }
     }
 
     public void Dispose()
     {
-        _correlationTimer?.Dispose();
+        _correlationLoop?.CancelNow();
     }
 }
 

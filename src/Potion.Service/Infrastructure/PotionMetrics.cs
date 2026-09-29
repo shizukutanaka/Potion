@@ -115,13 +115,6 @@ public static class PotionMetrics
             unit: "{operations}",
             description: "Number of currently executing remediation operations");
 
-    /// <summary>Histogram: Diagnostic check duration</summary>
-    public static readonly Histogram<double> DiagnosticCheckDuration =
-        Meter.CreateHistogram<double>(
-            "potion.diagnostics.check_duration",
-            unit: "ms",
-            description: "Duration of diagnostic checks");
-
     /// <summary>Counter: Self-healing attempts</summary>
     public static readonly Counter<long> SelfHealingAttempts =
         Meter.CreateCounter<long>(
@@ -217,19 +210,6 @@ public static class PotionMetrics
         };
 
         BulkheadRejections.Add(1, tags);
-    }
-
-    /// <summary>
-    /// Records a diagnostic check
-    /// </summary>
-    public static void RecordDiagnosticCheck(string checkName, double durationMs)
-    {
-        var tags = new KeyValuePair<string, object?>[]
-        {
-            new("check.name", checkName)
-        };
-
-        DiagnosticCheckDuration.Record(durationMs, tags);
     }
 
     /// <summary>
