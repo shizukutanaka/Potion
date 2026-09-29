@@ -218,16 +218,12 @@ public class Startup
         {
             OnPrepareResponse = ctx =>
             {
-                // Vendored assets under /lib and /fonts are versioned and never
-                // change — cache them immutably instead of revalidating ~2MB of
-                // webfonts on every dashboard load. App files (dashboard.js,
-                // styles.css) are edited by releases, so they must revalidate.
-                var path = ctx.Context.Request.Path.Value ?? string.Empty;
-                ctx.Context.Response.Headers.CacheControl =
-                    path.StartsWith("/lib/", StringComparison.OrdinalIgnoreCase)
-                        || path.StartsWith("/fonts/", StringComparison.OrdinalIgnoreCase)
-                        ? "public,max-age=31536000,immutable"
-                        : "no-cache";
+                // All URLs are stable (no content hashes), so nothing may be
+                // marked immutable — an upgraded vendored font or stylesheet at
+                // the same path must not stay cached. no-cache still allows
+                // caching but forces ETag revalidation, so unchanged assets
+                // revalidate cheap (304) and upgraded ones are picked up.
+                ctx.Context.Response.Headers.CacheControl = "no-cache";
             }
         });
         app.UseMiddleware<RequestMetricsMiddleware>();

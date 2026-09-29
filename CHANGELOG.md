@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Fixed (PR #61 Devin Review 対応 — 5件の指摘を修正)
+
+- 🔴 Dockerfile: `dotnet restore` が locked モードで `packages.lock.json` 未配置のため失敗 → csproj と並行して lock ファイルも COPY
+- 🟥 k8s: `/` prefix ルート経由で `/metrics` が Ingress 公開のままだった → `server-snippet` で `location = /metrics { return 404; }` を追加（snippet 許可が必要な旨コメント明記）
+- 🟡 静的アセット: `/lib/`・`/fonts/` の `immutable` 1年キャッシュはアップグレード時に旧アセットを最大1年配信し続ける → 全アセット `no-cache`（ETag 304 再検証）に変更（URL が content-hash なしのため）
+- 🟡 CollaborationService: `Dispose` は broadcast loop をキャンセルするのみで実行中 broadcast を待たない → `IAsyncDisposable` を実装し `_healthBroadcastLoop.DisposeAsync()` を await
+- 🟡 dashboard.js: `deliverAlert` が通知権限未許可時にリクエストのみで当該アラートを通知しない・`warningAlerts` のフォーム既定 `'browser'` が未保存時に無視される → 既定値フォールバックを追加し、権限リクエストを settings 保存（ユーザージェスチャ）時へ移動
+- Audit: dashboard.js が読む JSON フィールド名を C# レスポンス形状と全件照合（metrics/cpu/memory/disk/network/services・alerts の全パス一致・JsonStringEnumConverter で severity 文字列化確認）— ドリフトなし
+
 ### Fixed (favicon 追加 — /favicon.ico の自動リクエストが毎回404になっていた)
 
 - index.html にインライン SVG favicon を追加（`img-src 'self' data:` の CSP 内で data URI が許可されているため追加ファイル不要・追加リクエストも発生しない）

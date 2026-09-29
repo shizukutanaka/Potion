@@ -291,7 +291,11 @@ class PotionDashboard {
 
     deliverAlert(severity, message) {
         const settings = this.getStoredSettings();
-        const pref = severity === 'error' ? settings.criticalAlerts : settings.warningAlerts;
+        // Form defaults apply before the user ever saves: criticalAlerts='none',
+        // warningAlerts='browser' (see the checked radios in index.html).
+        const pref = severity === 'error'
+            ? (settings.criticalAlerts ?? 'none')
+            : (settings.warningAlerts ?? 'browser');
         if (settings.soundNotifications && severity === 'error') {
             this.playAlertSound();
         }
@@ -502,6 +506,13 @@ class PotionDashboard {
 
         // Apply settings
         this.applyAdvancedSettings(settings);
+
+        // Browser notification permission must be requested inside a user
+        // gesture — the settings save click is one, a SignalR alert is not.
+        if ((settings.criticalAlerts === 'browser' || settings.warningAlerts === 'browser') &&
+            'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
 
         this.closeAdvancedSettingsModal();
         this.showNotification('Advanced settings saved successfully', 'success');

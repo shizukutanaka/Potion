@@ -90,7 +90,7 @@ public class CollaborationHub : Hub
     }
 }
 
-public class CollaborationService : IDisposable
+public class CollaborationService : IDisposable, IAsyncDisposable
 {
     private readonly ILogger<CollaborationService> _logger;
     private readonly CollaborationOptions _options;
@@ -153,6 +153,16 @@ public class CollaborationService : IDisposable
     public void Dispose()
     {
         _healthBroadcastLoop.CancelNow();
+    }
+
+    // Preferred shutdown path: the host awaits IAsyncDisposable, so the
+    // in-flight broadcast finishes before the service provider (and the
+    // SignalR context it uses) is torn down. Sync Dispose stays as the
+    // non-blocking fallback for containers that cannot await.
+    public async ValueTask DisposeAsync()
+    {
+        await _healthBroadcastLoop.DisposeAsync().ConfigureAwait(false);
+        GC.SuppressFinalize(this);
     }
 
     public async Task<bool> UserConnectedAsync(string userId, string connectionId)

@@ -6,9 +6,11 @@ WORKDIR /src
 # container build would silently ignore packages.lock.json pins.
 COPY ["Directory.Build.props", "./"]
 
-# Copy the project file first so the NuGet restore layer stays cached
-# unless package references themselves change.
+# Copy the project file and its lock file first so the NuGet restore layer
+# stays cached unless package references themselves change. The lock file
+# must arrive before restore: locked mode fails when it is absent.
 COPY ["src/Potion.Service/Potion.Service.csproj", "Potion.Service/"]
+COPY ["src/Potion.Service/packages.lock.json", "Potion.Service/"]
 
 # Container builds are CI builds: fail on a lock-file mismatch instead
 # of silently rewriting it (see RestoreLockedMode in Directory.Build.props).

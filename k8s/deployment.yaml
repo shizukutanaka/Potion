@@ -145,6 +145,15 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    # /metrics must not be reachable through this Ingress: the `/` prefix
+    # rule below would otherwise proxy it too. This exact-match location
+    # shadows the prefix rule and returns 404. Requires the ingress-nginx
+    # controller to allow snippet annotations (allow-snippet-annotations,
+    # off by default on ingress-nginx >= 1.9); on controllers without it,
+    # deny /metrics at the gateway/LB layer instead. Prometheus scraping is
+    # unaffected — it hits the Service/Pod in-cluster via the ServiceMonitor.
+    nginx.ingress.kubernetes.io/server-snippet: |
+      location = /metrics { return 404; }
     # WARNING: Potion serves no authentication — every path below (dashboard,
     # /api/health/security, /metrics, /collaboration) is anonymous. Do NOT
     # expose this Ingress publicly: restrict to internal networks
@@ -174,10 +183,8 @@ spec:
             name: potion-service
             port:
               number: 80
-      # /metrics is deliberately NOT routed here: Prometheus scrapes it
-      # in-cluster via the ServiceMonitor/pod annotations. Exposing it
-      # through the ingress would publish full internal telemetry to
-      # anyone who can reach the host.
+      # /metrics has no explicit route, but the `/` prefix below would still
+      # proxy it — the server-snippet above returns 404 for it at the edge.
       - path: /collaboration
         pathType: Prefix
         backend:
