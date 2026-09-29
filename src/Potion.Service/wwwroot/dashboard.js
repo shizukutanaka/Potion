@@ -90,6 +90,29 @@ class PotionDashboard {
         this.showSection('overview');
         this.initializeCharts();
         this.connectSignalR();
+        this.prepareNotificationPermission();
+    }
+
+    // Notification.permission can only be requested inside a user gesture.
+    // Warning alerts default to browser delivery even before settings are
+    // saved, so arm a one-time listener on the first interaction — otherwise
+    // an unsaved visitor's warnings could never become notifications.
+    prepareNotificationPermission() {
+        if (!('Notification' in window) || Notification.permission !== 'default') {
+            return;
+        }
+        const settings = this.getStoredSettings();
+        if (settings.criticalAlerts !== 'browser' &&
+            (settings.warningAlerts ?? 'browser') !== 'browser') {
+            return;
+        }
+        const request = () => {
+            if (Notification.permission === 'default') {
+                Notification.requestPermission();
+            }
+        };
+        document.addEventListener('pointerdown', request, { once: true });
+        document.addEventListener('keydown', request, { once: true });
     }
 
     // Connects to the /collaboration hub for live alerts and health updates.

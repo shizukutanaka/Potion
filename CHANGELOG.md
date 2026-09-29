@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (PR #61 第2ラウンドレビュー対応 — `/metrics` を構造的に遮断・通知権限をユーザー操作時に要求)
+
+- k8s Ingress: `server-snippet` 廃止（snippet 非許可の ingress-nginx ≥1.9 では Ingress 全体が admission 拒否されダッシュボード全落ちの副作用）→ `/` prefix を Exact パス列挙（`/`・`/index.html`・`/styles.css`・`/dashboard.js` + `/lib`・`/fonts` prefix）へ変更し `/metrics` をルーティング構造上到達不能に
+- dashboard.js: `warningAlerts` 既定 `'browser'` は SignalR イベントから権限要求できず実質無効だった → 初回ユーザー操作（pointerdown/keydown）で一度だけ `requestPermission` を呼ぶ `prepareNotificationPermission` を追加（未許可時のみ・保存済み設定が両方非 browser の場合は武装しない）
+
 ### Fixed (PR #61 Devin Review 対応 — 5件の指摘を修正)
 
 - 🔴 Dockerfile: `dotnet restore` が locked モードで `packages.lock.json` 未配置のため失敗 → csproj と並行して lock ファイルも COPY

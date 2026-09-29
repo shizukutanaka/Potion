@@ -145,17 +145,9 @@ metadata:
     kubernetes.io/ingress.class: "nginx"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
-    # /metrics must not be reachable through this Ingress: the `/` prefix
-    # rule below would otherwise proxy it too. This exact-match location
-    # shadows the prefix rule and returns 404. Requires the ingress-nginx
-    # controller to allow snippet annotations (allow-snippet-annotations,
-    # off by default on ingress-nginx >= 1.9); on controllers without it,
-    # deny /metrics at the gateway/LB layer instead. Prometheus scraping is
-    # unaffected — it hits the Service/Pod in-cluster via the ServiceMonitor.
-    nginx.ingress.kubernetes.io/server-snippet: |
-      location = /metrics { return 404; }
+
     # WARNING: Potion serves no authentication — every path below (dashboard,
-    # /api/health/security, /metrics, /collaboration) is anonymous. Do NOT
+    # /api/health/security, /collaboration) is anonymous. Do NOT
     # expose this Ingress publicly: restrict to internal networks
     # (nginx.ingress.kubernetes.io/whitelist-source-range) or place an auth
     # proxy (oauth2-proxy / basic auth) in front before production use.
@@ -183,8 +175,6 @@ spec:
             name: potion-service
             port:
               number: 80
-      # /metrics has no explicit route, but the `/` prefix below would still
-      # proxy it — the server-snippet above returns 404 for it at the edge.
       - path: /collaboration
         pathType: Prefix
         backend:
@@ -192,7 +182,46 @@ spec:
             name: potion-service
             port:
               number: 80
+      # Dashboard assets are enumerated instead of a `/` prefix: a prefix
+      # route would also proxy /metrics (and anything else the app ever
+      # adds). With only these paths listed, /metrics is unreachable
+      # through the Ingress by construction — no annotations needed.
       - path: /
+        pathType: Exact
+        backend:
+          service:
+            name: potion-service
+            port:
+              number: 80
+      - path: /index.html
+        pathType: Exact
+        backend:
+          service:
+            name: potion-service
+            port:
+              number: 80
+      - path: /styles.css
+        pathType: Exact
+        backend:
+          service:
+            name: potion-service
+            port:
+              number: 80
+      - path: /dashboard.js
+        pathType: Exact
+        backend:
+          service:
+            name: potion-service
+            port:
+              number: 80
+      - path: /lib
+        pathType: Prefix
+        backend:
+          service:
+            name: potion-service
+            port:
+              number: 80
+      - path: /fonts
         pathType: Prefix
         backend:
           service:
