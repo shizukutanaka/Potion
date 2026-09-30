@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Docs (運用設定レイヤー `{Base}/config/appsettings.json` を文書化 — 最高優先度だが未記述だった)
+
+- `Program.cs` は `ServicePaths.ConfigurationFile` を全設定源の最後（appsettings・環境変数より上位の優先度）に `reloadOnChange` で読み込む — アップグレードで消えない外部オーバーライド層だがドキュメント未記載だった
+- パス解決（CommonApplicationData → LocalApplicationData → アプリ直下のフォールバック）・ホットリロードセマンティクス・HTTPS 有効化や ConfigTool（generate/validate/backup/restore）の書込み先であることを README に明記
+- 補完監査: `ServicePaths`（ACL 強化・フォールバック）・`PotionMetrics` 全359行（全 Record*/Update* に実呼出しあり・死メトリクスなし）・install.cmd/License.rtf・.github 全体 — 整合確認
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
