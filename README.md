@@ -57,10 +57,15 @@ Bound sections in `appsettings.json` (unbound sections were removed — see CHAN
 - `Observability` — `OtlpEndpoint` for OpenTelemetry OTLP export (default `http://localhost:4317`)
 - `Serilog`, `AllowedHosts`, `Kestrel` — framework settings
 
+Environment variables (code-level knobs, not bound to a config section):
+
+- `POTION_PROCESS_MAX_MEMORY_MB` — peak-memory ceiling per spawned remediation process (default `768`; clamped to 128–4096 MB). On Windows the limit is enforced by a Job Object (process is killed on breach); elsewhere it is observed post-run via `PeakWorkingSet64` and logged.
+- `Kestrel__Endpoints__*` — overrides `Kestrel:Endpoints` from config; `ASPNETCORE_URLS` is ignored when endpoints are configured (see `appsettings.json`).
+
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 287/287 tests
+dotnet test Potion.sln   # 293/293 tests
 ```
 
 ## License

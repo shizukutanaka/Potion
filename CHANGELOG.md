@@ -2,12 +2,19 @@
 
 ## Unreleased
 
+### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
+
+- `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
+- `Kestrel__Endpoints__*` 上書き規則と `ASPNETCORE_URLS` 無効化の注意も追記
+- テスト数の記載を実値へ更新（287 → 293）
+
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
 - `SubscribeToAlerts`/`UnsubscribeFromAlerts` の `alertType` に上限64文字を追加 — 匿名クライアントが無制限にグループ参加してメモリを増殖させる DoS 面を閉塞
 - テスト: room テスト削除（消した API のもの）+ 上限超過は黙って無視されることを検証するテスト追加（293 維持、main マージ後）
 
+||||||| parent of 2d0b5b0 (docs: document env-var knobs (POTION_PROCESS_MAX_MEMORY_MB, Kestrel__Endpoints__*) + fix test count)
 ### Fixed (`ProcessRunner` の2つの実バグ — 呼出し側 `WorkingDirectory` の上書きと空行の消失)
 
 - `WorkingDirectory` が常に `Path.GetDirectoryName(FileName)` で上書きされ、呼出し側の指定値を黙って捨てていた → 未指定時のみ導出し、指定値を尊重するように
