@@ -2,16 +2,26 @@
 
 ## Unreleased
 
+### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
+
+- メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
+
 ### Fixed (イベント駆動 webhook の `HttpResponseMessage` リーク)
 
 - `SendWebhookAsync` がレスポンスを未破棄のまま返していた — アラート発火毎にコネクションプールの接続が GC まで占有され、継続発火で枯渇し得た → `using var` 追加
 
+||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 ### Fixed (子プロセスプローブのタイムアウトが実質無効・監視ポーリング全体をハングさせ得た)
 
 - `systemctl`/`launchctl`/`journalctl`/`defaults` 系プローブ5箇所が `ReadToEnd()` を同期ブロッキングした後に `WaitForExit(timeout)` していた — 子プロセスがハングすると stdout EOF が来ずタイムアウトに到達しないため、**監視ポーリング全体が無期限に固まった**。さらに `RedirectStandardError=true` かつ未読のため stderr パイプ満杯で子がデッドロックし得た
 - `RunProbe` ヘルパーへ統一： stdout/stderr を並行 drain・真のタイムアウト適用・期限超過時は `Kill()` で子を回収し、パースは終了確認時のみ実行
 
+<<<<<<< HEAD
 ||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
+||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+=======
+||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+>>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 ### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
 
 - `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
@@ -20,10 +30,18 @@
 
 <<<<<<< HEAD
 ||||||| parent of 865c388 (fix: bound OS probes for real — hung systemctl/journalctl could freeze the whole monitoring poll)
+<<<<<<< HEAD
 ||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
 =======
 ||||||| parent of be8fd6d (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
 >>>>>>> 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
+||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+=======
+||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+=======
+||||||| parent of 61cb9c5 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+>>>>>>> 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+>>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
