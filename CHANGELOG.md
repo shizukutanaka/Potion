@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Audit (ヘルスプローブ意味分離・デプロイ面の整合を監査 — 変更不要を確認)
+
+- `/health` は ready タグなしチェック（0件 = プロセス応答のみ）で純粋 liveness、`/health/ready` は `SystemReadinessCheck`（監視パイプラインの end-to-end サンプリング + CPU/メモリ/ディスク最悪値 ≥95% で Degraded）— 意味分離は正しい
+- k8s liveness/readiness/startup 3プローブ・`deploy.sh` port-forward スモークテスト・`validate-system.sh` の全チェックパスが登録ルートと一致（webhook は GET→405 想定）
+- `"webhook"` レートリミッタは `UseRateLimiter` + `RequireRateLimiting` で実接続済み — 宣言だけの死設定なし
+
 ### Audit (NuGet 依存の脆弱性・鮮度監査 — 脆弱性ゼロを確認)
 
 - `dotnet list package --vulnerable`: 全3プロジェクト（Service/Tests/ConfigTool）で既知脆弱性ゼロ
