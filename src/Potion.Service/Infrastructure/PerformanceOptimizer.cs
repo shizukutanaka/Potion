@@ -453,15 +453,14 @@ public sealed class PerformanceOptimizer : BackgroundService
         var options = _optionsMonitor.CurrentValue;
         try
         {
+            // Mutating global system state on a timer is harmful: netsh autotuning
+            // and the active power plan are deliberate operator settings, and this
+            // pass runs whenever ANY threshold trips (often every check), so the
+            // service was silently reverting them on a schedule. Report instead —
+            // the same philosophy as the Optimize* methods above.
             if (options.EnableNetworkOptimization)
             {
-                // ネットワーク接続の最適化（allowlist 検証必須）
-                _commandValidator.EnsureCommandIsAllowed("netsh.exe");
-                var result = await _processRunner.RunAsync(new ProcessStartInfo("netsh.exe", "interface tcp set global autotuninglevel=normal"), TimeSpan.FromMinutes(2), cancellationToken);
-                if (result.ExitCode == 0)
-                {
-                    actions.Add("ネットワーク設定を最適化しました");
-                }
+                actions.Add("ネットワーク設定: TCP autotuning などのグローバル設定は自動変更しません（必要なら netsh interface tcp show global で確認）");
             }
 
             if (options.EnablePowerOptimization)
@@ -470,12 +469,7 @@ public sealed class PerformanceOptimizer : BackgroundService
                 using var batterySearcher = new System.Management.ManagementObjectSearcher("SELECT BatteryStatus FROM Win32_Battery");
                 if (batterySearcher.Get().Count > 0)
                 {
-                    _commandValidator.EnsureCommandIsAllowed("powercfg.exe");
-                    var powerResult = await _processRunner.RunAsync(new ProcessStartInfo("powercfg.exe", "/setactive 381b4222-f694-41f0-9685-ff5bb260df2e"), TimeSpan.FromMinutes(2), cancellationToken);
-                    if (powerResult.ExitCode == 0)
-                    {
-                        actions.Add("電源設定をバランスモードに変更しました");
-                    }
+                    actions.Add("電源設定: アクティブな電源プランは自動変更しません（必要なら powercfg /getactivescheme で確認）");
                 }
             }
         }
@@ -491,7 +485,13 @@ public sealed class PerformanceOptimizer : BackgroundService
     {
         // 簡易的なパフォーマンススコア計算（0-100）
         var cpuScore = Math.Max(0, 100 - stats.CpuUsagePercent);
-        var memoryScore = Math.Max(0, 100 - (stats.MemoryUsageBytes / (double)(stats.AvailableMemoryBytes + stats.MemoryUsageBytes) * 100));
+        // A failed memory query reports (0,0) — 0/0 yields NaN which propagates
+        // through Math.Max into the whole score. Same convention as the
+        // memoryPercentBefore check: no measurement means no reported pressure.
+        var memoryTotal = stats.AvailableMemoryBytes + stats.MemoryUsageBytes;
+        var memoryScore = memoryTotal > 0
+            ? Math.Max(0, 100 - (stats.MemoryUsageBytes / (double)memoryTotal * 100))
+            : 100;
         var diskScore = Math.Max(0, 100 - stats.DiskUsagePercent);
         var processScore = Math.Max(0, 100 - (stats.ActiveProcessCount / 100.0 * 20)); // 100プロセス以上で減点
 

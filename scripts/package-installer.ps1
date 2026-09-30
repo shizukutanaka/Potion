@@ -219,12 +219,9 @@ function Install-WindowsService {
         # Recovery: restart on the first three failures, reset the count daily
         # (same policy as deploy-windows.ps1 and the MSI ServiceConfig).
         sc.exe failure $ServiceName reset= 86400 actions= restart/60000/restart/60000/restart/60000 | Out-Null
-        # Without env vars the service boots in the Production environment, whose
-        # Kestrel HTTPS endpoint requires certificate.pfx — a cert the install
-        # cannot provision — and startup fails. Bind HTTP explicitly; operators
-        # add the cert and remove the override when they want HTTPS.
-        New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName" -Name Environment `
-            -PropertyType MultiString -Value @("ASPNETCORE_URLS=http://localhost:5000") -Force | Out-Null
+        # The service binds HTTP:5000 from appsettings.Production.json.
+        # Configured Kestrel:Endpoints ignore ASPNETCORE_URLS — HTTPS is opt-in
+        # via the operator config file (see post-install instructions).
         Write-Success "Windows service installed successfully"
     } else {
         Write-Error "Failed to install Windows service: $createResult"
@@ -368,8 +365,10 @@ Next Steps:
 2. View logs: $env:ProgramData\Potion\logs
 3. Check service status: Get-Service "$ServiceName"
 4. Access API: http://localhost:5000/api/health
-5. HTTPS: place certificate.pfx in $env:ProgramData\Potion\certs, then remove the
-   ASPNETCORE_URLS value from the service's Environment registry key
+5. HTTPS: place certificate.pfx in $env:ProgramData\Potion\certs, then add a
+   "Kestrel": { "Endpoints": { "Https": { "Url": "https://localhost:5001",
+   "Certificate": { "Path": "C:\\ProgramData\\Potion\\certs\\certificate.pfx" } } } }
+   block to $env:ProgramData\Potion\config\appsettings.json and restart the service
 
 Commands:
   Start:   Start-Service "$ServiceName"
