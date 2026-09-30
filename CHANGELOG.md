@@ -6,6 +6,7 @@
 
 - `Potion.ConfigTool generate` が生成する既定設定の `disk_cleanup` が `Arguments="/sagerun:1"`（`CommandArgumentAllowlist` 未収録）で、`ValidateOnStart` の `ArgumentsAreAllowlisted` により**サービスが起動不能になる設定を出力していた** → 出荷 `appsettings.json` と全値を同期（MaxConcurrency 4・sfc 1800/900・dism 3600/1800・cleanmgr `/verylowdisk`/MaxRetries 1/StopOnFailure false）し `CommandArgumentAllowlist` も生成出力へ追加（override 層として閲覧可能なノブへ）
 - `validate`/`restore` が独自の疎なチェック（MaxConcurrency・allowlist 非空・重複名・コマンド許可のみ）で起動時検証と非対称だった → サービスと同一の `ValidateDataAnnotations` + 5つの `RemediationPolicyOptionsValidators` を実行するよう変更し、`validate` がパスする設定は起動可能な設定と一致
+- 上記と同系の残ギャップ: サービスが `ValidateOnStart` する他5セクション（`Collaboration`・`MemoryMonitor`・`PerformanceOptimizer`・`EventCorrelation`・`Compliance`）を `validate` が一切検査していなかった（例: `EventCorrelation:CorrelationWindowMinutes: 0` や `Collaboration:MaxConcurrentUsers: 0` で `validate` 合格→サービス起動拒否） → 各セクションのバインド・データアノテーション・カスタム検証を Startup.cs と同一ルールで追加（MemoryMonitor/PerformanceOptimizer の登録済みバインドは未使用の死コードでもあった）
 
 ### Fixed (PR #61 第2ラウンドレビュー対応 — `/metrics` を構造的に遮断・通知権限をユーザー操作時に要求)
 

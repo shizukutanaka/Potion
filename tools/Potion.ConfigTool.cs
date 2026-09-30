@@ -112,30 +112,25 @@ class Program
             var services = new ServiceCollection();
             services.AddOptions<RemediationPolicyOptions>()
                 .Bind(config.GetSection("RemediationPolicy"));
+            services.AddOptions<CollaborationOptions>()
+                .Bind(config.GetSection("Collaboration"));
             services.AddOptions<MemoryMonitorOptions>()
                 .Bind(config.GetSection(MemoryMonitorOptions.SectionName));
             services.AddOptions<PerformanceOptimizerOptions>()
                 .Bind(config.GetSection(PerformanceOptimizerOptions.SectionName));
+            services.AddOptions<EventCorrelationOptions>()
+                .Bind(config.GetSection("EventCorrelation"));
+            services.AddOptions<ComplianceOptions>()
+                .Bind(config.GetSection("Compliance"));
 
             var serviceProvider = services.BuildServiceProvider();
             var failures = new List<string>();
 
-            var policy = serviceProvider.GetRequiredService<IOptions<RemediationPolicyOptions>>().Value;
-
-            // Mirror the service's startup options validation (Startup.cs:
-            // ValidateDataAnnotations + the five policy validators with
-            // ValidateOnStart) so a file the tool approves is one the service
-            // can actually boot with — the ad-hoc checks that used to live here
-            // let startup-breaking configs through (e.g. task arguments outside
-            // CommandArgumentAllowlist).
-            var annotationResults = new List<DataAnnotations.ValidationResult>();
-            if (!DataAnnotations.Validator.TryValidateObject(
-                    policy, new DataAnnotations.ValidationContext(policy), annotationResults,
-                    validateAllProperties: true))
-            {
-                failures.AddRange(annotationResults
-                    .Select(r => r.ErrorMessage ?? "RemediationPolicy has an invalid value"));
-            }
+            // Mirror the service's startup options validation (Startup.cs
+            // ValidateOnStart sections) so a file the tool approves is one the
+            // service can actually boot with — the ad-hoc checks that used to
+            // live here let startup-breaking configs through.
+            var policy = ValidateDataAnnotations<RemediationPolicyOptions>(serviceProvider, failures);
 
             var startupChecks = new (Func<RemediationPolicyOptions, bool> Check, string FailureMessage)[]
             {
@@ -160,6 +155,31 @@ class Program
                 }
             }
 
+            ValidateDataAnnotations<MemoryMonitorOptions>(serviceProvider, failures);
+            ValidateDataAnnotations<PerformanceOptimizerOptions>(serviceProvider, failures);
+
+            var collaboration = serviceProvider.GetRequiredService<IOptions<CollaborationOptions>>().Value;
+            if (collaboration.MaxConcurrentUsers <= 0)
+            {
+                failures.Add("Collaboration:MaxConcurrentUsers must be positive (the hub is always mapped).");
+            }
+
+            var eventCorrelation = serviceProvider.GetRequiredService<IOptions<EventCorrelationOptions>>().Value;
+            if (eventCorrelation.Enabled && eventCorrelation.CorrelationWindowMinutes <= 0)
+            {
+                failures.Add("EventCorrelation:CorrelationWindowMinutes must be positive when enabled.");
+            }
+            if (eventCorrelation.Enabled && eventCorrelation.MaxEventsToCorrelate <= 0)
+            {
+                failures.Add("EventCorrelation:MaxEventsToCorrelate must be positive when enabled.");
+            }
+
+            var compliance = serviceProvider.GetRequiredService<IOptions<ComplianceOptions>>().Value;
+            if (compliance.Enabled && compliance.ReportIntervalHours is < 1 or > 1193)
+            {
+                failures.Add("Compliance:ReportIntervalHours must be 1-1193 hours when enabled.");
+            }
+
             if (failures.Count == 0)
             {
                 Console.WriteLine("✓ All configuration validations passed!");
@@ -178,6 +198,23 @@ class Program
             Console.WriteLine($"✗ Configuration validation error: {ex.Message}");
             return 1;
         }
+    }
+
+    // Same check as ValidateDataAnnotations() on the service's options —
+    // returns the bound value for further custom checks.
+    static TOption ValidateDataAnnotations<TOption>(IServiceProvider services, List<string> failures)
+        where TOption : class
+    {
+        var value = services.GetRequiredService<IOptions<TOption>>().Value;
+        var results = new List<DataAnnotations.ValidationResult>();
+        if (!DataAnnotations.Validator.TryValidateObject(
+                value, new DataAnnotations.ValidationContext(value), results,
+                validateAllProperties: true))
+        {
+            failures.AddRange(results
+                .Select(r => $"{typeof(TOption).Name}: {r.ErrorMessage ?? "invalid value"}"));
+        }
+        return value;
     }
 
     static object BuildDefaultConfig()
