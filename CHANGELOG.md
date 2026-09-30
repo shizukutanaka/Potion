@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (独自 `HealthCheckResult` の死メンバー削除 — 4引数 ctor・未読プロパティ・孤児 enum)
+
+- 4引数コンストラクタ `(status, description, error, details)` は呼出しゼロ、`Status`/`Description`/`Error`/`Details`/`Timestamp`/`Components` は読取りゼロ — 消費者は `IsHealthy`・`ComponentHealth`・`CheckedAt` のみ
+- `HealthStatus` enum も同時に孤児化したため削除（ASP.NET の同名型と衝突する shadowing 面も縮小）
+- エンドツーエンド検証: `scripts/validate-system.sh` 全10チェックを実起動インスタンスへ実行 — 全 PASS（/health・/health/ready・api3系・/metrics・/・webhook 405・SignalR negotiate）
+
 ### Improved (全環境の結合設定に起動時バリデータを適用するテストを追加 — 293→297)
 
 - `ConfigOverlayValidationTests`：appsettings.json + 各環境オーバーレイ（base/Development/Production/Container）の結合結果に、Startup.cs が ValidateOnStart で適用する全バリデーション（Collaboration・MemoryMonitor/PerformanceOptimizer の DataAnnotations・EventCorrelation・Compliance・RemediationPolicy の5バリデータ）を適用

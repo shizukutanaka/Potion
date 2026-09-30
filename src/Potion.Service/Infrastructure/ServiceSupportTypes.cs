@@ -9,14 +9,6 @@ using Potion.Service.Options;
 
 namespace Potion.Service.Infrastructure;
 
-public enum HealthStatus
-{
-    Healthy,
-    Degraded,
-    Unhealthy,
-    Unknown
-}
-
 /// <summary>
 /// ヘルスチェック結果
 /// </summary>
@@ -25,40 +17,15 @@ public sealed class HealthCheckResult
     public HealthCheckResult(bool isHealthy, IReadOnlyDictionary<string, ComponentHealth> components, DateTimeOffset checkedAt)
     {
         IsHealthy = isHealthy;
-        Status = isHealthy ? HealthStatus.Healthy : HealthStatus.Unhealthy;
-        Components = components;
+        ComponentHealth = components;
         CheckedAt = checkedAt;
-        Timestamp = checkedAt;
-    }
-
-    public HealthCheckResult(HealthStatus status, string description, string? error, Dictionary<string, object> details)
-    {
-        Status = status;
-        IsHealthy = status == HealthStatus.Healthy;
-        Description = description;
-        Error = error;
-        Details = details;
-        CheckedAt = DateTimeOffset.UtcNow;
-        Timestamp = CheckedAt;
     }
 
     public bool IsHealthy { get; }
 
-    public HealthStatus Status { get; }
-
-    public string Description { get; } = string.Empty;
-
-    public string? Error { get; }
-
-    public IReadOnlyDictionary<string, ComponentHealth> Components { get; } = new Dictionary<string, ComponentHealth>();
-
-    public IReadOnlyDictionary<string, ComponentHealth> ComponentHealth => Components;
-
-    public Dictionary<string, object> Details { get; } = new();
+    public IReadOnlyDictionary<string, ComponentHealth> ComponentHealth { get; }
 
     public DateTimeOffset CheckedAt { get; }
-
-    public DateTimeOffset Timestamp { get; }
 }
 
 /// <summary>
