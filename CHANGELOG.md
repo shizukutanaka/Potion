@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Removed (環境別 appsettings オーバーレイの重複キー除去 — マージ後の結果不変・ドリフト経路を閉塞)
+
+- .NET 設定バインダは index マージのため、base と同一値のオーバーレイ要素は将来の base 更新を静的にマスクするドリフト経路となる（例: base の CommandAllowlist 0-6 番要素更新が Production の同一コピーで上書きされる）
+- Production/Development/Container の全3オーバーレイから base と完全同一のキーを機械的に除去（配列はバインド index 保持のため trailing のみ削除）— マージ後の結合結果をシミュレーション等値で検証済み
+- 残るのは真の環境差分のみ: Production `MaxConcurrency:8`・Serilog 上書き・AllowedHosts・Kestrel Https、Development の高速化ノブ、Container の Kestrel http://+:80 等
+- 検証: Development 環境で実起動 — deduped オーバーレイで全サービス正常バインド・HTTP listen 確認
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
