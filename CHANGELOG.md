@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (全環境の結合設定に起動時バリデータを適用するテストを追加 — 293→297)
+
+- `ConfigOverlayValidationTests`：appsettings.json + 各環境オーバーレイ（base/Development/Production/Container）の結合結果に、Startup.cs が ValidateOnStart で適用する全バリデーション（Collaboration・MemoryMonitor/PerformanceOptimizer の DataAnnotations・EventCorrelation・Compliance・RemediationPolicy の5バリデータ）を適用
+- 環境オーバーレイのドリフトが起動時検証を壊す問題を、フラグ有効化やデプロイ後ではなくテスト時点で検出可能に
+- 併せて `OptionsBindingTests` の Production InlineData が `optional:true` で空振りしていた問題を解消 — Production/Container オーバーレイをテスト出力へコピー（従来はファイル不在でベース設定を二度テストしていた）
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
