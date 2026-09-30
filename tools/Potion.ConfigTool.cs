@@ -315,7 +315,7 @@ class Program
                 WriteIndented = true
             });
 
-            File.WriteAllText(configPath, json);
+            WriteAllTextAtomic(configPath, json);
             Console.WriteLine($"✓ Default configuration generated at: {configPath}");
             return 0;
         }
@@ -383,6 +383,26 @@ class Program
         }
     }
 
+    // A partial write to the live config path (crash mid-write) leaves the
+    // service unable to parse appsettings.json at next boot — write to a
+    // same-directory temp and rename atomically instead.
+    static void WriteAllTextAtomic(string path, string contents)
+    {
+        var staged = $"{path}.tmp-{Guid.NewGuid():N}";
+        try
+        {
+            File.WriteAllText(staged, contents);
+            File.Move(staged, path, true);
+        }
+        finally
+        {
+            if (File.Exists(staged))
+            {
+                File.Delete(staged);
+            }
+        }
+    }
+
     static int RestoreConfiguration(string backupPath, string configPath)
     {
         Console.WriteLine($"Restoring configuration from: {backupPath}");
@@ -418,7 +438,19 @@ class Program
                 Console.WriteLine($"  Current config preserved to: {preRestore}");
             }
 
-            File.Copy(backupPath, configPath, true);
+            var staged = $"{configPath}.tmp-{Guid.NewGuid():N}";
+            try
+            {
+                File.Copy(backupPath, staged);
+                File.Move(staged, configPath, true);
+            }
+            finally
+            {
+                if (File.Exists(staged))
+                {
+                    File.Delete(staged);
+                }
+            }
 
             Console.WriteLine($"✓ Configuration restored to: {configPath}");
             Console.WriteLine("Note: Please restart the Potion service to apply the restored configuration:");

@@ -38,7 +38,7 @@ The service listens on `http://localhost:5000` by default and serves:
 - `GET /metrics` — Prometheus metrics
 - `POST /collaboration/negotiate` — SignalR hub (the dashboard connects for real-time alerts + health updates, falling back to polling when unavailable)
 
-Production HTTPS requires the certificate configured in `appsettings.Production.json` (`Kestrel:Endpoints:Https:Certificate`); inject the PFX password via the `Kestrel__Endpoints__Https__Certificate__Password` environment variable.
+Production HTTPS is opt-in: place `certificate.pfx` under `%ProgramData%\Potion\certs` and add a `Kestrel:Endpoints:Https` section (with `Certificate:Path`) to `%ProgramData%\Potion\config\appsettings.json`; inject the PFX password via the `Kestrel__Endpoints__Https__Certificate__Password` environment variable.
 
 ### Install as Windows Service
 
@@ -61,6 +61,11 @@ Environment variables (code-level knobs, not bound to a config section):
 
 - `POTION_PROCESS_MAX_MEMORY_MB` — peak-memory ceiling per spawned remediation process (default `768`; clamped to 128–4096 MB). On Windows the limit is enforced by a Job Object (process is killed on breach); elsewhere it is observed post-run via `PeakWorkingSet64` and logged.
 - `Kestrel__Endpoints__*` — overrides `Kestrel:Endpoints` from config; `ASPNETCORE_URLS` is ignored when endpoints are configured (see `appsettings.json`).
+
+Operator config layer (highest precedence — loaded last, after appsettings + env vars):
+
+- `{Base}/config/appsettings.json` — an optional override file living *outside* the install directory, so upgrades never wipe operator edits. `Base` resolves to the first writable root: `CommonApplicationData` (Windows: `C:\ProgramData\Potion`), then `LocalApplicationData` (Linux: `~/.local/share/Potion`, macOS: `~/Library/Application Support/Potion`), then the app directory.
+- The file is watched (`reloadOnChange`) — edits apply live to watchers; options-bound sections take effect on restart. This is the supported path for enabling HTTPS (`Kestrel:Endpoints:Https`) and for `tools/Potion.ConfigTool` (`generate`/`validate`/`backup`/`restore` all target it).
 
 ## Tests
 

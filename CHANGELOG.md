@@ -8,6 +8,32 @@
 - `CommandArgumentAllowlist` 自体がテンプレートから欠落 + `MaxConcurrency` 2→4、`sfc`/`dism`/`cleanmgr` の TimeoutSeconds・RetryBackoffSeconds・MaxRetries・StopOnFailure も出荷値と不一致
 - `generate` 出力の RemediationPolicy が出荷 appsettings.json と完全一致するようテンプレートを同期（`generate`→`validate` 往復・フィールド一致をローカル検証済み）
 
+### Fixed (アラート CSV エクスポートがクォート未エスケープ — 引用符含むメッセージで CSV 破損＋スプレッドシート式インジェクション)
+
+- `exportAlerts` は各フィールドを `"…"` ラップするだけで内部 `"` をエスケープせず、引用符を含むメッセージで CSV が破損
+- `csvField` ヘルパーで `"` → `""` の正規エスケープ + 先頭 `=`/`+`/`-`/`@`/タブ/CR に `'` 前置（Excel/LibreOffice 式評価の中立化 — CSV インジェクション対策）
+
+### Fixed (インストールした Windows サービスが証明書不在で起動不能だった — 実バグ)
+
+- `appsettings.Production.json` の `Kestrel:Endpoints:Https` は `C:\ProgramData\Potion\certs\certificate.pfx` を必須とするが、全3インストール経路（deploy-windows.ps1・package-installer.ps1・Potion.wxs MSI）とも証明書を提供しない → 起動時に Kestrel が証明書未検出で例外・サービスが crash-loop していた（k8s/compose で実証済みの「`Kestrel:Endpoints` は `ASPNETCORE_URLS` に優先」ルールにより、サービス登録時の `ASPNETCORE_URLS` 上書きは無効だった — 以前の対策は機能していなかった）
+- Production 既定から `Https` エンドポイントを除去し HTTP:5000 のみバインド（**設定変更** — 証明書必須の HTTPS は起動不能を引き起こすため既定から除外）。HTTPS 化は運用者が証明書配置後、運用設定ファイル `ProgramData\Potion\config\appsettings.json` に `Kestrel:Endpoints:Https` ブロックを追加する経路に変更 — 全3インストーラの案内・コメントを実機構に合わせて修正
+
+### Security (CSP に `frame-ancestors 'none'` を追加 — クリックジャッキング対策の現代側を完備)
+
+- `X-Frame-Options: DENY` は既存だがレガシー側のみ → CSP `frame-ancestors 'none'` を併記しモダンブラウザのエンベッドも構造的に拒否（XFO は旧ブラウザ向けに残置）
+- 併せて監査: セキュリティヘッダ一式（nosniff・DENY・no-referrer・Permissions-Policy・strict CSP・条件付き HSTS）・`UseExceptionHandler` の problem+json（詳細非流出・traceId のみ）・`UseRateLimiter` の配置（ルーティング後・エンドポイント単位適用で SignalR/ポーリング非影響）・全プローブ — 他にドリフトなし
+
+### Fixed (ConfigTool の generate/restore がライブ設定を非アトミック書込み — 書込み途中の中断で起動不能設定を残し得た)
+
+- `generate`（`File.WriteAllText`）と `restore`（`File.Copy` 直接上書き）はライブ設定パスを非アトミックに更新 — プロセス中断で部分書込み JSON が残り、次回起動時の設定パースでサービス起動不能に
+- 同一ディレクトリ temp + `File.Move`（上書き rename）へ変更 — POSIX/Windows とも rename は atomic。失敗時は staged ファイルを確実に除去
+
+### Docs (運用設定レイヤー `{Base}/config/appsettings.json` を文書化 — 最高優先度だが未記述だった)
+
+- `Program.cs` は `ServicePaths.ConfigurationFile` を全設定源の最後（appsettings・環境変数より上位の優先度）に `reloadOnChange` で読み込む — アップグレードで消えない外部オーバーライド層だがドキュメント未記載だった
+- パス解決（CommonApplicationData → LocalApplicationData → アプリ直下のフォールバック）・ホットリロードセマンティクス・HTTPS 有効化や ConfigTool（generate/validate/backup/restore）の書込み先であることを README に明記
+- 補完監査: `ServicePaths`（ACL 強化・フォールバック）・`PotionMetrics` 全359行（全 Record*/Update* に実呼出しあり・死メトリクスなし）・install.cmd/License.rtf・.github 全体 — 整合確認
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
