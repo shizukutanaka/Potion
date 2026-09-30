@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (回復試行上限到達後に毎分エラーログが永続し回復も永久停止していた)
+
+- `AutoRecoveryManager.AttemptRecoveryAsync` の失敗カウンタは飽和後リセットされず、**不健康が続くコンポーネントに対して毎分「Maximum recovery attempts exceeded」をエラー出力し続け、かつ状況が改善しても回復が二度と試行されなかった** — 他のループ（AlertCooldown/CorrelationCooldown/ScheduleCooldown）と同じバックオフ方式へ統一：上限到達で30分サイレンス後にカウンタを再武装し、エラーではなく警告1件で通知
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
