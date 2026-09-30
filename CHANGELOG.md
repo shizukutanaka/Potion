@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (定期修復ポリシー `RemediationPolicy:Tasks` が一度も実行されない)
+
+- `RunEveryMinutes`・`MaintenanceWindowTag`・`MaxRetries`・`RetryBackoffSeconds`・`StopOnFailure`・`RequiresElevation`・`MaxConcurrency`・`SchedulerIntervalSeconds`・`ScheduleJitterSeconds` が起動時検証のみで消費者不在 — `FeatureFlags:RepairExecutionEnabled=true` でも出荷ポリシーの定期修復（sfc/dism/cleanmgr/ngen）は静かに未実行だった
+- `RemediationScheduler` にポリシーディスパッチループを追加： SchedulerIntervalSeconds 毎に各タスクの期限を評価 → メンテナンスウィンドウ内ならジッター付きで `IRemediationTaskExecutor` へディスパッチ（MaxConcurrency ゲート・リトライ・昇格要件を適用）
+- 未解決ウィンドウタグを参照する有効タスクを起動時に拒否する `MaintenanceWindowReferencesAreValid` バリデータ追加（実行時もフェイルクローズで非実行+警告）
+- テスト +6（293 → 299）: ウィンドウ境界・深夜帯ラップ・未解決タグ閉塞・バリデータ
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
