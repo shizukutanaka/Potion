@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (インストールした Windows サービスが証明書不在で起動不能だった — 実バグ)
+
+- `appsettings.Production.json` の `Kestrel:Endpoints:Https` は `C:\ProgramData\Potion\certs\certificate.pfx` を必須とするが、全3インストール経路（deploy-windows.ps1・package-installer.ps1・Potion.wxs MSI）とも証明書を提供しない → 起動時に Kestrel が証明書未検出で例外・サービスが crash-loop していた（k8s/compose で実証済みの「`Kestrel:Endpoints` は `ASPNETCORE_URLS` に優先」ルールにより、サービス登録時の `ASPNETCORE_URLS` 上書きは無効だった — 以前の対策は機能していなかった）
+- Production 既定から `Https` エンドポイントを除去し HTTP:5000 のみバインド（**設定変更** — 証明書必須の HTTPS は起動不能を引き起こすため既定から除外）。HTTPS 化は運用者が証明書配置後、運用設定ファイル `ProgramData\Potion\config\appsettings.json` に `Kestrel:Endpoints:Https` ブロックを追加する経路に変更 — 全3インストーラの案内・コメントを実機構に合わせて修正
+
 ### Security (CSP に `frame-ancestors 'none'` を追加 — クリックジャッキング対策の現代側を完備)
 
 - `X-Frame-Options: DENY` は既存だがレガシー側のみ → CSP `frame-ancestors 'none'` を併記しモダンブラウザのエンベッドも構造的に拒否（XFO は旧ブラウザ向けに残置）
