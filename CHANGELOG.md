@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (イベントログカードの「Warnings」タイルが常に `undefined` 表示だった)
+
+- `updateEventsOverview` は `metrics.windowsEvents.warningEventCount` を読むが `WindowsEventMetrics` に該当フィールドが存在せず、ダッシュボードに文字通り "undefined" と表示
+- `WarningEventCount` をエンドツーエンドで実装: Windows EventLog `Level==3` (Warning) カウント・journald "warn"/"warning" マーカー解析・レコード/タプル/キャッシュ拡張 → API が実測値を返しタイルが実データ表示に
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
