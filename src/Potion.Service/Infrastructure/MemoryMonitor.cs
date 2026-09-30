@@ -66,6 +66,8 @@ public sealed class MemoryMonitor : BackgroundService
     private readonly ConcurrentDictionary<DateTimeOffset, MemoryStatistics> _memoryHistory = new();
     private DateTimeOffset _lastOptimizationAt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastLeakCheckAt = DateTimeOffset.MinValue;
+    // Own-process footprint at the last sample; null when below thresholds.
+    private long? _lastOwnProcessBytes;
 
     public MemoryMonitor(
         ILogger<MemoryMonitor> logger,
@@ -350,13 +352,43 @@ public sealed class MemoryMonitor : BackgroundService
         }
     }
 
-    private bool ShouldOptimizeMemory(MemoryStatistics stats)
+    internal bool ShouldOptimizeMemory(MemoryStatistics stats)
     {
         var options = _optionsMonitor.CurrentValue;
 
-        return stats.MemoryUsagePercent > options.MemoryUsageThresholdPercent ||
-               stats.WorkingSet > options.WorkingSetThresholdBytes ||
-               stats.PrivateMemorySize > options.PrivateMemoryThresholdBytes;
+        // System memory pressure is inherently absolute: >80% used is a real
+        // condition regardless of trend.
+        if (stats.MemoryUsagePercent > options.MemoryUsageThresholdPercent)
+        {
+            return true;
+        }
+
+        // Own-process thresholds are different: a steady .NET process legitimately
+        // sits above 256MB private bytes (GC-reserved segments count), so absolute
+        // size alone would fire "optimization" every cooldown forever. Only a
+        // footprint that is BOTH over threshold AND still growing warrants a
+        // forced GC/working-set trim (same growth-signal convention as the
+        // process leak check).
+        var overThreshold =
+            stats.WorkingSet > options.WorkingSetThresholdBytes ||
+            stats.PrivateMemorySize > options.PrivateMemoryThresholdBytes;
+        if (!overThreshold)
+        {
+            _lastOwnProcessBytes = null;
+            return false;
+        }
+
+        var current = Math.Max(stats.WorkingSet, stats.PrivateMemorySize);
+        var baseline = _lastOwnProcessBytes ??= current;
+        if (current > baseline + baseline / 10)
+        {
+            // Fired: re-arm against the new level so a stable (if bloated)
+            // process doesn't retrigger every cooldown — only further
+            // 10%-growth episodes do.
+            _lastOwnProcessBytes = current;
+            return true;
+        }
+        return false;
     }
 
     private (IReadOnlyList<string> Actions, long MemoryFreed) ForceGarbageCollectionAsync(CancellationToken cancellationToken)
