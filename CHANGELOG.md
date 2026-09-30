@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (`ProcessRunner` の2つの実バグ — 呼出し側 `WorkingDirectory` の上書きと空行の消失)
+
+- `WorkingDirectory` が常に `Path.GetDirectoryName(FileName)` で上書きされ、呼出し側の指定値を黙って捨てていた → 未指定時のみ導出し、指定値を尊重するように
+- `AppendWithLimit` が `IsNullOrEmpty` で空行をドロップ → 子プロセス出力の空行が `StandardOutput` から消えていた（`ipconfig` 等の空行を含む出力で不整合）→ 空行も捕捉
+- テスト2件追加（291 → 293）: 空行保持・呼出し側 WorkingDirectory 尊重を Unix/Windows 双方で検証
+
 ### Improved (`ResiliencePipelines` にユニットテスト追加 — 唯一未テストだったコアのポリシー面を固定)
 
 - 現行セマンティクスをピン: 成功パススルー（1回のみ）、トランジェント exit code 5 で初回+3リトライ=4回、非トランジェント exit code 1 はリトライなし、連続3失敗でサーキットブレーカー open → `BrokenCircuitException` で実行拒否

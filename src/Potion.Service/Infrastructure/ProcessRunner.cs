@@ -95,7 +95,12 @@ public sealed class ProcessRunner : IProcessRunner, IDisposable
         process.StartInfo.RedirectStandardOutput = true;
         process.StartInfo.RedirectStandardError = true;
         process.StartInfo.CreateNoWindow = true;
-        process.StartInfo.WorkingDirectory = Path.GetDirectoryName(startInfo.FileName) ?? Environment.CurrentDirectory;
+        // Honor a caller-provided WorkingDirectory; derive from the executable's
+        // directory only when the caller left it unset.
+        if (string.IsNullOrEmpty(process.StartInfo.WorkingDirectory))
+        {
+            process.StartInfo.WorkingDirectory = Path.GetDirectoryName(startInfo.FileName) ?? Environment.CurrentDirectory;
+        }
 
         var outputBuffer = new StringBuilder(capacity: Math.Min(MaxCapturedCharacters, 4_096));
         var errorBuffer = new StringBuilder(capacity: Math.Min(MaxCapturedCharacters, 4_096));
@@ -113,13 +118,10 @@ public sealed class ProcessRunner : IProcessRunner, IDisposable
         var outputProcessingTask = Task.Run(() => ProcessQueueContinuously(outputQueue, outputBuffer, ref outputTruncated, outputLock, processingCts.Token));
         var errorProcessingTask = Task.Run(() => ProcessQueueContinuously(errorQueue, errorBuffer, ref errorTruncated, errorLock, processingCts.Token));
 
+        // args.Data is a full output line; empty strings are real blank lines
+        // in the child's output and must be captured, not dropped.
         void AppendWithLimit(System.Collections.Concurrent.ConcurrentQueue<string> queue, string data)
         {
-            if (string.IsNullOrEmpty(data))
-            {
-                return;
-            }
-
             queue.Enqueue(data);
         }
 
