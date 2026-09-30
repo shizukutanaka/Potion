@@ -63,16 +63,11 @@
           Start="install"
           Stop="both"
           Remove="uninstall" />
-        <!-- Without env vars the service boots in the Production environment,
-             whose Kestrel HTTPS endpoint requires certificate.pfx (not installed
-             here) and startup fails. Bind HTTP; operators add the cert under
-             ProgramData\Potion\certs and remove this value to enable HTTPS. -->
-        <RegistryKey Root="HKLM"
-                     Key="SYSTEM\CurrentControlSet\Services\Potion Self-Healing Service"
-                     ForceCreateOnInstall="yes">
-          <RegistryValue Type="multiString" Name="Environment"
-                         Value="ASPNETCORE_URLS=http://localhost:5000" />
-        </RegistryKey>
+        <!-- The service binds HTTP:5000 from appsettings.Production.json.
+             Configured Kestrel:Endpoints ignore ASPNETCORE_URLS, so no env
+             override exists — HTTPS is opt-in via the operator config file at
+             ProgramData\Potion\config\appsettings.json (Kestrel:Endpoints:Https
+             + certificate under ProgramData\Potion\certs). -->
       </Component>
       <Files Include="..\src\Potion.Service\bin\Release\net8.0\win-x64\publish\**"
              Exclude="..\src\Potion.Service\bin\Release\net8.0\win-x64\publish\Potion.Service.exe" />
