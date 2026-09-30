@@ -131,9 +131,18 @@ class PotionDashboard {
                 this.refreshAllData();
             });
             connection.on('Alert', (alert) => {
-                const severity = alert && alert.data && alert.data.severity >= 2 ? 'error' : 'warning';
-                this.showNotification((alert && alert.message) || 'System alert', severity);
-                this.deliverAlert(severity, (alert && alert.message) || 'System alert');
+                // The hub payload is serialized with SignalR's own options
+                // (PascalCase + numeric enums), unlike the camelCase + string
+                // enums the REST endpoints emit — read both shapes.
+                const data = alert?.data ?? alert?.Data ?? {};
+                const raw = data.severity ?? data.Severity;
+                const level = typeof raw === 'number'
+                    ? raw
+                    : ({ info: 0, warning: 1, error: 2, critical: 3 }[String(raw).toLowerCase()] ?? 1);
+                const severity = level >= 2 ? 'error' : 'warning';
+                const message = alert?.message ?? alert?.Message ?? 'System alert';
+                this.showNotification(message, severity);
+                this.deliverAlert(severity, message);
                 this.refreshAllData();
             });
 
@@ -1556,9 +1565,17 @@ class PotionDashboard {
             timestamp: item.querySelector('.alert-metadata span:first-child').textContent
         }));
 
+        const csvField = (value) => {
+            let text = String(value);
+            // Neutralize spreadsheet formula injection (=, +, -, @, tab, CR at start).
+            if (/^[=+\-@\t\r]/.test(text)) {
+                text = `'${text}`;
+            }
+            return `"${text.replace(/"/g, '""')}"`;
+        };
         const csvContent = 'Component,Message,Severity,Timestamp\n' +
             alerts.map(alert =>
-                `"${alert.component}","${alert.message}","${alert.severity}","${alert.timestamp}"`
+                `${csvField(alert.component)},${csvField(alert.message)},${csvField(alert.severity)},${csvField(alert.timestamp)}`
             ).join('\n');
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
