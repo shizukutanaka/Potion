@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (テレメトリの計装バージョンが固定値 "2.0.0" — バイナリの実バージョンと乖離)
+
+- `PotionMetrics.Meter` / `PotionActivitySource.Source` のバージョン引数がリテラル "2.0.0" — `InformationalVersion`（dev ビルドでは "2.0.0-dev"）や今後のリリース番号と無関係に固定されるドリフト源
+- `AssemblyInformationalVersionAttribute` から動的取得（フォールバック: AssemblyVersion → "0.0.0"）へ — OTel scope.version が実バイナリを正確に報告
+
 ### Fixed (詳細フィルタパネルが初回クリックで開かなかった)
 
 - `#advanced-search-panel` は `u-hidden` クラスで非表示開始だが `toggleAdvancedSearch` は inline `style.display` で状態判定 — 初回は `'' === 'none'` が false で `display:none` をセットするだけで視覚変化なし（2回目でやっと開く）

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
+using System.Reflection;
 
 namespace Potion.Service.Infrastructure;
 
@@ -10,7 +11,15 @@ namespace Potion.Service.Infrastructure;
 /// </summary>
 public static class PotionMetrics
 {
-    private static readonly Meter Meter = new("Potion.Service", "2.0.0");
+    // Instrumentation version follows the binary's informational version so
+    // meters/tracers stamp the real build (a literal would silently freeze
+    // at whatever it was first set to).
+    internal static readonly string InstrumentationVersion =
+        typeof(PotionMetrics).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? typeof(PotionMetrics).Assembly.GetName().Version?.ToString() ?? "0.0.0";
+
+    private static readonly Meter Meter = new("Potion.Service", InstrumentationVersion);
 
     /// <summary>Counter: Number of remediation tasks executed</summary>
     public static readonly Counter<long> RemediationTasksExecuted =
@@ -329,7 +338,7 @@ public static class PotionMetrics
 /// </summary>
 public static class PotionActivitySource
 {
-    public static readonly ActivitySource Source = new("Potion.Service", "2.0.0");
+    public static readonly ActivitySource Source = new("Potion.Service", PotionMetrics.InstrumentationVersion);
 
     /// <summary>Creates an activity for a remediation task</summary>
     public static Activity? StartRemediationActivity(string taskName)
