@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (メモリ統計取得失敗時にパフォーマンススコアが NaN になっていた)
+
+- `CalculatePerformanceScore` が `MemoryUsageBytes / (Available + MemoryUsage)` をそのまま除算しており、WMI クエリ失敗で (0,0) が返ると `0/0 = NaN` となり `Math.Max(0, NaN)` も NaN を伝播させて**最適化結果のスコアが NaN になっていた** — 閾値判定（`memoryPercentBefore`）と同じ「合計0なら圧力なし」の規約で分岐し NaN を解消
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
