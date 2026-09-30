@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (高度検索の結果クリックが何も遷移しないスタブ実装だった)
+
+- `navigateToResult` は `hideAdvancedSearch` + "Navigated to result" 通知のみで実際の遷移なし — 検索結果をクリックしても目的セクションへ辿れない行き止まり UI
+- `url`（`#alerts`/`#logs`/`#performance`）からセクション名を解決し `showSection` へ — 該当セクション要素が実在する場合のみ遷移（未知 URL は静かに無視）
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
