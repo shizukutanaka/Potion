@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Audit (ラインカバレッジ監査 — 65.3%、残ギャップは全てプラットフォーム／フラグ依存)
+
+- `dotnet test --collect:"XPlat Code Coverage"` で現行コードの実測カバレッジを取得: 2,528/3,870 行 (65.3%)
+- 0% クラスは5件のみで全て説明可能: `Program`(エントリポイント)・`PerformanceOptimizer`/`PredictiveRemediationService` の `ExecuteAsync`(フラグOFFで未起動)・SignalR broadcast 内部(ライブ HubContext 必須)
+- 最大ギャップは `SystemHealthMonitoring`(25%) — Windows WMI/P-Invoke・Job Object 等の OS 専用プローブはこのプラットフォームでは実行不能なため到達不能、パーサ部は `SystemMetricsSamplerParseTests` で固定済み
+- `Startup`(34%) は DI パイプライン全体が対象 — ホスト統合テストは `Microsoft.AspNetCore.Mvc.Testing` 新規依存を要しライブラリ追加制約上見送り
+- **dead code なし**: 本プラットフォームで単体テスト可能な経路は全て実行済み。低カバレッジは未テストではなく「テスト不能な OS/機能依存面」であることを確認
+
 ### Removed (csproj の死設定を除去 — 機能しないノブと削除済みファイルへの参照)
 
 - `EnableCompressionInSingleFile`（`PublishSingleFile=false` で不活性）、`SuppressTrimAnalysisWarnings`（`PublishTrimmed=false` で不活性）、`EnablePackageValidation`（Exe は非 packable で不活性）、`WarningsAsErrors`（`TreatWarningsAsErrors` で完全冗長）を除去 — 全て評価されない死設定
