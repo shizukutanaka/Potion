@@ -2,15 +2,25 @@
 
 ## Unreleased
 
+### Fixed (PR #62 Devin Review 対応 — 通知権限リスナーのワンショット消費を修正)
+
+- dashboard.js: `prepareNotificationPermission` の3件の指摘を修正 — (1) init 末尾（最初の `await` の後）での登録のため初回フェッチ中の操作を取りこぼす → `await` 前に移動、(2) `{once:true}` の keydown が Escape・修飾キー等の非アクティベーション押下で消費される → `NON_ACTIVATING_KEYS` 除外 + 手動 disarm、(3) 保存ボタンの pointerdown が保存処理より先に発火し非 browser 選択後もプロンプトが出る → `click`（バブル後段で新設定を再読込）に変更
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
 
+||||||| parent of 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Fixed (イベント駆動 webhook の `HttpResponseMessage` リーク)
 
 - `SendWebhookAsync` がレスポンスを未破棄のまま返していた — アラート発火毎にコネクションプールの接続が GC まで占有され、継続発火で枯渇し得た → `using var` 追加
 
+<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+||||||| parent of 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
+=======
+||||||| parent of d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
+>>>>>>> 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Fixed (子プロセスプローブのタイムアウトが実質無効・監視ポーリング全体をハングさせ得た)
 
 - `systemctl`/`launchctl`/`journalctl`/`defaults` 系プローブ5箇所が `ReadToEnd()` を同期ブロッキングした後に `WaitForExit(timeout)` していた — 子プロセスがハングすると stdout EOF が来ずタイムアウトに到達しないため、**監視ポーリング全体が無期限に固まった**。さらに `RedirectStandardError=true` かつ未読のため stderr パイプ満杯で子がデッドロックし得た
@@ -18,10 +28,18 @@
 
 <<<<<<< HEAD
 ||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
+<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 =======
 ||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+||||||| parent of 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
+=======
+||||||| parent of d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
+=======
+||||||| parent of 3227eb3 (fix: don't consume the one-shot notification prompt on non-activating gestures)
+>>>>>>> d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
+>>>>>>> 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
 
 - `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
@@ -35,6 +53,7 @@
 =======
 ||||||| parent of be8fd6d (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
 >>>>>>> 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
+<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 =======
 ||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
@@ -42,26 +61,47 @@
 ||||||| parent of 61cb9c5 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
+||||||| parent of 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
+=======
+||||||| parent of d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
+=======
+||||||| parent of 3227eb3 (fix: don't consume the one-shot notification prompt on non-activating gestures)
+=======
+||||||| parent of 9655b44 (fix: don't consume the one-shot notification prompt on non-activating gestures)
+>>>>>>> 3227eb3 (fix: don't consume the one-shot notification prompt on non-activating gestures)
+>>>>>>> d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
+>>>>>>> 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
 - `SubscribeToAlerts`/`UnsubscribeFromAlerts` の `alertType` に上限64文字を追加 — 匿名クライアントが無制限にグループ参加してメモリを増殖させる DoS 面を閉塞
 - テスト: room テスト削除（消した API のもの）+ 上限超過は黙って無視されることを検証するテスト追加（293 維持、main マージ後）
 
+<<<<<<< HEAD
 ||||||| parent of 2d0b5b0 (docs: document env-var knobs (POTION_PROCESS_MAX_MEMORY_MB, Kestrel__Endpoints__*) + fix test count)
+||||||| parent of 9655b44 (fix: don't consume the one-shot notification prompt on non-activating gestures)
+=======
+||||||| parent of 8a6e3c8 (fix: don't consume the one-shot notification prompt on non-activating gestures)
+>>>>>>> 9655b44 (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Fixed (`ProcessRunner` の2つの実バグ — 呼出し側 `WorkingDirectory` の上書きと空行の消失)
 
 - `WorkingDirectory` が常に `Path.GetDirectoryName(FileName)` で上書きされ、呼出し側の指定値を黙って捨てていた → 未指定時のみ導出し、指定値を尊重するように
 - `AppendWithLimit` が `IsNullOrEmpty` で空行をドロップ → 子プロセス出力の空行が `StandardOutput` から消えていた（`ipconfig` 等の空行を含む出力で不整合）→ 空行も捕捉
 - テスト2件追加（291 → 293）: 空行保持・呼出し側 WorkingDirectory 尊重を Unix/Windows 双方で検証
 
+<<<<<<< HEAD
 ||||||| parent of c8c0ec6 (security: tighten hub surface — remove dead JoinRoom/LeaveRoom, bound alertType)
+||||||| parent of 8a6e3c8 (fix: don't consume the one-shot notification prompt on non-activating gestures)
+=======
+||||||| parent of e4ef482 (fix: don't consume the one-shot notification prompt on non-activating gestures)
+>>>>>>> 8a6e3c8 (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Improved (`ResiliencePipelines` にユニットテスト追加 — 唯一未テストだったコアのポリシー面を固定)
 
 - 現行セマンティクスをピン: 成功パススルー（1回のみ）、トランジェント exit code 5 で初回+3リトライ=4回、非トランジェント exit code 1 はリトライなし、連続3失敗でサーキットブレーカー open → `BrokenCircuitException` で実行拒否
 - 監査: Infrastructure 全18クラス×テストファイル照合 — 未テストは ResiliencePipelines のみ（PotionEventSource は ETW で実質 assert 不可）
 - 287 → 291 テスト（4追加・全パス）
 
+||||||| parent of 553b349 (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Fixed (`dotnet run` が Development でなく Production として起動し cert クラッシュしていた — launchSettings.json 追加 + Serilog ベースパスのポータブル化)
 
 - `Properties/launchSettings.json` が存在しなかったため `dotnet run` は `DOTNET_ENVIRONMENT` 未設定のまま Production 環境で起動 → `appsettings.Production.json` の証明書必須 HTTPS エンドポイントで起動不能・`C:\ProgramData\...` リテラル名のディレクトリを非 Windows 開発環境に撒き散らしていた → `DOTNET_ENVIRONMENT`/`ASPNETCORE_ENVIRONMENT` 共に Development のプロファイルを追加し golden path で Development 起動に
