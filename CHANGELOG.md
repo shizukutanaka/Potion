@@ -157,52 +157,29 @@
 
 - `SendWebhookAsync` がレスポンスを未破棄のまま返していた — アラート発火毎にコネクションプールの接続が GC まで占有され、継続発火で枯渇し得た → `using var` 追加
 
-||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 ### Fixed (子プロセスプローブのタイムアウトが実質無効・監視ポーリング全体をハングさせ得た)
 
 - `systemctl`/`launchctl`/`journalctl`/`defaults` 系プローブ5箇所が `ReadToEnd()` を同期ブロッキングした後に `WaitForExit(timeout)` していた — 子プロセスがハングすると stdout EOF が来ずタイムアウトに到達しないため、**監視ポーリング全体が無期限に固まった**。さらに `RedirectStandardError=true` かつ未読のため stderr パイプ満杯で子がデッドロックし得た
 - `RunProbe` ヘルパーへ統一： stdout/stderr を並行 drain・真のタイムアウト適用・期限超過時は `Kill()` で子を回収し、パースは終了確認時のみ実行
 
-<<<<<<< HEAD
-||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-=======
-||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
->>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 ### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
 
 - `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
 - `Kestrel__Endpoints__*` 上書き規則と `ASPNETCORE_URLS` 無効化の注意も追記
 - テスト数の記載を実値へ更新（287 → 293）
 
-<<<<<<< HEAD
-||||||| parent of 865c388 (fix: bound OS probes for real — hung systemctl/journalctl could freeze the whole monitoring poll)
-<<<<<<< HEAD
-||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-=======
-||||||| parent of be8fd6d (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
->>>>>>> 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-=======
-||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-=======
-||||||| parent of 61cb9c5 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
->>>>>>> 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
->>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
 - `SubscribeToAlerts`/`UnsubscribeFromAlerts` の `alertType` に上限64文字を追加 — 匿名クライアントが無制限にグループ参加してメモリを増殖させる DoS 面を閉塞
 - テスト: room テスト削除（消した API のもの）+ 上限超過は黙って無視されることを検証するテスト追加（293 維持、main マージ後）
 
-||||||| parent of 2d0b5b0 (docs: document env-var knobs (POTION_PROCESS_MAX_MEMORY_MB, Kestrel__Endpoints__*) + fix test count)
 ### Fixed (`ProcessRunner` の2つの実バグ — 呼出し側 `WorkingDirectory` の上書きと空行の消失)
 
 - `WorkingDirectory` が常に `Path.GetDirectoryName(FileName)` で上書きされ、呼出し側の指定値を黙って捨てていた → 未指定時のみ導出し、指定値を尊重するように
 - `AppendWithLimit` が `IsNullOrEmpty` で空行をドロップ → 子プロセス出力の空行が `StandardOutput` から消えていた（`ipconfig` 等の空行を含む出力で不整合）→ 空行も捕捉
 - テスト2件追加（291 → 293）: 空行保持・呼出し側 WorkingDirectory 尊重を Unix/Windows 双方で検証
 
-||||||| parent of c8c0ec6 (security: tighten hub surface — remove dead JoinRoom/LeaveRoom, bound alertType)
 ### Improved (`ResiliencePipelines` にユニットテスト追加 — 唯一未テストだったコアのポリシー面を固定)
 
 - 現行セマンティクスをピン: 成功パススルー（1回のみ）、トランジェント exit code 5 で初回+3リトライ=4回、非トランジェント exit code 1 はリトライなし、連続3失敗でサーキットブレーカー open → `BrokenCircuitException` で実行拒否
@@ -1857,7 +1834,6 @@
 - DI 回帰テスト更新 — フラグ ON で `PredictiveRemediationService`・`IRemediationScheduler`→`RemediationScheduler` の解決を検証
 - 検証: 0警告0エラー・131/131テスト・フラグ ON 実起動で全5ホステッドサービス（スケジューラ含む）の起動ログ確認
 
-||||||| parent of d913619 (chore: delete unreachable self-referencing service cluster (16 files))
 ### Removed (到達不能の自己参照クラスタ — 16ファイル・約7,000行)
 
 - 厳密なアンカー解析（Startup・Program・テスト起点＋ライブサービスの推移参照）で到達不能確定の16ファイルを削除。クラスタ内部で相互参照するだけで、DI 登録・テスト・稼働中サービスのいずれからも消費されていなかった:
@@ -1866,7 +1842,6 @@
 - `AutoRecoveryManager` の死パスを簡素化 — `GetService(typeof(ISecurityAuditor))`/`GetService(typeof(IConfigurationManager))` のオプショナル動的参照は実装も登録も存在せず常に null だった（削除対象型）。`CheckSecurityHealth` は `return true`、`ResetConfigurationAsync` は warning ログ付き `return false` に等価固定し、`GenerateDefaultConfiguration`・未使用 `_serviceProvider` 依存を除去
 - 削除後検証: 0警告0エラー・131/131テスト — 実行時動作への影響なし（全て未到達パス）
 
-||||||| parent of 475edd9 (chore: remove last consumer-less registration (hot-reload service) and dead flag keys)
 ### Removed (最後の消費者ゼロ登録 — ConfigurationHotReloadService + 死フラグキー)
 
 - `IConfigurationHotReloadService`/`ConfigurationHotReloadService` の登録と実装（241行）を削除 — API 全6メンバ（`GetFeatureFlagAsync`/`SetFeatureFlagAsync`/`IsFeatureEnabledAsync`/`GetAllFeatureFlagsAsync`/`GetConfigurationSnapshotAsync`/`OnConfigurationChanged`）に呼出元ゼロ。30秒タイマーで設定変更を監視していたが、イベント購読者も存在しない「動いているが誰も見ていない」最後の死登録
@@ -1874,7 +1849,6 @@
 - `appsettings.simple.json` を削除 — `appsettings.{Environment}.json` の環境命名規約にも `AddJsonFile` にも合致しない未ロード設定残滓（内部の `Potion:` セクションも未バインド）
 - 検証: 0警告0エラー・131/131テスト
 
-||||||| parent of b980600 (fix: wire Serilog so configured sinks/enrichers actually run)
 ### Fixed (Serilog の実配線 — 宣言のみだった構造化ログの有効化)
 
 - `Program.cs` に `.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration))` を追加 — Serilog パッケージと `Serilog` 設定セクションは存在したが `UseSerilog` が未呼出で、全てのログは Serilog を経由していなかった（wwwroot と同型の「設定済み・未配信」）。Console/File/EventLog シンク・エンリッチャー・`ServiceVersion` プロパティが全て初めて動作
