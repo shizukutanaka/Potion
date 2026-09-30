@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (外来トークンの `OperationCanceledException` が監視ループを黙って永久停止させていた)
+
+- `PeriodicAsyncLoop` は `work()` が投げた OCE を無条件に「停止要求」と解釈してループ終了していた → ループ自身のトークンがキャンセル済みの場合のみ終了。内部タイムアウト等で発生した外来 OCE は反復エラーとして報告しループ継続
+- `AutoRecoveryManager.ExecuteAsync` も同型の無条件 `catch (OperationCanceledException) { break; }` → `stoppingToken.IsCancellationRequested` ガードへ揃え（`PredictiveRemediationService`/`MemoryMonitor` と同一規約）
+
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）

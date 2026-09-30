@@ -69,7 +69,7 @@ public sealed class AutoRecoveryManager : BackgroundService
                 await PerformHealthCheckCycleAsync(stoppingToken);
                 await Task.Delay(_healthCheckInterval, stoppingToken);
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
                 break;
             }
