@@ -172,4 +172,67 @@ public sealed class MemoryMonitorTests
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
         await monitor.StopAsync(cts.Token); // cancellation breaks the 1-min error delay
     }
+
+    private static MemoryStatistics Stats(double systemPercent, long workingSet, long privateBytes) =>
+        new(0, 0, 0, systemPercent, 0, 0, 0, 0,
+            workingSet, workingSet, privateBytes, DateTimeOffset.UtcNow);
+
+    [Fact]
+    public void ShouldOptimizeMemory_SystemPressure_AlwaysAbsolute()
+    {
+        var monitor = CreateMonitor();
+        // System % over threshold fires immediately — pressure is absolute, not trendy.
+        Assert.True(monitor.ShouldOptimizeMemory(Stats(85.0, 0, 0)));
+    }
+
+    [Fact]
+    public void ShouldOptimizeMemory_StableOwnFootprint_NeverFires()
+    {
+        var monitor = CreateMonitor(); // defaults: WS 512MB, private 256MB
+        var stable = Stats(50.0, 600L * 1024 * 1024, 300L * 1024 * 1024);
+
+        Assert.False(monitor.ShouldOptimizeMemory(stable)); // first sighting: baseline
+        Assert.False(monitor.ShouldOptimizeMemory(stable)); // stable: no growth, no storm
+        Assert.False(monitor.ShouldOptimizeMemory(stable));
+    }
+
+    [Fact]
+    public void ShouldOptimizeMemory_GrowthEpisode_FiresThenReArms()
+    {
+        var monitor = CreateMonitor();
+        var mb = 1024L * 1024;
+        var baseline = Stats(50.0, 600 * mb, 300 * mb);
+        var grown = Stats(50.0, 700 * mb, 400 * mb);   // +11% on working set vs baseline 600MB max
+        var stable = Stats(50.0, 700 * mb, 400 * mb);  // held at the new level
+
+        Assert.False(monitor.ShouldOptimizeMemory(baseline)); // baseline recorded
+        Assert.True(monitor.ShouldOptimizeMemory(grown));      // >10% growth: fire
+        Assert.False(monitor.ShouldOptimizeMemory(stable));    // re-armed: stable again
+    }
+
+    [Fact]
+    public void ShouldOptimizeMemory_SlowMonotonicGrowth_CaughtByBaseline()
+    {
+        var monitor = CreateMonitor();
+        var mb = 1024L * 1024;
+
+        // 3%/sample creep — invisible to consecutive-sample comparisons but the
+        // baseline comparison fires once it accumulates past +10%.
+        Assert.False(monitor.ShouldOptimizeMemory(Stats(50.0, 600 * mb, 300 * mb)));
+        Assert.False(monitor.ShouldOptimizeMemory(Stats(50.0, 618 * mb, 310 * mb)));
+        Assert.False(monitor.ShouldOptimizeMemory(Stats(50.0, 637 * mb, 320 * mb)));
+        Assert.False(monitor.ShouldOptimizeMemory(Stats(50.0, 656 * mb, 330 * mb)));
+        Assert.True(monitor.ShouldOptimizeMemory(Stats(50.0, 676 * mb, 340 * mb))); // 600→676 = +12.7%
+    }
+
+    [Fact]
+    public void ShouldOptimizeMemory_DipBelowThreshold_ResetsBaseline()
+    {
+        var monitor = CreateMonitor();
+        var mb = 1024L * 1024;
+
+        Assert.False(monitor.ShouldOptimizeMemory(Stats(50.0, 600 * mb, 300 * mb)));
+        Assert.False(monitor.ShouldOptimizeMemory(Stats(50.0, 100 * mb, 100 * mb))); // below: reset
+        Assert.False(monitor.ShouldOptimizeMemory(Stats(50.0, 620 * mb, 310 * mb))); // fresh baseline
+    }
 }

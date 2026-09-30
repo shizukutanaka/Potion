@@ -7,21 +7,99 @@
 - dashboard.js: `prepareNotificationPermission` の3件の指摘を修正 — (1) init 末尾（最初の `await` の後）での登録のため初回フェッチ中の操作を取りこぼす → `await` 前に移動、(2) `{once:true}` の keydown が Escape・修飾キー等の非アクティベーション押下で消費される → `NON_ACTIVATING_KEYS` 除外 + 手動 disarm、(3) 保存ボタンの pointerdown が保存処理より先に発火し非 browser 選択後もプロンプトが出る → `click`（バブル後段で新設定を再読込）に変更
 - 追加の指摘を修正: 設定モーダル内の操作（ラジオ選択・保存/キャンセルボタン・Enter キー）は未保存の下書き状態でプロンプトが発火し得た → `#advanced-settings-modal` 内のジェスチャは無視しリスナーを武装したまま保持（保存ボタン経由の opt-in は `saveAdvancedSettings` が自前で権限要求する経路が既存）
 
+### Fixed (回復試行上限到達後に毎分エラーログが永続し回復も永久停止していた)
+
+- `AutoRecoveryManager.AttemptRecoveryAsync` の失敗カウンタは飽和後リセットされず、**不健康が続くコンポーネントに対して毎分「Maximum recovery attempts exceeded」をエラー出力し続け、かつ状況が改善しても回復が二度と試行されなかった** — 他のループ（AlertCooldown/CorrelationCooldown/ScheduleCooldown）と同じバックオフ方式へ統一：上限到達で30分サイレンス後にカウンタを再武装し、エラーではなく警告1件で通知
+
+### Fixed (メモリリーク警告の恒常誤発火を増加検知へ)
+
+- `CheckMemoryLeaksAsync` が絶対量（private 500MB 超 / WS 1GB 超）だけで「リークの兆候」を発火していた — ブラウザや AV が常時該当し、実環境では15分毎に警告が出続けていた → 大型 **かつ** 前回チェックから private bytes が10%以上増加したプロセスのみを兆候として扱う（前回スナップショットを PID 毎に保持）
+
+### Fixed (MemoryMonitor が自プロセスの定常サイズを誤判定し強制 GC ストームを5分毎に自傷していた)
+
+- `ShouldOptimizeMemory` が自プロセス絶対量（PrivateMemory>256MB or WorkingSet>512MB）だけで `OptimizeMemoryAsync` を起動 — .NET は GC 予約で常時 256MB 超のため、定常プロセスでもクールダウン(300s)毎に「強制 Gen2 GC×2 + WaitForPendingFinalizers + SetProcessWorkingSetSize(-1,-1) による全ページ退避（Windows）/ malloc_trim + 追加 GC×2」を永久繰返し、監視対象のサービス自身を周期的にストールさせていた
+- 自プロセス発火条件を「閾値超過 AND エピソード基線から+10%成長」へ変更（#85 のリーク判定と同一の成長シグナル規約・緩慢な単調リークも捕捉）; システムメモリ圧（>80%）は絶対条件として維持
+- テスト +5（293 → 298）: 絶対系圧・定常不発・成長発火+再武装・緩慢成長捕捉・閾値割れリセット
+
+### Fixed (イベントログカードの「Warnings」タイルが常に `undefined` 表示だった)
+
+- `updateEventsOverview` は `metrics.windowsEvents.warningEventCount` を読むが `WindowsEventMetrics` に該当フィールドが存在せず、ダッシュボードに文字通り "undefined" と表示
+- `WarningEventCount` をエンドツーエンドで実装: Windows EventLog `Level==3` (Warning) カウント・journald "warn"/"warning" マーカー解析・レコード/タプル/キャッシュ拡張 → API が実測値を返しタイルが実データ表示に
+
+### Fixed (メモリ統計取得失敗時にパフォーマンススコアが NaN になっていた)
+
+- `CalculatePerformanceScore` が `MemoryUsageBytes / (Available + MemoryUsage)` をそのまま除算しており、WMI クエリ失敗で (0,0) が返ると `0/0 = NaN` となり `Math.Max(0, NaN)` も NaN を伝播させて**最適化結果のスコアが NaN になっていた** — 閾値判定（`memoryPercentBefore`）と同じ「合計0なら圧力なし」の規約で分岐し NaN を解消
+
+### Fixed (パターン異常の誤検知閾値を3σへ)
+
+- `AnomalyDetector` のパターン逸脱判定が z-score `> 0.5` で動作していた — 正規分布の62%の通常サンプルで発火し、ウォームアップ後は3分毎にダッシュボードへ anomaly アラートを broadcast していた → `3.0σ` に修正
+
+### Fixed (トレンド異常の閾値をメトリクス単位非依存へ正規化)
+
+- `IsTrendAnomaly` の閾値が生メトリクス単位の固定値 `0.3` だった — bytes/sec 系（大スケール）では常時発火、cpu% 系ではノイズで誤発火 → スロープ算出と同一 last-10 ウィンドウの**変化前**半分の σ で正規化（3σ超で発火・完全フラット系列では非ゼロ反転を検知）。フルウィンドウの σ を使うとスパイク自身が σ を膨らませて検知を潜るため変化前半分を使用
+
+### Fixed (パフォーマンス最適化が運用者のシステム設定を定期上書きしていた)
+
+- `RunAdditionalOptimizationsAsync` が最適化発火のたびに `netsh interface tcp set global autotuninglevel=normal` と `powercfg /setactive <Balanced>` を無条件実行していた — メモリ閾値（4GB）は実環境で常時超過するため**既定で5分毎に運用者の TCP チューニングと電源プラン選択を黙って巻き戻していた**。他の Optimize* メソッドと同じ「外部干渉は行わず報告する」方針へ統一（自動変更を止め、確認コマンドを案内する記録に置換）
+
+### Fixed (定期修復ポリシー `RemediationPolicy:Tasks` が一度も実行されない)
+
+- `RunEveryMinutes`・`MaintenanceWindowTag`・`MaxRetries`・`RetryBackoffSeconds`・`StopOnFailure`・`RequiresElevation`・`MaxConcurrency`・`SchedulerIntervalSeconds`・`ScheduleJitterSeconds` が起動時検証のみで消費者不在 — `FeatureFlags:RepairExecutionEnabled=true` でも出荷ポリシーの定期修復（sfc/dism/cleanmgr/ngen）は静かに未実行だった
+- `RemediationScheduler` にポリシーディスパッチループを追加： SchedulerIntervalSeconds 毎に各タスクの期限を評価 → メンテナンスウィンドウ内ならジッター付きで `IRemediationTaskExecutor` へディスパッチ（MaxConcurrency ゲート・リトライ・昇格要件を適用）
+- 未解決ウィンドウタグを参照する有効タスクを起動時に拒否する `MaintenanceWindowReferencesAreValid` バリデータ追加（実行時もフェイルクローズで非実行+警告）
+- テスト +6（293 → 299）: ウィンドウ境界・深夜帯ラップ・未解決タグ閉塞・バリデータ
+
+### Fixed (リソーストレンドチャートが永久に空 — サンプル記録時に再描画されていなかった)
+
+- `recordChartSample` は各ポーリングで `chartData` に実サンプルを追加していたが、`renderResourceTrendsChart` は初期化時（データ0件）とレンジ切替時にのみ呼出し — キャンバスは起動時の空描画のまま永久に更新されなかった
+- サンプル記録後に再描画を呼び出し、また `filteredData.length===1` で `chartWidth/0` → NaN 座標で唯一の点が描画されない問題を `stepX` ガードで修正
+
+### Fixed (SignalR ライブアラートが常に "System alert"/warning に化けていた)
+
+- ハブのペイロードは SignalR 固有シリアライザ（PascalCase + 数値 enum）だが JS は `alert.data.severity`/`alert.message`（camelCase）で読んでいた — `alert.data` が常に undefined で実メッセージ・実 severity が届かず、Critical でも常に warning 通知 + 汎用文言のみ
+- `data/Data`・`severity/Severity` の両 shape + 数値/文字列 enum の両方を解釈する堅牢読取へ — Critical/Error が正しく error 通知され実メッセージが表示される
+
+### Fixed (ConfigTool の generate テンプレートが出荷設定と乖離 — 生成設定が起動時検証で拒否される実バグ)
+
+- `BuildDefaultConfig` の `disk_cleanup` が `cleanmgr.exe /sagerun:1` を生成 — 出荷 `CommandArgumentAllowlist` は `/verylowdisk` のみ許容のため、生成設定を配置すると `ArgumentsAreAllowlisted` 起動時検証でサービス起動不能に
+- `CommandArgumentAllowlist` 自体がテンプレートから欠落 + `MaxConcurrency` 2→4、`sfc`/`dism`/`cleanmgr` の TimeoutSeconds・RetryBackoffSeconds・MaxRetries・StopOnFailure も出荷値と不一致
+- `generate` 出力の RemediationPolicy が出荷 appsettings.json と完全一致するようテンプレートを同期（`generate`→`validate` 往復・フィールド一致をローカル検証済み）
+
+### Fixed (アラート CSV エクスポートがクォート未エスケープ — 引用符含むメッセージで CSV 破損＋スプレッドシート式インジェクション)
+
+- `exportAlerts` は各フィールドを `"…"` ラップするだけで内部 `"` をエスケープせず、引用符を含むメッセージで CSV が破損
+- `csvField` ヘルパーで `"` → `""` の正規エスケープ + 先頭 `=`/`+`/`-`/`@`/タブ/CR に `'` 前置（Excel/LibreOffice 式評価の中立化 — CSV インジェクション対策）
+
+### Fixed (インストールした Windows サービスが証明書不在で起動不能だった — 実バグ)
+
+- `appsettings.Production.json` の `Kestrel:Endpoints:Https` は `C:\ProgramData\Potion\certs\certificate.pfx` を必須とするが、全3インストール経路（deploy-windows.ps1・package-installer.ps1・Potion.wxs MSI）とも証明書を提供しない → 起動時に Kestrel が証明書未検出で例外・サービスが crash-loop していた（k8s/compose で実証済みの「`Kestrel:Endpoints` は `ASPNETCORE_URLS` に優先」ルールにより、サービス登録時の `ASPNETCORE_URLS` 上書きは無効だった — 以前の対策は機能していなかった）
+- Production 既定から `Https` エンドポイントを除去し HTTP:5000 のみバインド（**設定変更** — 証明書必須の HTTPS は起動不能を引き起こすため既定から除外）。HTTPS 化は運用者が証明書配置後、運用設定ファイル `ProgramData\Potion\config\appsettings.json` に `Kestrel:Endpoints:Https` ブロックを追加する経路に変更 — 全3インストーラの案内・コメントを実機構に合わせて修正
+
+### Security (CSP に `frame-ancestors 'none'` を追加 — クリックジャッキング対策の現代側を完備)
+
+- `X-Frame-Options: DENY` は既存だがレガシー側のみ → CSP `frame-ancestors 'none'` を併記しモダンブラウザのエンベッドも構造的に拒否（XFO は旧ブラウザ向けに残置）
+- 併せて監査: セキュリティヘッダ一式（nosniff・DENY・no-referrer・Permissions-Policy・strict CSP・条件付き HSTS）・`UseExceptionHandler` の problem+json（詳細非流出・traceId のみ）・`UseRateLimiter` の配置（ルーティング後・エンドポイント単位適用で SignalR/ポーリング非影響）・全プローブ — 他にドリフトなし
+
+### Fixed (ConfigTool の generate/restore がライブ設定を非アトミック書込み — 書込み途中の中断で起動不能設定を残し得た)
+
+- `generate`（`File.WriteAllText`）と `restore`（`File.Copy` 直接上書き）はライブ設定パスを非アトミックに更新 — プロセス中断で部分書込み JSON が残り、次回起動時の設定パースでサービス起動不能に
+- 同一ディレクトリ temp + `File.Move`（上書き rename）へ変更 — POSIX/Windows とも rename は atomic。失敗時は staged ファイルを確実に除去
+
+### Docs (運用設定レイヤー `{Base}/config/appsettings.json` を文書化 — 最高優先度だが未記述だった)
+
+- `Program.cs` は `ServicePaths.ConfigurationFile` を全設定源の最後（appsettings・環境変数より上位の優先度）に `reloadOnChange` で読み込む — アップグレードで消えない外部オーバーライド層だがドキュメント未記載だった
+- パス解決（CommonApplicationData → LocalApplicationData → アプリ直下のフォールバック）・ホットリロードセマンティクス・HTTPS 有効化や ConfigTool（generate/validate/backup/restore）の書込み先であることを README に明記
+- 補完監査: `ServicePaths`（ACL 強化・フォールバック）・`PotionMetrics` 全359行（全 Record*/Update* に実呼出しあり・死メトリクスなし）・install.cmd/License.rtf・.github 全体 — 整合確認
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
 
-||||||| parent of 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Fixed (イベント駆動 webhook の `HttpResponseMessage` リーク)
 
 - `SendWebhookAsync` がレスポンスを未破棄のまま返していた — アラート発火毎にコネクションプールの接続が GC まで占有され、継続発火で枯渇し得た → `using var` 追加
 
-<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
-=======
-||||||| parent of d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
->>>>>>> 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Fixed (子プロセスプローブのタイムアウトが実質無効・監視ポーリング全体をハングさせ得た)
 
 - `systemctl`/`launchctl`/`journalctl`/`defaults` 系プローブ5箇所が `ReadToEnd()` を同期ブロッキングした後に `WaitForExit(timeout)` していた — 子プロセスがハングすると stdout EOF が来ずタイムアウトに到達しないため、**監視ポーリング全体が無期限に固まった**。さらに `RedirectStandardError=true` かつ未読のため stderr パイプ満杯で子がデッドロックし得た
@@ -29,18 +107,10 @@
 
 <<<<<<< HEAD
 ||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 =======
 ||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
-=======
-||||||| parent of d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
-=======
-||||||| parent of 3227eb3 (fix: don't consume the one-shot notification prompt on non-activating gestures)
->>>>>>> d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
->>>>>>> 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
 
 - `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
@@ -54,7 +124,6 @@
 =======
 ||||||| parent of be8fd6d (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
 >>>>>>> 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 =======
 ||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
@@ -62,47 +131,26 @@
 ||||||| parent of 61cb9c5 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
-=======
-||||||| parent of d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
-=======
-||||||| parent of 3227eb3 (fix: don't consume the one-shot notification prompt on non-activating gestures)
-=======
-||||||| parent of 9655b44 (fix: don't consume the one-shot notification prompt on non-activating gestures)
->>>>>>> 3227eb3 (fix: don't consume the one-shot notification prompt on non-activating gestures)
->>>>>>> d92eeff (fix: don't consume the one-shot notification prompt on non-activating gestures)
->>>>>>> 46c01ad (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
 - `SubscribeToAlerts`/`UnsubscribeFromAlerts` の `alertType` に上限64文字を追加 — 匿名クライアントが無制限にグループ参加してメモリを増殖させる DoS 面を閉塞
 - テスト: room テスト削除（消した API のもの）+ 上限超過は黙って無視されることを検証するテスト追加（293 維持、main マージ後）
 
-<<<<<<< HEAD
 ||||||| parent of 2d0b5b0 (docs: document env-var knobs (POTION_PROCESS_MAX_MEMORY_MB, Kestrel__Endpoints__*) + fix test count)
-||||||| parent of 9655b44 (fix: don't consume the one-shot notification prompt on non-activating gestures)
-=======
-||||||| parent of 8a6e3c8 (fix: don't consume the one-shot notification prompt on non-activating gestures)
->>>>>>> 9655b44 (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Fixed (`ProcessRunner` の2つの実バグ — 呼出し側 `WorkingDirectory` の上書きと空行の消失)
 
 - `WorkingDirectory` が常に `Path.GetDirectoryName(FileName)` で上書きされ、呼出し側の指定値を黙って捨てていた → 未指定時のみ導出し、指定値を尊重するように
 - `AppendWithLimit` が `IsNullOrEmpty` で空行をドロップ → 子プロセス出力の空行が `StandardOutput` から消えていた（`ipconfig` 等の空行を含む出力で不整合）→ 空行も捕捉
 - テスト2件追加（291 → 293）: 空行保持・呼出し側 WorkingDirectory 尊重を Unix/Windows 双方で検証
 
-<<<<<<< HEAD
 ||||||| parent of c8c0ec6 (security: tighten hub surface — remove dead JoinRoom/LeaveRoom, bound alertType)
-||||||| parent of 8a6e3c8 (fix: don't consume the one-shot notification prompt on non-activating gestures)
-=======
-||||||| parent of e4ef482 (fix: don't consume the one-shot notification prompt on non-activating gestures)
->>>>>>> 8a6e3c8 (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Improved (`ResiliencePipelines` にユニットテスト追加 — 唯一未テストだったコアのポリシー面を固定)
 
 - 現行セマンティクスをピン: 成功パススルー（1回のみ）、トランジェント exit code 5 で初回+3リトライ=4回、非トランジェント exit code 1 はリトライなし、連続3失敗でサーキットブレーカー open → `BrokenCircuitException` で実行拒否
 - 監査: Infrastructure 全18クラス×テストファイル照合 — 未テストは ResiliencePipelines のみ（PotionEventSource は ETW で実質 assert 不可）
 - 287 → 291 テスト（4追加・全パス）
 
-||||||| parent of 553b349 (fix: don't consume the one-shot notification prompt on non-activating gestures)
 ### Fixed (`dotnet run` が Development でなく Production として起動し cert クラッシュしていた — launchSettings.json 追加 + Serilog ベースパスのポータブル化)
 
 - `Properties/launchSettings.json` が存在しなかったため `dotnet run` は `DOTNET_ENVIRONMENT` 未設定のまま Production 環境で起動 → `appsettings.Production.json` の証明書必須 HTTPS エンドポイントで起動不能・`C:\ProgramData\...` リテラル名のディレクトリを非 Windows 開発環境に撒き散らしていた → `DOTNET_ENVIRONMENT`/`ASPNETCORE_ENVIRONMENT` 共に Development のプロファイルを追加し golden path で Development 起動に
