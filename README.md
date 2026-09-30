@@ -38,7 +38,7 @@ The service listens on `http://localhost:5000` by default and serves:
 - `GET /metrics` — Prometheus metrics
 - `POST /collaboration/negotiate` — SignalR hub (the dashboard connects for real-time alerts + health updates, falling back to polling when unavailable)
 
-Production HTTPS requires the certificate configured in `appsettings.Production.json` (`Kestrel:Endpoints:Https:Certificate`); inject the PFX password via the `Kestrel__Endpoints__Https__Certificate__Password` environment variable.
+Production HTTPS is opt-in: place `certificate.pfx` under `%ProgramData%\Potion\certs` and add a `Kestrel:Endpoints:Https` section (with `Certificate:Path`) to `%ProgramData%\Potion\config\appsettings.json`; inject the PFX password via the `Kestrel__Endpoints__Https__Certificate__Password` environment variable.
 
 ### Install as Windows Service
 
