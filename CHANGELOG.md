@@ -6,6 +6,63 @@
 
 - `AnomalyDetector` のパターン逸脱判定が z-score `> 0.5` で動作していた — 正規分布の62%の通常サンプルで発火し、ウォームアップ後は3分毎にダッシュボードへ anomaly アラートを broadcast していた → `3.0σ` に修正
 
+### Fixed (トレンド異常の閾値をメトリクス単位非依存へ正規化)
+
+- `IsTrendAnomaly` の閾値が生メトリクス単位の固定値 `0.3` だった — bytes/sec 系（大スケール）では常時発火、cpu% 系ではノイズで誤発火 → スロープ算出と同一 last-10 ウィンドウの**変化前**半分の σ で正規化（3σ超で発火・完全フラット系列では非ゼロ反転を検知）。フルウィンドウの σ を使うとスパイク自身が σ を膨らませて検知を潜るため変化前半分を使用
+
+### Fixed (パフォーマンス最適化が運用者のシステム設定を定期上書きしていた)
+
+- `RunAdditionalOptimizationsAsync` が最適化発火のたびに `netsh interface tcp set global autotuninglevel=normal` と `powercfg /setactive <Balanced>` を無条件実行していた — メモリ閾値（4GB）は実環境で常時超過するため**既定で5分毎に運用者の TCP チューニングと電源プラン選択を黙って巻き戻していた**。他の Optimize* メソッドと同じ「外部干渉は行わず報告する」方針へ統一（自動変更を止め、確認コマンドを案内する記録に置換）
+
+### Fixed (定期修復ポリシー `RemediationPolicy:Tasks` が一度も実行されない)
+
+- `RunEveryMinutes`・`MaintenanceWindowTag`・`MaxRetries`・`RetryBackoffSeconds`・`StopOnFailure`・`RequiresElevation`・`MaxConcurrency`・`SchedulerIntervalSeconds`・`ScheduleJitterSeconds` が起動時検証のみで消費者不在 — `FeatureFlags:RepairExecutionEnabled=true` でも出荷ポリシーの定期修復（sfc/dism/cleanmgr/ngen）は静かに未実行だった
+- `RemediationScheduler` にポリシーディスパッチループを追加： SchedulerIntervalSeconds 毎に各タスクの期限を評価 → メンテナンスウィンドウ内ならジッター付きで `IRemediationTaskExecutor` へディスパッチ（MaxConcurrency ゲート・リトライ・昇格要件を適用）
+- 未解決ウィンドウタグを参照する有効タスクを起動時に拒否する `MaintenanceWindowReferencesAreValid` バリデータ追加（実行時もフェイルクローズで非実行+警告）
+- テスト +6（293 → 299）: ウィンドウ境界・深夜帯ラップ・未解決タグ閉塞・バリデータ
+
+### Fixed (リソーストレンドチャートが永久に空 — サンプル記録時に再描画されていなかった)
+
+- `recordChartSample` は各ポーリングで `chartData` に実サンプルを追加していたが、`renderResourceTrendsChart` は初期化時（データ0件）とレンジ切替時にのみ呼出し — キャンバスは起動時の空描画のまま永久に更新されなかった
+- サンプル記録後に再描画を呼び出し、また `filteredData.length===1` で `chartWidth/0` → NaN 座標で唯一の点が描画されない問題を `stepX` ガードで修正
+
+### Fixed (SignalR ライブアラートが常に "System alert"/warning に化けていた)
+
+- ハブのペイロードは SignalR 固有シリアライザ（PascalCase + 数値 enum）だが JS は `alert.data.severity`/`alert.message`（camelCase）で読んでいた — `alert.data` が常に undefined で実メッセージ・実 severity が届かず、Critical でも常に warning 通知 + 汎用文言のみ
+- `data/Data`・`severity/Severity` の両 shape + 数値/文字列 enum の両方を解釈する堅牢読取へ — Critical/Error が正しく error 通知され実メッセージが表示される
+
+### Fixed (ConfigTool の generate テンプレートが出荷設定と乖離 — 生成設定が起動時検証で拒否される実バグ)
+
+- `BuildDefaultConfig` の `disk_cleanup` が `cleanmgr.exe /sagerun:1` を生成 — 出荷 `CommandArgumentAllowlist` は `/verylowdisk` のみ許容のため、生成設定を配置すると `ArgumentsAreAllowlisted` 起動時検証でサービス起動不能に
+- `CommandArgumentAllowlist` 自体がテンプレートから欠落 + `MaxConcurrency` 2→4、`sfc`/`dism`/`cleanmgr` の TimeoutSeconds・RetryBackoffSeconds・MaxRetries・StopOnFailure も出荷値と不一致
+- `generate` 出力の RemediationPolicy が出荷 appsettings.json と完全一致するようテンプレートを同期（`generate`→`validate` 往復・フィールド一致をローカル検証済み）
+
+### Fixed (アラート CSV エクスポートがクォート未エスケープ — 引用符含むメッセージで CSV 破損＋スプレッドシート式インジェクション)
+
+- `exportAlerts` は各フィールドを `"…"` ラップするだけで内部 `"` をエスケープせず、引用符を含むメッセージで CSV が破損
+- `csvField` ヘルパーで `"` → `""` の正規エスケープ + 先頭 `=`/`+`/`-`/`@`/タブ/CR に `'` 前置（Excel/LibreOffice 式評価の中立化 — CSV インジェクション対策）
+
+### Fixed (インストールした Windows サービスが証明書不在で起動不能だった — 実バグ)
+
+- `appsettings.Production.json` の `Kestrel:Endpoints:Https` は `C:\ProgramData\Potion\certs\certificate.pfx` を必須とするが、全3インストール経路（deploy-windows.ps1・package-installer.ps1・Potion.wxs MSI）とも証明書を提供しない → 起動時に Kestrel が証明書未検出で例外・サービスが crash-loop していた（k8s/compose で実証済みの「`Kestrel:Endpoints` は `ASPNETCORE_URLS` に優先」ルールにより、サービス登録時の `ASPNETCORE_URLS` 上書きは無効だった — 以前の対策は機能していなかった）
+- Production 既定から `Https` エンドポイントを除去し HTTP:5000 のみバインド（**設定変更** — 証明書必須の HTTPS は起動不能を引き起こすため既定から除外）。HTTPS 化は運用者が証明書配置後、運用設定ファイル `ProgramData\Potion\config\appsettings.json` に `Kestrel:Endpoints:Https` ブロックを追加する経路に変更 — 全3インストーラの案内・コメントを実機構に合わせて修正
+
+### Security (CSP に `frame-ancestors 'none'` を追加 — クリックジャッキング対策の現代側を完備)
+
+- `X-Frame-Options: DENY` は既存だがレガシー側のみ → CSP `frame-ancestors 'none'` を併記しモダンブラウザのエンベッドも構造的に拒否（XFO は旧ブラウザ向けに残置）
+- 併せて監査: セキュリティヘッダ一式（nosniff・DENY・no-referrer・Permissions-Policy・strict CSP・条件付き HSTS）・`UseExceptionHandler` の problem+json（詳細非流出・traceId のみ）・`UseRateLimiter` の配置（ルーティング後・エンドポイント単位適用で SignalR/ポーリング非影響）・全プローブ — 他にドリフトなし
+
+### Fixed (ConfigTool の generate/restore がライブ設定を非アトミック書込み — 書込み途中の中断で起動不能設定を残し得た)
+
+- `generate`（`File.WriteAllText`）と `restore`（`File.Copy` 直接上書き）はライブ設定パスを非アトミックに更新 — プロセス中断で部分書込み JSON が残り、次回起動時の設定パースでサービス起動不能に
+- 同一ディレクトリ temp + `File.Move`（上書き rename）へ変更 — POSIX/Windows とも rename は atomic。失敗時は staged ファイルを確実に除去
+
+### Docs (運用設定レイヤー `{Base}/config/appsettings.json` を文書化 — 最高優先度だが未記述だった)
+
+- `Program.cs` は `ServicePaths.ConfigurationFile` を全設定源の最後（appsettings・環境変数より上位の優先度）に `reloadOnChange` で読み込む — アップグレードで消えない外部オーバーライド層だがドキュメント未記載だった
+- パス解決（CommonApplicationData → LocalApplicationData → アプリ直下のフォールバック）・ホットリロードセマンティクス・HTTPS 有効化や ConfigTool（generate/validate/backup/restore）の書込み先であることを README に明記
+- 補完監査: `ServicePaths`（ACL 強化・フォールバック）・`PotionMetrics` 全359行（全 Record*/Update* に実呼出しあり・死メトリクスなし）・install.cmd/License.rtf・.github 全体 — 整合確認
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
