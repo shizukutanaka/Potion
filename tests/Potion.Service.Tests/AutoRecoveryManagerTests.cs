@@ -83,6 +83,25 @@ public sealed class AutoRecoveryManagerTests
     }
 
     [Fact]
+    public async Task AttemptRecovery_AfterExhaustion_SkipsAttemptsDuringBackoff()
+    {
+        using var manager = new AutoRecoveryManager(NullLogger<AutoRecoveryManager>.Instance);
+        var attempts = new List<RecoveryAttemptEventArgs>();
+        manager.RecoveryAttempted += (_, e) => attempts.Add(e);
+        var failure = new InvalidOperationException("scheduler down");
+
+        for (var i = 0; i < 4; i++)
+        {
+            await manager.AttemptRecoveryAsync("Scheduler", failure, CancellationToken.None);
+        }
+
+        var duringBackoff = await manager.AttemptRecoveryAsync("Scheduler", failure, CancellationToken.None);
+
+        Assert.False(duringBackoff);
+        Assert.Equal(4, attempts.Count);
+    }
+
+    [Fact]
     public async Task AttemptRecovery_FileSystem_RecreatesCacheDirectory()
     {
         var cacheDir = Path.Combine(ServicePaths.State, "cache");
