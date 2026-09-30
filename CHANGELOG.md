@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (詳細フィルタパネルが初回クリックで開かなかった)
+
+- `#advanced-search-panel` は `u-hidden` クラスで非表示開始だが `toggleAdvancedSearch` は inline `style.display` で状態判定 — 初回は `'' === 'none'` が false で `display:none` をセットするだけで視覚変化なし（2回目でやっと開く）
+- `classList.toggle('u-hidden')` へ変更し既存の u-hidden 規約に揃え — 初回クリックで正しく開閉
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
