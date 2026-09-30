@@ -293,14 +293,23 @@ public class Startup
                 {
                     document = await JsonDocument.ParseAsync(ctx.Request.Body, cancellationToken: ct);
                 }
-                catch (JsonException ex)
+                catch (Exception ex) when (ex is JsonException or IOException)
                 {
+                    // IOException covers bodies that fail mid-read (truncated or
+                    // over Kestrel's MaxRequestBodySize) — malformed input too.
                     logger.LogWarning("Rejected malformed alertmanager webhook payload: {Error}", ex.Message);
                     return Results.BadRequest(new { error = "malformed JSON payload" });
                 }
 
                 using (document)
                 {
+                    // A valid-JSON non-object root (array, string, number) would
+                    // otherwise throw InvalidOperationException on TryGetProperty.
+                    if (document.RootElement.ValueKind != JsonValueKind.Object)
+                    {
+                        return Results.BadRequest(new { error = "payload root must be a JSON object" });
+                    }
+
                     if (document.RootElement.TryGetProperty("alerts", out var alerts)
                         && alerts.ValueKind == JsonValueKind.Array)
                     {
@@ -311,13 +320,19 @@ public class Startup
                                 continue;
                             }
 
-                            var status = alert.TryGetProperty("status", out var s) ? s.GetString() : "unknown";
+                            // Scalar extraction must not trust types: GetString()
+                            // throws on non-string values, turning a crafted alert
+                            // into an unhandled 500.
+                            var status = alert.TryGetProperty("status", out var s)
+                                && s.ValueKind == JsonValueKind.String ? s.GetString() : "unknown";
                             var name = alert.TryGetProperty("labels", out var l)
                                 && l.ValueKind == JsonValueKind.Object
-                                && l.TryGetProperty("alertname", out var an) ? an.GetString() : "unknown";
+                                && l.TryGetProperty("alertname", out var an)
+                                && an.ValueKind == JsonValueKind.String ? an.GetString() : "unknown";
                             var summary = alert.TryGetProperty("annotations", out var a)
                                 && a.ValueKind == JsonValueKind.Object
-                                && a.TryGetProperty("summary", out var sum) ? sum.GetString() : null;
+                                && a.TryGetProperty("summary", out var sum)
+                                && sum.ValueKind == JsonValueKind.String ? sum.GetString() : null;
 
                             if (status == "resolved")
                             {

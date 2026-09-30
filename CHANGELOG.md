@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Fixed (`/api/health/alerts/webhook` が有効な JSON で 500 を返す実バグ — 入力検証の型ガード追加)
+
+- 非オブジェクトルート（`[]`、`"str"` 等の有効 JSON）は `TryGetProperty` の `InvalidOperationException` で未処理 500 → ルート `ValueKind == Object` を要求し 400 を返す
+- `status`/`alertname`/`summary` の非文字列値（数値・オブジェクト等）は `GetString()` 例外で 500 → `ValueKind == String` ガードで "unknown"/null にフォールバック
+- ボディ読取り失敗（途中切断・`MaxRequestBodySize` 超過）は `JsonException` キャッチを抜けて 500 → `IOException` も 400 へ
+- 実機検証（`dotnet run` + curl 6パターン）: 全ケースで 500 解消 — 不正系は 400、非文字列スカラーは "unknown" へ正規化、正規アラートは 200 `received:1`
+- Alertmanager からの正規ペイロードの挙動は不変
+
 ### Fixed (`dotnet run` が Development でなく Production として起動し cert クラッシュしていた — launchSettings.json 追加 + Serilog ベースパスのポータブル化)
 
 - `Properties/launchSettings.json` が存在しなかったため `dotnet run` は `DOTNET_ENVIRONMENT` 未設定のまま Production 環境で起動 → `appsettings.Production.json` の証明書必須 HTTPS エンドポイントで起動不能・`C:\ProgramData\...` リテラル名のディレクトリを非 Windows 開発環境に撒き散らしていた → `DOTNET_ENVIRONMENT`/`ASPNETCORE_ENVIRONMENT` 共に Development のプロファイルを追加し golden path で Development 起動に
