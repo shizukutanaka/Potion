@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (メモリリーク警告の恒常誤発火を増加検知へ)
+
+- `CheckMemoryLeaksAsync` が絶対量（private 500MB 超 / WS 1GB 超）だけで「リークの兆候」を発火していた — ブラウザや AV が常時該当し、実環境では15分毎に警告が出続けていた → 大型 **かつ** 前回チェックから private bytes が10%以上増加したプロセスのみを兆候として扱う（前回スナップショットを PID 毎に保持）
+
 ### Fixed (MemoryMonitor が自プロセスの定常サイズを誤判定し強制 GC ストームを5分毎に自傷していた)
 
 - `ShouldOptimizeMemory` が自プロセス絶対量（PrivateMemory>256MB or WorkingSet>512MB）だけで `OptimizeMemoryAsync` を起動 — .NET は GC 予約で常時 256MB 超のため、定常プロセスでもクールダウン(300s)毎に「強制 Gen2 GC×2 + WaitForPendingFinalizers + SetProcessWorkingSetSize(-1,-1) による全ページ退避（Windows）/ malloc_trim + 追加 GC×2」を永久繰返し、監視対象のサービス自身を周期的にストールさせていた
