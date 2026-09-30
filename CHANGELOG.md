@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Removed (csproj の死設定を除去 — 機能しないノブと削除済みファイルへの参照)
+
+- `EnableCompressionInSingleFile`（`PublishSingleFile=false` で不活性）、`SuppressTrimAnalysisWarnings`（`PublishTrimmed=false` で不活性）、`EnablePackageValidation`（Exe は非 packable で不活性）、`WarningsAsErrors`（`TreatWarningsAsErrors` で完全冗長）を除去 — 全て評価されない死設定
+- ConfigTool.csproj から `<Compile Remove="TranslationManager.cs" />` を除去 — i18n スタック削除済みで対象ファイルは存在しない
+
 ### Improved (PotionActivitySource のタグ付き Activity 生成をテスト固定)
 
 - `ActivityListener` 登録下で `StartRemediationActivity`/`StartHealthCheckActivity`/`StartSelfHealingActivity` が非 null の Activity を返し、`task.name`/`issue.type`/`span.kind` タグと OperationName が正しいことを固定（リスナー無しでは StartActivity が null を返す仕様のため、本番=リスナー有りの契約をピン留め）
