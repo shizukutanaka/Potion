@@ -138,6 +138,7 @@ public class Startup
                 .Validate(RemediationPolicyOptionsValidators.ArgumentsAreSafe, "Remediation policy contains unsafe task arguments.")
                 .Validate(RemediationPolicyOptionsValidators.ArgumentsAreAllowlisted, "Remediation policy uses arguments outside the command argument allowlist.")
                 .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowsAreValid, "Remediation policy contains invalid maintenance windows.")
+                .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowReferencesAreValid, "Remediation policy tasks reference undefined maintenance window tags.")
                 .ValidateOnStart();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<ICommandValidator, CommandValidator>();

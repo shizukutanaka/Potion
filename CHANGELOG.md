@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+### Fixed (定期修復ポリシー `RemediationPolicy:Tasks` が一度も実行されない)
+
+- `RunEveryMinutes`・`MaintenanceWindowTag`・`MaxRetries`・`RetryBackoffSeconds`・`StopOnFailure`・`RequiresElevation`・`MaxConcurrency`・`SchedulerIntervalSeconds`・`ScheduleJitterSeconds` が起動時検証のみで消費者不在 — `FeatureFlags:RepairExecutionEnabled=true` でも出荷ポリシーの定期修復（sfc/dism/cleanmgr/ngen）は静かに未実行だった
+- `RemediationScheduler` にポリシーディスパッチループを追加： SchedulerIntervalSeconds 毎に各タスクの期限を評価 → メンテナンスウィンドウ内ならジッター付きで `IRemediationTaskExecutor` へディスパッチ（MaxConcurrency ゲート・リトライ・昇格要件を適用）
+- 未解決ウィンドウタグを参照する有効タスクを起動時に拒否する `MaintenanceWindowReferencesAreValid` バリデータ追加（実行時もフェイルクローズで非実行+警告）
+- テスト +6（293 → 299）: ウィンドウ境界・深夜帯ラップ・未解決タグ閉塞・バリデータ
+
 ### Fixed (リソーストレンドチャートが永久に空 — サンプル記録時に再描画されていなかった)
 
 - `recordChartSample` は各ポーリングで `chartData` に実サンプルを追加していたが、`renderResourceTrendsChart` は初期化時（データ0件）とレンジ切替時にのみ呼出し — キャンバスは起動時の空描画のまま永久に更新されなかった
