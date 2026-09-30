@@ -84,35 +84,66 @@ class PotionDashboard {
         if (storedSettings.autoRefresh !== false) {
             this.startAutoRefresh();
         }
+        // Arm the permission listener before the first async gap — a visitor
+        // whose only interaction happens during the initial fetch otherwise
+        // never gets the prompt.
+        this.prepareNotificationPermission();
         this.showLoadingState();
         await this.refreshAllData();
         this.hideLoadingState();
         this.showSection('overview');
         this.initializeCharts();
         this.connectSignalR();
-        this.prepareNotificationPermission();
     }
 
     // Notification.permission can only be requested inside a user gesture.
     // Warning alerts default to browser delivery even before settings are
-    // saved, so arm a one-time listener on the first interaction — otherwise
+    // saved, so arm listeners for the first real interaction — otherwise
     // an unsaved visitor's warnings could never become notifications.
     prepareNotificationPermission() {
         if (!('Notification' in window) || Notification.permission !== 'default') {
             return;
         }
-        const settings = this.getStoredSettings();
-        if (settings.criticalAlerts !== 'browser' &&
-            (settings.warningAlerts ?? 'browser') !== 'browser') {
+        const browserAlertsEnabled = () => {
+            const settings = this.getStoredSettings();
+            return settings.criticalAlerts === 'browser' ||
+                (settings.warningAlerts ?? 'browser') === 'browser';
+        };
+        if (!browserAlertsEnabled()) {
             return;
         }
-        const request = () => {
-            if (Notification.permission === 'default') {
-                Notification.requestPermission();
-            }
+        const disarm = () => {
+            document.removeEventListener('click', request);
+            document.removeEventListener('keydown', request);
         };
-        document.addEventListener('pointerdown', request, { once: true });
-        document.addEventListener('keydown', request, { once: true });
+        const request = (event) => {
+            // Only activation gestures count: pointer clicks, or the keys that
+            // can activate a focused control. Navigation keys (Tab, arrows)
+            // and modifiers must not consume the one-shot.
+            if (event.type === 'keydown' &&
+                event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+            // Gestures inside the settings modal are mid-configuration: draft
+            // choices aren't persisted, so prompting now would fire against
+            // stale prefs (and the save click handles opt-in itself via
+            // saveAdvancedSettings). Leave the listeners armed.
+            if (event.target instanceof Element &&
+                event.target.closest('#advanced-settings-modal')) {
+                return;
+            }
+            disarm();
+            // 'click' bubbles after target handlers, so prefs saved by the
+            // click that fired this are already visible — a save switching
+            // to non-browser delivery must not still prompt.
+            if (!browserAlertsEnabled() ||
+                Notification.permission !== 'default') {
+                return;
+            }
+            Notification.requestPermission();
+        };
+        document.addEventListener('click', request);
+        document.addEventListener('keydown', request);
     }
 
     // Connects to the /collaboration hub for live alerts and health updates.

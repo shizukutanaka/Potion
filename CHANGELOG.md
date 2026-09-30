@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (PR #62 Devin Review 対応 — 通知権限リスナーのワンショット消費を修正)
+
+- dashboard.js: `prepareNotificationPermission` の3件の指摘を修正 — (1) init 末尾（最初の `await` の後）での登録のため初回フェッチ中の操作を取りこぼす → `await` 前に移動、(2) `{once:true}` の keydown が Escape・修飾キー等の非アクティベーション押下で消費される → `NON_ACTIVATING_KEYS` 除外 + 手動 disarm、(3) 保存ボタンの pointerdown が保存処理より先に発火し非 browser 選択後もプロンプトが出る → `click`（バブル後段で新設定を再読込）に変更
+- 追加の指摘を修正: 設定モーダル内の操作（ラジオ選択・保存/キャンセルボタン・Enter キー）は未保存の下書き状態でプロンプトが発火し得た → `#advanced-settings-modal` 内のジェスチャは無視しリスナーを武装したまま保持（保存ボタン経由の opt-in は `saveAdvancedSettings` が自前で権限要求する経路が既存）
+
 ### Fixed (回復試行上限到達後に毎分エラーログが永続し回復も永久停止していた)
 
 - `AutoRecoveryManager.AttemptRecoveryAsync` の失敗カウンタは飽和後リセットされず、**不健康が続くコンポーネントに対して毎分「Maximum recovery attempts exceeded」をエラー出力し続け、かつ状況が改善しても回復が二度と試行されなかった** — 他のループ（AlertCooldown/CorrelationCooldown/ScheduleCooldown）と同じバックオフ方式へ統一：上限到達で30分サイレンス後にカウンタを再武装し、エラーではなく警告1件で通知
