@@ -42,12 +42,6 @@ public sealed class PotionEventSource : EventSource
             WriteEvent(3, taskName, errorMessage);
     }
 
-    /// <summary>Event ID 4: System anomaly detected</summary>
-
-    /// <summary>Event ID 5: Critical health threshold exceeded</summary>
-
-    /// <summary>Event ID 6: Predictive maintenance scheduled</summary>
-
     /// <summary>Event ID 7: Circuit breaker state change</summary>
     [Event(7, Level = EventLevel.Warning,
            Keywords = Keywords.Resilience,
@@ -69,30 +63,6 @@ public sealed class PotionEventSource : EventSource
             WriteEvent(8, attemptNumber, maxAttempts, operationName, delayMs);
     }
 
-    /// <summary>Event ID 9: Health check completed</summary>
-
-    /// <summary>Event ID 10: Diagnostic analysis started</summary>
-
-    /// <summary>Event ID 11: Diagnostic analysis completed</summary>
-
-    /// <summary>Event ID 12: Self-healing action started</summary>
-
-    /// <summary>Event ID 13: Self-healing action succeeded</summary>
-
-    /// <summary>Event ID 14: Self-healing action failed</summary>
-
-    /// <summary>Event ID 15: Rollback initiated</summary>
-
-    /// <summary>Event ID 16: Rollback completed</summary>
-
-    /// <summary>Event ID 17: Security baseline violation detected</summary>
-
-    /// <summary>Event ID 18: Security hardening action completed</summary>
-
-    /// <summary>Event ID 19: Configuration applied</summary>
-
-    /// <summary>Event ID 20: Configuration validation failed</summary>
-
     /// <summary>Event ID 21: Performance alert</summary>
     [Event(21, Level = EventLevel.Warning,
            Keywords = Keywords.Performance,
@@ -102,26 +72,6 @@ public sealed class PotionEventSource : EventSource
         if (IsEnabled())
             WriteEvent(21, metricName, value, threshold);
     }
-
-    /// <summary>Event ID 22: Escalation to human review</summary>
-
-    /// <summary>Event ID 23: Maintenance window entered</summary>
-
-    /// <summary>Event ID 24: Maintenance window exited</summary>
-
-    /// <summary>Event ID 25: ML model trained</summary>
-
-    /// <summary>Event ID 26: Remediation executed</summary>
-
-    /// <summary>Event ID 27: Security threat indicators blocked</summary>
-
-    /// <summary>Event ID 28: Security configuration applied</summary>
-
-    /// <summary>Event ID 29: Security incident response initiated</summary>
-
-    /// <summary>Event ID 30: Security audit event recorded</summary>
-
-    /// <summary>Event ID 31: Hotpatch applied</summary>
 
     /// <summary>ETW Keywords for event filtering</summary>
     public static class Keywords
