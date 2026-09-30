@@ -988,6 +988,9 @@ class PotionDashboard {
         if (this.chartData.length > 24) {
             this.chartData.shift();
         }
+        // Re-render with the new point — otherwise the canvas only ever draws
+        // the empty state painted at init.
+        this.renderResourceTrendsChart();
     }
 
     updateHealthOverview(data) {
@@ -1715,8 +1718,11 @@ class PotionDashboard {
             ctx.lineWidth = 2;
             ctx.beginPath();
 
+            // Guard the length-1 case: chartWidth/(1-1) is Infinity and a NaN
+            // coordinate silently drops the only point.
+            const stepX = filteredData.length > 1 ? chartWidth / (filteredData.length - 1) : 0;
             filteredData.forEach((point, index) => {
-                const x = startX + (chartWidth / (filteredData.length - 1)) * index;
+                const x = startX + stepX * index;
                 const y = startY + chartHeight - (point[metric.key] / 100) * chartHeight;
 
                 if (index === 0) {

@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (リソーストレンドチャートが永久に空 — サンプル記録時に再描画されていなかった)
+
+- `recordChartSample` は各ポーリングで `chartData` に実サンプルを追加していたが、`renderResourceTrendsChart` は初期化時（データ0件）とレンジ切替時にのみ呼出し — キャンバスは起動時の空描画のまま永久に更新されなかった
+- サンプル記録後に再描画を呼び出し、また `filteredData.length===1` で `chartWidth/0` → NaN 座標で唯一の点が描画されない問題を `stepX` ガードで修正
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
