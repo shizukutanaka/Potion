@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Removed (独自 `HealthCheckResult` の死メンバー削除 — 4引数 ctor・未読プロパティ・孤児 enum)
+
+- 4引数コンストラクタ `(status, description, error, details)` は呼出しゼロ、`Status`/`Description`/`Error`/`Details`/`Timestamp`/`Components` は読取りゼロ — 消費者は `IsHealthy`・`ComponentHealth`・`CheckedAt` のみ
+- `HealthStatus` enum も同時に孤児化したため削除（ASP.NET の同名型と衝突する shadowing 面も縮小）
+- エンドツーエンド検証: `scripts/validate-system.sh` 全10チェックを実起動インスタンスへ実行 — 全 PASS（/health・/health/ready・api3系・/metrics・/・webhook 405・SignalR negotiate）
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
