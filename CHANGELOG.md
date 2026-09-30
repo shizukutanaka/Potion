@@ -2,12 +2,19 @@
 
 ## Unreleased
 
+### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
+
+- `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
+- `SubscribeToAlerts`/`UnsubscribeFromAlerts` の `alertType` に上限64文字を追加 — 匿名クライアントが無制限にグループ参加してメモリを増殖させる DoS 面を閉塞
+- テスト: room テスト削除（消した API のもの）+ 上限超過は黙って無視されることを検証するテスト追加（293 維持、main マージ後）
+
 ### Fixed (`ProcessRunner` の2つの実バグ — 呼出し側 `WorkingDirectory` の上書きと空行の消失)
 
 - `WorkingDirectory` が常に `Path.GetDirectoryName(FileName)` で上書きされ、呼出し側の指定値を黙って捨てていた → 未指定時のみ導出し、指定値を尊重するように
 - `AppendWithLimit` が `IsNullOrEmpty` で空行をドロップ → 子プロセス出力の空行が `StandardOutput` から消えていた（`ipconfig` 等の空行を含む出力で不整合）→ 空行も捕捉
 - テスト2件追加（291 → 293）: 空行保持・呼出し側 WorkingDirectory 尊重を Unix/Windows 双方で検証
 
+||||||| parent of c8c0ec6 (security: tighten hub surface — remove dead JoinRoom/LeaveRoom, bound alertType)
 ### Improved (`ResiliencePipelines` にユニットテスト追加 — 唯一未テストだったコアのポリシー面を固定)
 
 - 現行セマンティクスをピン: 成功パススルー（1回のみ）、トランジェント exit code 5 で初回+3リトライ=4回、非トランジェント exit code 1 はリトライなし、連続3失敗でサーキットブレーカー open → `BrokenCircuitException` で実行拒否

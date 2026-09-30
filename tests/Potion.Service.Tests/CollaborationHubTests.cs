@@ -207,24 +207,17 @@ public sealed class CollaborationHubTests
     }
 
     [Fact]
-    public async Task JoinAndLeaveRoom_ManageGroupMembership()
+    public async Task SubscribeToAlerts_OversizedAlertType_IsIgnored()
     {
         var d = CreateHub(connectionId: "conn-1");
 
-        await d.Hub.JoinRoom("ops-room");
-        await d.Hub.LeaveRoom("ops-room");
+        await d.Hub.SubscribeToAlerts(new string('x', 65));
 
         d.Groups.Verify(
-            g => g.AddToGroupAsync("conn-1", "ops-room", It.IsAny<CancellationToken>()),
-            Times.Once);
-        d.Groups.Verify(
-            g => g.RemoveFromGroupAsync("conn-1", "ops-room", It.IsAny<CancellationToken>()),
-            Times.Once);
+            g => g.AddToGroupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
         d.Caller.Verify(
-            c => c.SendCoreAsync("JoinedRoom", It.Is<object[]>(a => (string)a[0] == "ops-room"), It.IsAny<CancellationToken>()),
-            Times.Once);
-        d.Caller.Verify(
-            c => c.SendCoreAsync("LeftRoom", It.Is<object[]>(a => (string)a[0] == "ops-room"), It.IsAny<CancellationToken>()),
-            Times.Once);
+            c => c.SendCoreAsync("Subscribed", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 }
