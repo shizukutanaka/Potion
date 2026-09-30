@@ -123,12 +123,11 @@ sc.exe failure "$ServiceName" reset= 86400 actions= restart/60000/restart/60000/
 # Configure service dependencies
 sc.exe config "$ServiceName" depend= Winmgmt/LanmanWorkstation
 
-# Without env vars the service boots in the Production environment, whose
-# Kestrel HTTPS endpoint requires certificate.pfx — a cert this script does
-# not provision — and startup fails. Bind HTTP explicitly; operators add the
-# cert and remove the override when they want HTTPS.
-New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName" -Name Environment `
-    -PropertyType MultiString -Value @("ASPNETCORE_URLS=http://localhost:5000") -Force | Out-Null
+# The service binds HTTP:5000 from appsettings.Production.json. Configured
+# Kestrel:Endpoints ignore ASPNETCORE_URLS, so no env override exists — HTTPS
+# is opt-in via the operator config file: add a Kestrel:Endpoints:Https block
+# (with its certificate) to "$env:ProgramData\Potion\config\appsettings.json"
+# after placing certificate.pfx under "$env:ProgramData\Potion\certs".
 
 # Start the service
 Write-Host "▶️ Starting service..." -ForegroundColor Yellow
