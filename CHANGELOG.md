@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (SignalR ライブアラートが常に "System alert"/warning に化けていた)
+
+- ハブのペイロードは SignalR 固有シリアライザ（PascalCase + 数値 enum）だが JS は `alert.data.severity`/`alert.message`（camelCase）で読んでいた — `alert.data` が常に undefined で実メッセージ・実 severity が届かず、Critical でも常に warning 通知 + 汎用文言のみ
+- `data/Data`・`severity/Severity` の両 shape + 数値/文字列 enum の両方を解釈する堅牢読取へ — Critical/Error が正しく error 通知され実メッセージが表示される
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）

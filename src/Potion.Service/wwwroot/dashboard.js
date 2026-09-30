@@ -131,9 +131,18 @@ class PotionDashboard {
                 this.refreshAllData();
             });
             connection.on('Alert', (alert) => {
-                const severity = alert && alert.data && alert.data.severity >= 2 ? 'error' : 'warning';
-                this.showNotification((alert && alert.message) || 'System alert', severity);
-                this.deliverAlert(severity, (alert && alert.message) || 'System alert');
+                // The hub payload is serialized with SignalR's own options
+                // (PascalCase + numeric enums), unlike the camelCase + string
+                // enums the REST endpoints emit — read both shapes.
+                const data = alert?.data ?? alert?.Data ?? {};
+                const raw = data.severity ?? data.Severity;
+                const level = typeof raw === 'number'
+                    ? raw
+                    : ({ info: 0, warning: 1, error: 2, critical: 3 }[String(raw).toLowerCase()] ?? 1);
+                const severity = level >= 2 ? 'error' : 'warning';
+                const message = alert?.message ?? alert?.Message ?? 'System alert';
+                this.showNotification(message, severity);
+                this.deliverAlert(severity, message);
                 this.refreshAllData();
             });
 
