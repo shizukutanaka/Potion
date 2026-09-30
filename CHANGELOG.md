@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Security (CSP に `frame-ancestors 'none'` を追加 — クリックジャッキング対策の現代側を完備)
+
+- `X-Frame-Options: DENY` は既存だがレガシー側のみ → CSP `frame-ancestors 'none'` を併記しモダンブラウザのエンベッドも構造的に拒否（XFO は旧ブラウザ向けに残置）
+- 併せて監査: セキュリティヘッダ一式（nosniff・DENY・no-referrer・Permissions-Policy・strict CSP・条件付き HSTS）・`UseExceptionHandler` の problem+json（詳細非流出・traceId のみ）・`UseRateLimiter` の配置（ルーティング後・エンドポイント単位適用で SignalR/ポーリング非影響）・全プローブ — 他にドリフトなし
+
 ### Fixed (ConfigTool の generate/restore がライブ設定を非アトミック書込み — 書込み途中の中断で起動不能設定を残し得た)
 
 - `generate`（`File.WriteAllText`）と `restore`（`File.Copy` 直接上書き）はライブ設定パスを非アトミックに更新 — プロセス中断で部分書込み JSON が残り、次回起動時の設定パースでサービス起動不能に
