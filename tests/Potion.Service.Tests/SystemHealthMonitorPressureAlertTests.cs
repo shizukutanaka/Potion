@@ -25,7 +25,7 @@ public sealed class SystemHealthMonitorPressureAlertTests
             new MemoryMetrics(memory, 0, 0, 0, 0, 0),
             new DiskMetrics(disk, 0, 0, 0, 0),
             new NetworkMetrics(0, 0, 0),
-            new WindowsEventMetrics(0, 0, 0, 0, DateTimeOffset.UtcNow),
+            new WindowsEventMetrics(0, 0, 0, 0, 0, DateTimeOffset.UtcNow),
             new ServiceMetrics(0, 0, 0, 0, Array.Empty<string>()),
             new SecurityMetrics(false, false, 0, false, DateTimeOffset.UtcNow),
             new SystemIntegrityMetrics(true, 0, 0, false, DateTimeOffset.UtcNow),
