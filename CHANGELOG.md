@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (高度検索の結果クリックが何も遷移しないスタブ実装だった)
+
+- `navigateToResult` は `hideAdvancedSearch` + "Navigated to result" 通知のみで実際の遷移なし — 検索結果をクリックしても目的セクションへ辿れない行き止まり UI
+- `url`（`#alerts`/`#logs`/`#performance`）からセクション名を解決し `showSection` へ — 該当セクション要素が実在する場合のみ遷移（未知 URL は静かに無視）
+
 ### Fixed (PR #62 Devin Review 対応 — 通知権限リスナーのワンショット消費を修正)
 
 - dashboard.js: `prepareNotificationPermission` の3件の指摘を修正 — (1) init 末尾（最初の `await` の後）での登録のため初回フェッチ中の操作を取りこぼす → `await` 前に移動、(2) `{once:true}` の keydown が Escape・修飾キー等の非アクティベーション押下で消費される → `NON_ACTIVATING_KEYS` 除外 + 手動 disarm、(3) 保存ボタンの pointerdown が保存処理より先に発火し非 browser 選択後もプロンプトが出る → `click`（バブル後段で新設定を再読込）に変更

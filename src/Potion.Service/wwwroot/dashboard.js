@@ -908,8 +908,10 @@ class PotionDashboard {
 
     navigateToResult(url) {
         this.hideAdvancedSearch();
-        // Navigate to the result (would implement actual navigation)
-        this.showNotification('Navigated to result', 'info');
+        const section = url.replace(/^#/, '');
+        if (document.getElementById(`${section}-section`)) {
+            this.showSection(section);
+        }
     }
 
     clearAdvancedSearch() {
