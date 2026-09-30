@@ -243,4 +243,26 @@ public static class RemediationPolicyOptionsValidators
 
         return true;
     }
+
+    public static bool MaintenanceWindowReferencesAreValid(RemediationPolicyOptions options)
+    {
+        // A task tagging an undefined window can never run (the dispatcher fails
+        // closed); catch the typo at startup instead of discovering a weekly
+        // repair silently never executes.
+        var definedTags = new HashSet<string>(
+            options.MaintenanceWindows.Select(w => w.Tag), StringComparer.OrdinalIgnoreCase);
+        var broken = options.Tasks
+            .Where(task => task.Enabled && !string.IsNullOrEmpty(task.MaintenanceWindowTag)
+                && !definedTags.Contains(task.MaintenanceWindowTag))
+            .Select(task => $"{task.Name}: {task.MaintenanceWindowTag}")
+            .ToList();
+
+        if (broken.Any())
+        {
+            throw new ValidationException(
+                $"The following tasks reference undefined maintenance window tags: {string.Join(", ", broken)}");
+        }
+
+        return true;
+    }
 }
