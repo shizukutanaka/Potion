@@ -89,6 +89,12 @@ public sealed class AutoRecoveryManager : BackgroundService
     {
         _logger.LogWarning("Attempting recovery for component {Component} due to failure: {Failure}", component, failure.Message);
 
+        var now = DateTimeOffset.UtcNow;
+        if (_recoveryBlockedUntil.TryGetValue(component, out var blockedUntil) && now < blockedUntil)
+        {
+            return false;
+        }
+
         var failureCount = _failureCounts.AddOrUpdate(component, 1, (_, current) => current + 1);
 
         if (failureCount > _maxRecoveryAttempts)
@@ -97,12 +103,6 @@ public sealed class AutoRecoveryManager : BackgroundService
             // stays unhealthy would otherwise spam "max attempts exceeded" once
             // a minute forever, and the saturated counter meant recovery was
             // never retried even after the underlying condition cleared.
-            var now = DateTimeOffset.UtcNow;
-            if (_recoveryBlockedUntil.TryGetValue(component, out var blockedUntil) && now < blockedUntil)
-            {
-                return false;
-            }
-
             _recoveryBlockedUntil[component] = now + _recoveryBackoff;
             _failureCounts[component] = 0; // re-arm: next call starts a fresh burst of attempts
             _logger.LogWarning("Recovery attempts exhausted for component {Component}; backing off {BackoffMinutes} minutes before retrying",
