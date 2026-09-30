@@ -1872,7 +1872,8 @@ class PotionDashboard {
     // Advanced Search Functionality
     toggleAdvancedSearch() {
         const panel = document.getElementById('advanced-search-panel');
-        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        panel.style.display = '';
+        panel.classList.toggle('u-hidden');
     }
 
     applyAdvancedFilters() {

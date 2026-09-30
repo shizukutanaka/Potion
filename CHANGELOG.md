@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (詳細フィルタパネルが初回クリックで開かなかった)
+
+- `#advanced-search-panel` は `u-hidden` クラスで非表示開始だが `toggleAdvancedSearch` は inline `style.display` で状態判定 — 初回は `'' === 'none'` が false で `display:none` をセットするだけで視覚変化なし（2回目でやっと開く）
+- `classList.toggle('u-hidden')` へ変更し既存の u-hidden 規約に揃え — 初回クリックで正しく開閉
+
 ### Fixed (高度検索の結果クリックが何も遷移しないスタブ実装だった)
 
 - `navigateToResult` は `hideAdvancedSearch` + "Navigated to result" 通知のみで実際の遷移なし — 検索結果をクリックしても目的セクションへ辿れない行き止まり UI
