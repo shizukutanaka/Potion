@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (テレメトリの計装バージョンが固定値 "2.0.0" — バイナリの実バージョンと乖離)
+
+- `PotionMetrics.Meter` / `PotionActivitySource.Source` のバージョン引数がリテラル "2.0.0" — `InformationalVersion`（dev ビルドでは "2.0.0-dev"）や今後のリリース番号と無関係に固定されるドリフト源
+- `AssemblyInformationalVersionAttribute` から動的取得（フォールバック: AssemblyVersion → "0.0.0"）へ — OTel scope.version が実バイナリを正確に報告
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
