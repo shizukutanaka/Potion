@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (ConfigTool の generate/restore がライブ設定を非アトミック書込み — 書込み途中の中断で起動不能設定を残し得た)
+
+- `generate`（`File.WriteAllText`）と `restore`（`File.Copy` 直接上書き）はライブ設定パスを非アトミックに更新 — プロセス中断で部分書込み JSON が残り、次回起動時の設定パースでサービス起動不能に
+- 同一ディレクトリ temp + `File.Move`（上書き rename）へ変更 — POSIX/Windows とも rename は atomic。失敗時は staged ファイルを確実に除去
+
 ### Docs (運用設定レイヤー `{Base}/config/appsettings.json` を文書化 — 最高優先度だが未記述だった)
 
 - `Program.cs` は `ServicePaths.ConfigurationFile` を全設定源の最後（appsettings・環境変数より上位の優先度）に `reloadOnChange` で読み込む — アップグレードで消えない外部オーバーライド層だがドキュメント未記載だった
