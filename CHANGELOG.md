@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+### Fixed (外来トークンの `OperationCanceledException` が監視ループを黙って永久停止させていた)
+
+- `PeriodicAsyncLoop` は `work()` が投げた OCE を無条件に「停止要求」と解釈してループ終了していた → ループ自身のトークンがキャンセル済みの場合のみ終了。内部タイムアウト等で発生した外来 OCE は反復エラーとして報告しループ継続
+- `AutoRecoveryManager.ExecuteAsync` も同型の無条件 `catch (OperationCanceledException) { break; }` → `stoppingToken.IsCancellationRequested` ガードへ揃え（`PredictiveRemediationService`/`MemoryMonitor` と同一規約）
+
 ### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
 
 - `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
 - `Kestrel__Endpoints__*` 上書き規則と `ASPNETCORE_URLS` 無効化の注意も追記
 - テスト数の記載を実値へ更新（287 → 293）
 
+||||||| parent of 1c0f87e (fix: foreign-token OperationCanceledException silently killed monitor/recovery loops forever)
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）

@@ -44,7 +44,7 @@ internal sealed class PeriodicAsyncLoop : IAsyncDisposable
                 {
                     await work(cancellationToken).ConfigureAwait(false);
                 }
-                catch (OperationCanceledException)
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }

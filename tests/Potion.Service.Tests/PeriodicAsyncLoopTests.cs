@@ -55,6 +55,32 @@ public sealed class PeriodicAsyncLoopTests
     }
 
     [Fact]
+    public async Task ForeignOce_IsReportedAsIterationError_AndLoopContinues()
+    {
+        var calls = 0;
+        var errors = 0;
+        await using var loop = new PeriodicAsyncLoop(
+            TimeSpan.Zero, TimeSpan.FromMilliseconds(50),
+            _ =>
+            {
+                if (Interlocked.Increment(ref calls) == 1)
+                {
+                    // A cancellation that is not the loop's own token (e.g. a
+                    // timeout or linked-token cancellation inside the work
+                    // delegate) is an iteration failure, not a stop signal.
+                    return Task.FromCanceled(new CancellationToken(true));
+                }
+                return Task.CompletedTask;
+            },
+            _ => Interlocked.Increment(ref errors));
+
+        await WaitForAsync(() => Volatile.Read(ref calls) >= 2);
+
+        Assert.Equal(1, Volatile.Read(ref errors));
+        Assert.True(Volatile.Read(ref calls) >= 2);
+    }
+
+    [Fact]
     public async Task DisposeAsync_StopsFurtherIterations()
     {
         var count = 0;
