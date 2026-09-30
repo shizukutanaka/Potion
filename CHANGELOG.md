@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (ConfigTool の生成設定がサービス起動時検証に落ちる — `generate`/`validate` の実バグ)
+
+- `Potion.ConfigTool generate` が生成する既定設定の `disk_cleanup` が `Arguments="/sagerun:1"`（`CommandArgumentAllowlist` 未収録）で、`ValidateOnStart` の `ArgumentsAreAllowlisted` により**サービスが起動不能になる設定を出力していた** → 出荷 `appsettings.json` と全値を同期（MaxConcurrency 4・sfc 1800/900・dism 3600/1800・cleanmgr `/verylowdisk`/MaxRetries 1/StopOnFailure false）し `CommandArgumentAllowlist` も生成出力へ追加（override 層として閲覧可能なノブへ）
+- `validate`/`restore` が独自の疎なチェック（MaxConcurrency・allowlist 非空・重複名・コマンド許可のみ）で起動時検証と非対称だった → サービスと同一の `ValidateDataAnnotations` + 5つの `RemediationPolicyOptionsValidators` を実行するよう変更し、`validate` がパスする設定は起動可能な設定と一致
+
 ### Fixed (PR #61 第2ラウンドレビュー対応 — `/metrics` を構造的に遮断・通知権限をユーザー操作時に要求)
 
 - k8s Ingress: `server-snippet` 廃止（snippet 非許可の ingress-nginx ≥1.9 では Ingress 全体が admission 拒否されダッシュボード全落ちの副作用）→ `/` prefix を Exact パス列挙（`/`・`/index.html`・`/styles.css`・`/dashboard.js` + `/lib`・`/fonts` prefix）へ変更し `/metrics` をルーティング構造上到達不能に

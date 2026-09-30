@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using Potion.Service.Hubs;
 using Potion.Service.Infrastructure;
 using Potion.Service.Options;
+using DataAnnotations = System.ComponentModel.DataAnnotations;
 
 namespace Potion.ConfigTool;
 
@@ -120,24 +121,42 @@ class Program
             var failures = new List<string>();
 
             var policy = serviceProvider.GetRequiredService<IOptions<RemediationPolicyOptions>>().Value;
-            if (policy.MaxConcurrency < 1)
+
+            // Mirror the service's startup options validation (Startup.cs:
+            // ValidateDataAnnotations + the five policy validators with
+            // ValidateOnStart) so a file the tool approves is one the service
+            // can actually boot with — the ad-hoc checks that used to live here
+            // let startup-breaking configs through (e.g. task arguments outside
+            // CommandArgumentAllowlist).
+            var annotationResults = new List<DataAnnotations.ValidationResult>();
+            if (!DataAnnotations.Validator.TryValidateObject(
+                    policy, new DataAnnotations.ValidationContext(policy), annotationResults,
+                    validateAllProperties: true))
             {
-                failures.Add("RemediationPolicy:MaxConcurrency must be >= 1");
+                failures.AddRange(annotationResults
+                    .Select(r => r.ErrorMessage ?? "RemediationPolicy has an invalid value"));
             }
-            if (policy.CommandAllowlist.Count == 0)
+
+            var startupChecks = new (Func<RemediationPolicyOptions, bool> Check, string FailureMessage)[]
             {
-                failures.Add("RemediationPolicy:CommandAllowlist must not be empty");
-            }
-            var taskNames = policy.Tasks.Select(t => t.Name).ToList();
-            if (taskNames.Count != taskNames.Distinct(StringComparer.OrdinalIgnoreCase).Count())
+                (RemediationPolicyOptionsValidators.HasUniqueTaskNames, "Remediation policy contains duplicate task names."),
+                (RemediationPolicyOptionsValidators.CommandsAreAllowlisted, "Remediation policy references commands outside the allowlist."),
+                (RemediationPolicyOptionsValidators.ArgumentsAreSafe, "Remediation policy contains unsafe task arguments."),
+                (RemediationPolicyOptionsValidators.ArgumentsAreAllowlisted, "Remediation policy uses arguments outside the command argument allowlist."),
+                (RemediationPolicyOptionsValidators.MaintenanceWindowsAreValid, "Remediation policy contains invalid maintenance windows.")
+            };
+            foreach (var (check, failureMessage) in startupChecks)
             {
-                failures.Add("RemediationPolicy:Tasks contains duplicate task names");
-            }
-            foreach (var task in policy.Tasks)
-            {
-                if (!policy.CommandAllowlist.Contains(task.Command, StringComparer.OrdinalIgnoreCase))
+                try
                 {
-                    failures.Add($"Task '{task.Name}' command '{task.Command}' is not in CommandAllowlist");
+                    if (!check(policy))
+                    {
+                        failures.Add(failureMessage);
+                    }
+                }
+                catch (DataAnnotations.ValidationException ex)
+                {
+                    failures.Add(ex.Message);
                 }
             }
 
@@ -167,7 +186,7 @@ class Program
         {
             RemediationPolicy = new
             {
-                MaxConcurrency = 2,
+                MaxConcurrency = 4,
                 SchedulerIntervalSeconds = 300,
                 ScheduleJitterSeconds = 60,
                 // Keep this list in sync with the shipped appsettings.json —
@@ -177,6 +196,16 @@ class Program
                 {
                     "sfc.exe", "dism.exe", "cleanmgr.exe", "chkdsk.exe", "ngen.exe",
                     "powercfg.exe", "netsh.exe"
+                },
+                // Per-command argument allowlist — the service rejects an
+                // enabled task whose arguments aren't listed for its command
+                // (unlisted commands stay unrestricted).
+                CommandArgumentAllowlist = new Dictionary<string, string[]>
+                {
+                    ["sfc.exe"] = new[] { "/scannow" },
+                    ["dism.exe"] = new[] { "/Online /Cleanup-Image /RestoreHealth" },
+                    ["cleanmgr.exe"] = new[] { "/verylowdisk" },
+                    ["ngen.exe"] = new[] { "update /force" }
                 },
                 MaintenanceWindows = new[]
                 {
@@ -204,11 +233,11 @@ class Program
                         Command = "sfc.exe",
                         Arguments = "/scannow",
                         RunEveryMinutes = 10080,
-                        TimeoutSeconds = 7200,
+                        TimeoutSeconds = 1800,
                         RequiresElevation = true,
                         Enabled = true,
                         MaxRetries = 1,
-                        RetryBackoffSeconds = 1800,
+                        RetryBackoffSeconds = 900,
                         StopOnFailure = false,
                         MaintenanceWindowTag = "overnight",
                         AllowedExitCodes = new[] { 0 }
@@ -220,11 +249,11 @@ class Program
                         Command = "dism.exe",
                         Arguments = "/Online /Cleanup-Image /RestoreHealth",
                         RunEveryMinutes = 10080,
-                        TimeoutSeconds = 10800,
+                        TimeoutSeconds = 3600,
                         RequiresElevation = true,
                         Enabled = true,
                         MaxRetries = 1,
-                        RetryBackoffSeconds = 3600,
+                        RetryBackoffSeconds = 1800,
                         StopOnFailure = false,
                         MaintenanceWindowTag = "overnight",
                         AllowedExitCodes = new[] { 0 }
@@ -234,14 +263,14 @@ class Program
                         Name = "disk_cleanup",
                         DisplayName = "Disk Cleanup",
                         Command = "cleanmgr.exe",
-                        Arguments = "/sagerun:1",
+                        Arguments = "/verylowdisk",
                         RunEveryMinutes = 1440,
                         TimeoutSeconds = 3600,
                         RequiresElevation = true,
                         Enabled = true,
-                        MaxRetries = 2,
+                        MaxRetries = 1,
                         RetryBackoffSeconds = 900,
-                        StopOnFailure = true,
+                        StopOnFailure = false,
                         MaintenanceWindowTag = "business_hours",
                         AllowedExitCodes = new[] { 0 }
                     },
