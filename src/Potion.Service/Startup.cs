@@ -138,6 +138,7 @@ public class Startup
                 .Validate(RemediationPolicyOptionsValidators.ArgumentsAreSafe, "Remediation policy contains unsafe task arguments.")
                 .Validate(RemediationPolicyOptionsValidators.ArgumentsAreAllowlisted, "Remediation policy uses arguments outside the command argument allowlist.")
                 .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowsAreValid, "Remediation policy contains invalid maintenance windows.")
+                .Validate(RemediationPolicyOptionsValidators.MaintenanceWindowReferencesAreValid, "Remediation policy tasks reference undefined maintenance window tags.")
                 .ValidateOnStart();
             services.AddSingleton<IProcessRunner, ProcessRunner>();
             services.AddSingleton<ICommandValidator, CommandValidator>();
@@ -202,7 +203,7 @@ public class Startup
                 "default-src 'self'; script-src 'self'; " +
                 "style-src 'self'; font-src 'self'; " +
                 "img-src 'self' data:; connect-src 'self' ws: wss:; " +
-                "object-src 'none'; base-uri 'self'";
+                "object-src 'none'; base-uri 'self'; frame-ancestors 'none'";
             if (context.Request.IsHttps)
             {
                 context.Response.Headers["Strict-Transport-Security"] = "max-age=31536000";

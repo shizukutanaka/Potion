@@ -43,7 +43,7 @@ public sealed class ComplianceReportGenerationTests
                 new MemoryMetrics(50, 0, 0, 0, 0, 0),
                 new DiskMetrics(50, 0, 0, 0, 0),
                 new NetworkMetrics(0, 0, 0),
-                new WindowsEventMetrics(0, 0, 0, 0, DateTimeOffset.UtcNow),
+                new WindowsEventMetrics(0, 0, 0, 0, 0, DateTimeOffset.UtcNow),
                 new ServiceMetrics(10, 8, 2, 0, Array.Empty<string>()),
                 new SecurityMetrics(true, true, 0, true, DateTimeOffset.UtcNow),
                 new SystemIntegrityMetrics(true, 0, 0, true, DateTimeOffset.UtcNow),
