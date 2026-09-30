@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (リソーストレンドチャートが永久に空 — サンプル記録時に再描画されていなかった)
+
+- `recordChartSample` は各ポーリングで `chartData` に実サンプルを追加していたが、`renderResourceTrendsChart` は初期化時（データ0件）とレンジ切替時にのみ呼出し — キャンバスは起動時の空描画のまま永久に更新されなかった
+- サンプル記録後に再描画を呼び出し、また `filteredData.length===1` で `chartWidth/0` → NaN 座標で唯一の点が描画されない問題を `stepX` ガードで修正
+
 ### Fixed (SignalR ライブアラートが常に "System alert"/warning に化けていた)
 
 - ハブのペイロードは SignalR 固有シリアライザ（PascalCase + 数値 enum）だが JS は `alert.data.severity`/`alert.message`（camelCase）で読んでいた — `alert.data` が常に undefined で実メッセージ・実 severity が届かず、Critical でも常に warning 通知 + 汎用文言のみ
