@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (PotionActivitySource のタグ付き Activity 生成をテスト固定)
+
+- `ActivityListener` 登録下で `StartRemediationActivity`/`StartHealthCheckActivity`/`StartSelfHealingActivity` が非 null の Activity を返し、`task.name`/`issue.type`/`span.kind` タグと OperationName が正しいことを固定（リスナー無しでは StartActivity が null を返す仕様のため、本番=リスナー有りの契約をピン留め）
+- `EventCorrelationService` の `<`/`>=`/`<=` 演算子アームは未カバーだが意図的（組込みルール3件は `>`/`count` のみ・`_rules` は外部注入不可 — 将来のルール語彙として保持と判断）
+- 293 → 297 テスト
+
 ### Improved (CollaborationService の SignalR broadcast 経路をテスト固定)
 
 - `BroadcastSystemHealthAsync` → `system-monitors` グループへの `SystemHealthUpdate` 送信、`NotifyAnomalyDetectedAsync` → `alerts-anomaly` グループへの `Alert` 送信(実時間アラート無効時は送信しない)、`DisposeAsync` → ループ停止後も同期 `Dispose` が安全なフォールバックとして機能すること、Hub `UnsubscribeFromAlerts` の不正 `alertType` 無視をモック `IHubContext`/`IGroupManager` で固定
