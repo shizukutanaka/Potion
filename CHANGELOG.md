@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (`dotnet run` が Development でなく Production として起動し cert クラッシュしていた — launchSettings.json 追加 + Serilog ベースパスのポータブル化)
+
+- `Properties/launchSettings.json` が存在しなかったため `dotnet run` は `DOTNET_ENVIRONMENT` 未設定のまま Production 環境で起動 → `appsettings.Production.json` の証明書必須 HTTPS エンドポイントで起動不能・`C:\ProgramData\...` リテラル名のディレクトリを非 Windows 開発環境に撒き散らしていた → `DOTNET_ENVIRONMENT`/`ASPNETCORE_ENVIRONMENT` 共に Development のプロファイルを追加し golden path で Development 起動に
+- `appsettings.json` の Serilog File シンクが `C:/ProgramData/Potion/logs/` 絶対パスだった → `logs/` 相対化（Production/Development/Container の各環境ファイルは独自パスを持つため Windows 本番動作は不変・ベース設定がクロスプラットフォームで有効になる）
+- monitoring 契約の実機検証: `/metrics` の実エクスポート名は単位 suffix 付き（`potion_system_disk_available_gigabytes` 等）で `monitoring/rules.yml` の4アラートが全て実在シリーズを参照 — ドリフトなし。compose スクレイプ `potion-service:80`・alertmanager webhook `api/health/alerts/webhook` も登録ルートと一致
+
 ### Fixed (`Observability:OtlpEndpoint` がトレースに適用されない非対称 — メトリクスのみ有効だった)
 
 - Startup の OTel 設定で metrics エクスポーターのみ `Observability:OtlpEndpoint` を読み、tracing は無引数 `AddOtlpExporter()`（env var/`localhost:4317` 既定）のままだった → 運用者がエンドポイントを設定してもトレースは黙ってローカルへ送信され続けていた → 同一 `otlpEndpoint` を両エクスポーターへ適用
