@@ -8,12 +8,9 @@
     <OutputType>Exe</OutputType>
     <UseWindowsService>true</UseWindowsService>
     <PublishSingleFile>false</PublishSingleFile>
-    <!-- セキュリティとパフォーマンスの最適化 -->
-    <EnableCompressionInSingleFile>false</EnableCompressionInSingleFile>
     <!-- PublishTrimmed は win-x64 publish で IL2008 (System.Diagnostics.FileVersionInfo)
          により失敗するため無効化。リフレクション多用のためトリム適合性も限定的 -->
     <PublishTrimmed>false</PublishTrimmed>
-    <SuppressTrimAnalysisWarnings>true</SuppressTrimAnalysisWarnings>
     <JsonSerializerIsReflectionEnabledByDefault>true</JsonSerializerIsReflectionEnabledByDefault>
     <!-- 高度な最適化 -->
     <Optimize>true</Optimize>
@@ -28,13 +25,10 @@
     <InvariantGlobalization>false</InvariantGlobalization>
     <!-- セキュリティ設定 -->
     <EnablePreviewFeatures>false</EnablePreviewFeatures>
-    <WarningsAsErrors>CS8600;CS8602;CS8603</WarningsAsErrors>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <EnableNETAnalyzers>true</EnableNETAnalyzers>
     <!-- async-without-await wrappers are pervasive (816 sites); suppressing preserves exception semantics -->
     <NoWarn>CS1998</NoWarn>
-    <!-- パッケージ検証 -->
-    <EnablePackageValidation>true</EnablePackageValidation>
     <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
     <!-- バージョン情報 -->
     <Version>2.0.0</Version>

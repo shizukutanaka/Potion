@@ -220,4 +220,19 @@ public sealed class CollaborationHubTests
             c => c.SendCoreAsync("Subscribed", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
+
+    [Fact]
+    public async Task UnsubscribeFromAlerts_OversizedAlertType_IsIgnored()
+    {
+        var d = CreateHub(connectionId: "conn-1");
+
+        await d.Hub.UnsubscribeFromAlerts(new string('x', 65));
+
+        d.Groups.Verify(
+            g => g.RemoveFromGroupAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        d.Caller.Verify(
+            c => c.SendCoreAsync("Unsubscribed", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 }

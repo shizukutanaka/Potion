@@ -194,6 +194,64 @@ public sealed class CollaborationServiceTests
     }
 
     [Fact]
+    public async Task BroadcastSystemHealth_SendsToSystemMonitorsGroup()
+    {
+        var hub = CreateHub();
+        var monitor = new Mock<ISystemHealthMonitor>();
+        using var service = CreateService(hub, monitor, out _);
+
+        var snapshot = new { Healthy = true };
+        await service.BroadcastSystemHealthAsync(snapshot);
+
+        hub.Clients.Verify(c => c.Group("system-monitors"), Times.Once);
+        hub.Group.Verify(
+            c => c.SendCoreAsync("SystemHealthUpdate", It.Is<object[]>(a => ReferenceEquals(a[0], snapshot)), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task NotifyAnomalyDetected_BroadcastsToAnomalyGroup()
+    {
+        var hub = CreateHub();
+        var monitor = new Mock<ISystemHealthMonitor>();
+        using var service = CreateService(hub, monitor, out _);
+
+        await service.NotifyAnomalyDetectedAsync("cpu-spike", 0.9, new { });
+
+        hub.Clients.Verify(c => c.Group("alerts-anomaly"), Times.Once);
+        hub.Group.Verify(
+            c => c.SendCoreAsync("Alert", It.Is<object[]>(a => a[0].ToString()!.Contains("cpu-spike")), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task NotifyAnomalyDetected_RealTimeAlertsDisabled_SendsNothing()
+    {
+        var hub = CreateHub();
+        var monitor = new Mock<ISystemHealthMonitor>();
+        using var service = CreateService(hub, monitor, out _,
+            new CollaborationOptions { EnableRealTimeAlerts = false });
+
+        await service.NotifyAnomalyDetectedAsync("cpu-spike", 0.9, new { });
+
+        hub.Clients.Verify(c => c.Group(It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_CompletesAndStaysUsableForSyncDispose()
+    {
+        var hub = CreateHub();
+        var monitor = new Mock<ISystemHealthMonitor>();
+        var service = CreateService(hub, monitor, out _);
+
+        await service.DisposeAsync();
+
+        // The host prefers IAsyncDisposable; sync Dispose afterwards (or on
+        // containers that cannot await) must stay a safe no-op fallback.
+        service.Dispose();
+    }
+
+    [Fact]
     public async Task MultipleConnections_OneUser_DisconnectKeepsOthers()
     {
         var hub = CreateHub();

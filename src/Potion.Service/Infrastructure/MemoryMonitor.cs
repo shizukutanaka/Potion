@@ -66,6 +66,11 @@ public sealed class MemoryMonitor : BackgroundService
     private readonly ConcurrentDictionary<DateTimeOffset, MemoryStatistics> _memoryHistory = new();
     private DateTimeOffset _lastOptimizationAt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastLeakCheckAt = DateTimeOffset.MinValue;
+    // Per-PID private-byte snapshot from the previous leak check; a leak signal
+    // needs growth over time, not merely a large resident process.
+    private IReadOnlyDictionary<int, long> _previousPrivateBytes = new Dictionary<int, long>();
+    // Own-process footprint at the last sample; null when below thresholds.
+    private long? _lastOwnProcessBytes;
 
     public MemoryMonitor(
         ILogger<MemoryMonitor> logger,
@@ -308,10 +313,20 @@ public sealed class MemoryMonitor : BackgroundService
 
             suspiciousProcesses.AddRange(processes);
 
-            // メモリリークの兆候をチェック
+            // メモリリークの兆候をチェック。「大きい」だけではリークではない —
+            // ブラウザ/AV/IDE は常時 500MB 超のため絶対量だけでは毎回発火し警告が
+            // 恒常ノイズになる。大型 AND 前回チェックから10%以上増加している
+            // プロセスのみを兆候として扱う（初回スナップショットは履歴なしの
+            // ため発火しない）。
+            var previous = _previousPrivateBytes;
+            _previousPrivateBytes = suspiciousProcesses.ToDictionary(
+                p => p.ProcessId, p => p.PrivateMemoryBytes);
+
             var hasPotentialLeaks = suspiciousProcesses.Any(p =>
-                p.PrivateMemoryBytes > 500 * 1024 * 1024 || // 500MB以上
-                p.WorkingSetBytes > 1000 * 1024 * 1024); // 1GB以上
+                (p.PrivateMemoryBytes > 500 * 1024 * 1024 || // 500MB以上
+                 p.WorkingSetBytes > 1000 * 1024 * 1024) && // 1GB以上
+                previous.TryGetValue(p.ProcessId, out var prev) &&
+                p.PrivateMemoryBytes > prev + prev / 10);
 
             if (hasPotentialLeaks)
             {
@@ -350,13 +365,43 @@ public sealed class MemoryMonitor : BackgroundService
         }
     }
 
-    private bool ShouldOptimizeMemory(MemoryStatistics stats)
+    internal bool ShouldOptimizeMemory(MemoryStatistics stats)
     {
         var options = _optionsMonitor.CurrentValue;
 
-        return stats.MemoryUsagePercent > options.MemoryUsageThresholdPercent ||
-               stats.WorkingSet > options.WorkingSetThresholdBytes ||
-               stats.PrivateMemorySize > options.PrivateMemoryThresholdBytes;
+        // System memory pressure is inherently absolute: >80% used is a real
+        // condition regardless of trend.
+        if (stats.MemoryUsagePercent > options.MemoryUsageThresholdPercent)
+        {
+            return true;
+        }
+
+        // Own-process thresholds are different: a steady .NET process legitimately
+        // sits above 256MB private bytes (GC-reserved segments count), so absolute
+        // size alone would fire "optimization" every cooldown forever. Only a
+        // footprint that is BOTH over threshold AND still growing warrants a
+        // forced GC/working-set trim (same growth-signal convention as the
+        // process leak check).
+        var overThreshold =
+            stats.WorkingSet > options.WorkingSetThresholdBytes ||
+            stats.PrivateMemorySize > options.PrivateMemoryThresholdBytes;
+        if (!overThreshold)
+        {
+            _lastOwnProcessBytes = null;
+            return false;
+        }
+
+        var current = Math.Max(stats.WorkingSet, stats.PrivateMemorySize);
+        var baseline = _lastOwnProcessBytes ??= current;
+        if (current > baseline + baseline / 10)
+        {
+            // Fired: re-arm against the new level so a stable (if bloated)
+            // process doesn't retrigger every cooldown — only further
+            // 10%-growth episodes do.
+            _lastOwnProcessBytes = current;
+            return true;
+        }
+        return false;
     }
 
     private (IReadOnlyList<string> Actions, long MemoryFreed) ForceGarbageCollectionAsync(CancellationToken cancellationToken)
