@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (CollaborationService の SignalR broadcast 経路をテスト固定)
+
+- `BroadcastSystemHealthAsync` → `system-monitors` グループへの `SystemHealthUpdate` 送信、`NotifyAnomalyDetectedAsync` → `alerts-anomaly` グループへの `Alert` 送信(実時間アラート無効時は送信しない)、`DisposeAsync` → ループ停止後も同期 `Dispose` が安全なフォールバックとして機能すること、Hub `UnsubscribeFromAlerts` の不正 `alertType` 無視をモック `IHubContext`/`IGroupManager` で固定
+- 293 → 298 テスト
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
