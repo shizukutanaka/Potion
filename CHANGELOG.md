@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (ConfigTool の generate テンプレートが出荷設定と乖離 — 生成設定が起動時検証で拒否される実バグ)
+
+- `BuildDefaultConfig` の `disk_cleanup` が `cleanmgr.exe /sagerun:1` を生成 — 出荷 `CommandArgumentAllowlist` は `/verylowdisk` のみ許容のため、生成設定を配置すると `ArgumentsAreAllowlisted` 起動時検証でサービス起動不能に
+- `CommandArgumentAllowlist` 自体がテンプレートから欠落 + `MaxConcurrency` 2→4、`sfc`/`dism`/`cleanmgr` の TimeoutSeconds・RetryBackoffSeconds・MaxRetries・StopOnFailure も出荷値と不一致
+- `generate` 出力の RemediationPolicy が出荷 appsettings.json と完全一致するようテンプレートを同期（`generate`→`validate` 往復・フィールド一致をローカル検証済み）
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
