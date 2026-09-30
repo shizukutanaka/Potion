@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (イベントログカードの「Warnings」タイルが常に `undefined` 表示だった)
+
+- `updateEventsOverview` は `metrics.windowsEvents.warningEventCount` を読むが `WindowsEventMetrics` に該当フィールドが存在せず、ダッシュボードに文字通り "undefined" と表示
+- `WarningEventCount` をエンドツーエンドで実装: Windows EventLog `Level==3` (Warning) カウント・journald "warn"/"warning" マーカー解析・レコード/タプル/キャッシュ拡張 → API が実測値を返しタイルが実データ表示に
+
 ### Fixed (メモリ統計取得失敗時にパフォーマンススコアが NaN になっていた)
 
 - `CalculatePerformanceScore` が `MemoryUsageBytes / (Available + MemoryUsage)` をそのまま除算しており、WMI クエリ失敗で (0,0) が返ると `0/0 = NaN` となり `Math.Max(0, NaN)` も NaN を伝播させて**最適化結果のスコアが NaN になっていた** — 閾値判定（`memoryPercentBefore`）と同じ「合計0なら圧力なし」の規約で分岐し NaN を解消
