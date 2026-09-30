@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (MemoryMonitor が自プロセスの定常サイズを誤判定し強制 GC ストームを5分毎に自傷していた)
+
+- `ShouldOptimizeMemory` が自プロセス絶対量（PrivateMemory>256MB or WorkingSet>512MB）だけで `OptimizeMemoryAsync` を起動 — .NET は GC 予約で常時 256MB 超のため、定常プロセスでもクールダウン(300s)毎に「強制 Gen2 GC×2 + WaitForPendingFinalizers + SetProcessWorkingSetSize(-1,-1) による全ページ退避（Windows）/ malloc_trim + 追加 GC×2」を永久繰返し、監視対象のサービス自身を周期的にストールさせていた
+- 自プロセス発火条件を「閾値超過 AND エピソード基線から+10%成長」へ変更（#85 のリーク判定と同一の成長シグナル規約・緩慢な単調リークも捕捉）; システムメモリ圧（>80%）は絶対条件として維持
+- テスト +5（293 → 298）: 絶対系圧・定常不発・成長発火+再武装・緩慢成長捕捉・閾値割れリセット
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
