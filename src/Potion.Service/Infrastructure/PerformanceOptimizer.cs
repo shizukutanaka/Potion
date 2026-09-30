@@ -485,7 +485,13 @@ public sealed class PerformanceOptimizer : BackgroundService
     {
         // 簡易的なパフォーマンススコア計算（0-100）
         var cpuScore = Math.Max(0, 100 - stats.CpuUsagePercent);
-        var memoryScore = Math.Max(0, 100 - (stats.MemoryUsageBytes / (double)(stats.AvailableMemoryBytes + stats.MemoryUsageBytes) * 100));
+        // A failed memory query reports (0,0) — 0/0 yields NaN which propagates
+        // through Math.Max into the whole score. Same convention as the
+        // memoryPercentBefore check: no measurement means no reported pressure.
+        var memoryTotal = stats.AvailableMemoryBytes + stats.MemoryUsageBytes;
+        var memoryScore = memoryTotal > 0
+            ? Math.Max(0, 100 - (stats.MemoryUsageBytes / (double)memoryTotal * 100))
+            : 100;
         var diskScore = Math.Max(0, 100 - stats.DiskUsagePercent);
         var processScore = Math.Max(0, 100 - (stats.ActiveProcessCount / 100.0 * 20)); // 100プロセス以上で減点
 

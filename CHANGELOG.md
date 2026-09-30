@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (メモリ統計取得失敗時にパフォーマンススコアが NaN になっていた)
+
+- `CalculatePerformanceScore` が `MemoryUsageBytes / (Available + MemoryUsage)` をそのまま除算しており、WMI クエリ失敗で (0,0) が返ると `0/0 = NaN` となり `Math.Max(0, NaN)` も NaN を伝播させて**最適化結果のスコアが NaN になっていた** — 閾値判定（`memoryPercentBefore`）と同じ「合計0なら圧力なし」の規約で分岐し NaN を解消
+
 ### Fixed (パターン異常の誤検知閾値を3σへ)
 
 - `AnomalyDetector` のパターン逸脱判定が z-score `> 0.5` で動作していた — 正規分布の62%の通常サンプルで発火し、ウォームアップ後は3分毎にダッシュボードへ anomaly アラートを broadcast していた → `3.0σ` に修正
