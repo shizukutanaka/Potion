@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (アラート CSV エクスポートがクォート未エスケープ — 引用符含むメッセージで CSV 破損＋スプレッドシート式インジェクション)
+
+- `exportAlerts` は各フィールドを `"…"` ラップするだけで内部 `"` をエスケープせず、引用符を含むメッセージで CSV が破損
+- `csvField` ヘルパーで `"` → `""` の正規エスケープ + 先頭 `=`/`+`/`-`/`@`/タブ/CR に `'` 前置（Excel/LibreOffice 式評価の中立化 — CSV インジェクション対策）
+
 ### Fixed (インストールした Windows サービスが証明書不在で起動不能だった — 実バグ)
 
 - `appsettings.Production.json` の `Kestrel:Endpoints:Https` は `C:\ProgramData\Potion\certs\certificate.pfx` を必須とするが、全3インストール経路（deploy-windows.ps1・package-installer.ps1・Potion.wxs MSI）とも証明書を提供しない → 起動時に Kestrel が証明書未検出で例外・サービスが crash-loop していた（k8s/compose で実証済みの「`Kestrel:Endpoints` は `ASPNETCORE_URLS` に優先」ルールにより、サービス登録時の `ASPNETCORE_URLS` 上書きは無効だった — 以前の対策は機能していなかった）
