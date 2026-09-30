@@ -1,13 +1,5 @@
 // Potion Service Dashboard - Enhanced Atlassian Design
 class PotionDashboard {
-    // Keydowns that aren't a real activation intent: modifier-only presses and
-    // Escape (this app's close-modal key). They must not consume the one-shot
-    // notification-permission gesture.
-    static NON_ACTIVATING_KEYS = new Set([
-        'Escape', 'Shift', 'Control', 'Alt', 'Meta', 'OS', 'AltGraph',
-        'CapsLock', 'NumLock', 'ScrollLock', 'Fn', 'FnLock'
-    ]);
-
     constructor() {
         this.apiBaseUrl = window.location.origin;
         this.currentSection = 'overview';
@@ -125,8 +117,11 @@ class PotionDashboard {
             document.removeEventListener('keydown', request);
         };
         const request = (event) => {
+            // Only activation gestures count: pointer clicks, or the keys that
+            // can activate a focused control. Navigation keys (Tab, arrows)
+            // and modifiers must not consume the one-shot.
             if (event.type === 'keydown' &&
-                PotionDashboard.NON_ACTIVATING_KEYS.has(event.key)) {
+                event.key !== 'Enter' && event.key !== ' ') {
                 return;
             }
             // Gestures inside the settings modal are mid-configuration: draft
