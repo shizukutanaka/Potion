@@ -121,9 +121,23 @@ public class AnomalyDetector : IHostedService, IDisposable
 
     private bool IsTrendAnomaly(AdvancedMetricTimeSeries timeSeries, double value)
     {
-        // Trend anomaly: sudden changes in long-term trends
+        // CalculateTrendChange returns a slope reversal in metric-per-step units,
+        // which a fixed constant cannot bound: on large-scale counters (bytes/sec)
+        // it fires constantly, on small-scale metrics it fires on ordinary noise.
+        // Compare against the series' own σ-derived band instead (0 for a flat
+        // baseline, matching the statistical leg's "don't flag before variance").
         var trendChange = timeSeries.CalculateTrendChange(value);
-        return Math.Abs(trendChange) > 0.3; // Significant trend change
+
+        // Scale from the pre-change half of the same last-10 window the slopes
+        // came from: the full window (or the adaptive band) includes the
+        // candidate value, whose own σ inflation would swallow its detection.
+        var oldHalf = timeSeries.Values.Skip(Math.Max(0, timeSeries.Values.Count - 10)).Take(5).ToList();
+        var mean = oldHalf.Average();
+        var scale = Math.Sqrt(oldHalf.Sum(v => (v - mean) * (v - mean)) / oldHalf.Count);
+
+        // Flat baseline ⇒ σ is exactly 0 ⇒ any nonzero reversal is a genuine
+        // anomaly (a flat series that starts moving has departed by definition).
+        return scale > 0 ? Math.Abs(trendChange) > 3.0 * scale : trendChange != 0.0;
     }
 
     private string GetAnomalyType(bool statistical, bool pattern, bool trend)
