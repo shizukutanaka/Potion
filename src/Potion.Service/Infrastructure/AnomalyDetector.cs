@@ -113,10 +113,12 @@ public class AnomalyDetector : IHostedService, IDisposable
         // Pattern recognition: detect if value breaks established patterns
         if (timeSeries.Patterns.Count < 5) return false;
 
-        // Check for seasonal patterns, cyclic patterns, etc.
+        // CalculatePatternDeviation returns a z-score (|value - pattern mean| /
+        // pattern σ). A 3σ cut flags ~0.3% of in-pattern samples; anything lower
+        // broadcasts anomalies for ordinary noise once the pattern buffer warms.
         var patternDeviation = timeSeries.CalculatePatternDeviation(value);
 
-        return patternDeviation > 0.5; // Threshold for pattern anomaly
+        return patternDeviation > 3.0;
     }
 
     private bool IsTrendAnomaly(AdvancedMetricTimeSeries timeSeries, double value)
