@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (`Observability:OtlpEndpoint` がトレースに適用されない非対称 — メトリクスのみ有効だった)
+
+- Startup の OTel 設定で metrics エクスポーターのみ `Observability:OtlpEndpoint` を読み、tracing は無引数 `AddOtlpExporter()`（env var/`localhost:4317` 既定）のままだった → 運用者がエンドポイントを設定してもトレースは黙ってローカルへ送信され続けていた → 同一 `otlpEndpoint` を両エクスポーターへ適用
+
 ### Fixed (PR #61 第2ラウンドレビュー対応 — `/metrics` を構造的に遮断・通知権限をユーザー操作時に要求)
 
 - k8s Ingress: `server-snippet` 廃止（snippet 非許可の ingress-nginx ≥1.9 では Ingress 全体が admission 拒否されダッシュボード全落ちの副作用）→ `/` prefix を Exact パス列挙（`/`・`/index.html`・`/styles.css`・`/dashboard.js` + `/lib`・`/fonts` prefix）へ変更し `/metrics` をルーティング構造上到達不能に

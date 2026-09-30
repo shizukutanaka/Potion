@@ -28,6 +28,12 @@ public class Startup
     public void ConfigureServices(IServiceCollection services)
     {
         // OpenTelemetry observability (Phase 1 enhancement)
+        // One knob drives both exporters — an operator setting
+        // Observability:OtlpEndpoint expects metrics and traces to reach it;
+        // the parameterless exporter overload would silently keep traces on
+        // the env-var/localhost default.
+        var otlpEndpoint = new Uri(
+            Configuration["Observability:OtlpEndpoint"] ?? "http://localhost:4317");
         services.AddOpenTelemetry()
             .WithMetrics(metrics =>
             {
@@ -37,11 +43,7 @@ public class Startup
                     .AddRuntimeInstrumentation()
                     .AddProcessInstrumentation()
                     .AddPrometheusExporter()
-                    .AddOtlpExporter(options =>
-                    {
-                        options.Endpoint = new Uri(
-                            Configuration["Observability:OtlpEndpoint"] ?? "http://localhost:4317");
-                    });
+                    .AddOtlpExporter(options => options.Endpoint = otlpEndpoint);
             })
             .WithTracing(tracing =>
             {
@@ -49,7 +51,7 @@ public class Startup
                     .AddSource("Potion.Service")
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
-                    .AddOtlpExporter();
+                    .AddOtlpExporter(options => options.Endpoint = otlpEndpoint);
             });
 
         // Register activity source for custom tracing
