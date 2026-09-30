@@ -46,7 +46,9 @@ public sealed class AutoRecoveryManager : BackgroundService
     private readonly ILogger<AutoRecoveryManager> _logger;
     private readonly Dictionary<string, ComponentHealth> _componentHealth = new();
     private readonly ConcurrentDictionary<string, int> _failureCounts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<string, DateTimeOffset> _recoveryBlockedUntil = new(StringComparer.OrdinalIgnoreCase);
     private readonly TimeSpan _healthCheckInterval = TimeSpan.FromMinutes(1);
+    private readonly TimeSpan _recoveryBackoff = TimeSpan.FromMinutes(30);
     private readonly int _maxRecoveryAttempts = 3;
 
     public event EventHandler<RecoveryAttemptEventArgs>? RecoveryAttempted;
@@ -87,12 +89,25 @@ public sealed class AutoRecoveryManager : BackgroundService
     {
         _logger.LogWarning("Attempting recovery for component {Component} due to failure: {Failure}", component, failure.Message);
 
+        var now = DateTimeOffset.UtcNow;
+        if (_recoveryBlockedUntil.TryGetValue(component, out var blockedUntil) && now < blockedUntil)
+        {
+            return false;
+        }
+
         var failureCount = _failureCounts.AddOrUpdate(component, 1, (_, current) => current + 1);
 
         if (failureCount > _maxRecoveryAttempts)
         {
-            _logger.LogError("Maximum recovery attempts ({MaxAttempts}) exceeded for component {Component}", _maxRecoveryAttempts, component);
-            RecoveryAttempted?.Invoke(this, new RecoveryAttemptEventArgs(component, RecoveryAction.Failover, false, "Max attempts exceeded", DateTimeOffset.UtcNow));
+            // Back off instead of logging an error every cycle: a component that
+            // stays unhealthy would otherwise spam "max attempts exceeded" once
+            // a minute forever, and the saturated counter meant recovery was
+            // never retried even after the underlying condition cleared.
+            _recoveryBlockedUntil[component] = now + _recoveryBackoff;
+            _failureCounts[component] = 0; // re-arm: next call starts a fresh burst of attempts
+            _logger.LogWarning("Recovery attempts exhausted for component {Component}; backing off {BackoffMinutes} minutes before retrying",
+                component, _recoveryBackoff.TotalMinutes);
+            RecoveryAttempted?.Invoke(this, new RecoveryAttemptEventArgs(component, RecoveryAction.Failover, false, "Max attempts exceeded", now));
             return false;
         }
 
@@ -113,6 +128,7 @@ public sealed class AutoRecoveryManager : BackgroundService
             if (success)
             {
                 _failureCounts.TryRemove(component, out _);
+                _recoveryBlockedUntil.TryRemove(component, out _);
                 _logger.LogInformation("Recovery successful for component {Component}", component);
                 return true;
             }

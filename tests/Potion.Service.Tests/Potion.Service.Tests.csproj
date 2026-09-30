@@ -31,6 +31,8 @@
          intermittently left appsettings.json missing from the test output. -->
     <None Include="..\..\src\Potion.Service\appsettings.json" CopyToOutputDirectory="PreserveNewest" Link="appsettings.json" />
     <None Include="..\..\src\Potion.Service\appsettings.Development.json" CopyToOutputDirectory="PreserveNewest" Link="appsettings.Development.json" />
+    <None Include="..\..\src\Potion.Service\appsettings.Production.json" CopyToOutputDirectory="PreserveNewest" Link="appsettings.Production.json" />
+    <None Include="..\..\src\Potion.Service\appsettings.Container.json" CopyToOutputDirectory="PreserveNewest" Link="appsettings.Container.json" />
   </ItemGroup>
 
 </Project>
