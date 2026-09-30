@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Fixed (SignalR ライブアラートが常に "System alert"/warning に化けていた)
+
+- ハブのペイロードは SignalR 固有シリアライザ（PascalCase + 数値 enum）だが JS は `alert.data.severity`/`alert.message`（camelCase）で読んでいた — `alert.data` が常に undefined で実メッセージ・実 severity が届かず、Critical でも常に warning 通知 + 汎用文言のみ
+- `data/Data`・`severity/Severity` の両 shape + 数値/文字列 enum の両方を解釈する堅牢読取へ — Critical/Error が正しく error 通知され実メッセージが表示される
+
 ### Fixed (ConfigTool の generate テンプレートが出荷設定と乖離 — 生成設定が起動時検証で拒否される実バグ)
 
 - `BuildDefaultConfig` の `disk_cleanup` が `cleanmgr.exe /sagerun:1` を生成 — 出荷 `CommandArgumentAllowlist` は `/verylowdisk` のみ許容のため、生成設定を配置すると `ArgumentsAreAllowlisted` 起動時検証でサービス起動不能に
