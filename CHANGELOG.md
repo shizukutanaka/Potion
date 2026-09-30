@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (Production `AllowedHosts` にマッチ不能な CIDR 記述 — 偽のネットワーク ACL)
+
+- `AllowedHosts` は Host **ヘッダ**の許可リストであり IP/CIDR ACL ではない — `10.0.0.0/8` 等のエントリは一切マッチせず、存在しない「LAN 限定」ACL を運用者に信じ込ませていた（バインドを `+` に開いた場合は全クライアントが 400 になる罠にもなる）→ `localhost;127.0.0.1` のみへ修正（現在の loopback バインドと一致する正直な値）
+
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
