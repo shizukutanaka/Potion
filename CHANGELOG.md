@@ -8,102 +8,195 @@
 - k8s liveness/readiness/startup 3プローブ・`deploy.sh` port-forward スモークテスト・`validate-system.sh` の全チェックパスが登録ルートと一致（webhook は GET→405 想定）
 - `"webhook"` レートリミッタは `UseRateLimiter` + `RequireRateLimiting` で実接続済み — 宣言だけの死設定なし
 
+### Audit (NuGet 依存の脆弱性・鮮度監査 — 脆弱性ゼロを確認)
+
+- `dotnet list package --vulnerable`: 全3プロジェクト（Service/Tests/ConfigTool）で既知脆弱性ゼロ
+- `--outdated` の残差分は全て意図的な保留: FluentAssertions 6.x 留保（7.x+ は再ライセンス）、Serilog.Sinks.File 6→7（判断保留中）、`.NET 10` 系パッケージ（net8 ターゲットにメジャー追従不要）、OTel beta/rc（stable 未供給）、テスト基盤メジャー更新（xunit runner 4・Test SDK 18 等はリターンに見合わず）
+
+### Audit (ラインカバレッジ監査 — 65.3%、残ギャップは全てプラットフォーム／フラグ依存)
+
+- `dotnet test --collect:"XPlat Code Coverage"` で現行コードの実測カバレッジを取得: 2,528/3,870 行 (65.3%)
+- 0% クラスは5件のみで全て説明可能: `Program`(エントリポイント)・`PerformanceOptimizer`/`PredictiveRemediationService` の `ExecuteAsync`(フラグOFFで未起動)・SignalR broadcast 内部(ライブ HubContext 必須)
+- 最大ギャップは `SystemHealthMonitoring`(25%) — Windows WMI/P-Invoke・Job Object 等の OS 専用プローブはこのプラットフォームでは実行不能なため到達不能、パーサ部は `SystemMetricsSamplerParseTests` で固定済み
+- `Startup`(34%) は DI パイプライン全体が対象 — ホスト統合テストは `Microsoft.AspNetCore.Mvc.Testing` 新規依存を要しライブラリ追加制約上見送り
+- **dead code なし**: 本プラットフォームで単体テスト可能な経路は全て実行済み。低カバレッジは未テストではなく「テスト不能な OS/機能依存面」であることを確認
+
+### Removed (csproj の死設定を除去 — 機能しないノブと削除済みファイルへの参照)
+
+- `EnableCompressionInSingleFile`（`PublishSingleFile=false` で不活性）、`SuppressTrimAnalysisWarnings`（`PublishTrimmed=false` で不活性）、`EnablePackageValidation`（Exe は非 packable で不活性）、`WarningsAsErrors`（`TreatWarningsAsErrors` で完全冗長）を除去 — 全て評価されない死設定
+- ConfigTool.csproj から `<Compile Remove="TranslationManager.cs" />` を除去 — i18n スタック削除済みで対象ファイルは存在しない
+
+### Improved (PotionActivitySource のタグ付き Activity 生成をテスト固定)
+
+- `ActivityListener` 登録下で `StartRemediationActivity`/`StartHealthCheckActivity`/`StartSelfHealingActivity` が非 null の Activity を返し、`task.name`/`issue.type`/`span.kind` タグと OperationName が正しいことを固定（リスナー無しでは StartActivity が null を返す仕様のため、本番=リスナー有りの契約をピン留め）
+- `EventCorrelationService` の `<`/`>=`/`<=` 演算子アームは未カバーだが意図的（組込みルール3件は `>`/`count` のみ・`_rules` は外部注入不可 — 将来のルール語彙として保持と判断）
+- 293 → 297 テスト
+
+### Improved (CollaborationService の SignalR broadcast 経路をテスト固定)
+
+- `BroadcastSystemHealthAsync` → `system-monitors` グループへの `SystemHealthUpdate` 送信、`NotifyAnomalyDetectedAsync` → `alerts-anomaly` グループへの `Alert` 送信(実時間アラート無効時は送信しない)、`DisposeAsync` → ループ停止後も同期 `Dispose` が安全なフォールバックとして機能すること、Hub `UnsubscribeFromAlerts` の不正 `alertType` 無視をモック `IHubContext`/`IGroupManager` で固定
+- 293 → 298 テスト
+
+### Removed (独自 `HealthCheckResult` の死メンバー削除 — 4引数 ctor・未読プロパティ・孤児 enum)
+
+- 4引数コンストラクタ `(status, description, error, details)` は呼出しゼロ、`Status`/`Description`/`Error`/`Details`/`Timestamp`/`Components` は読取りゼロ — 消費者は `IsHealthy`・`ComponentHealth`・`CheckedAt` のみ
+- `HealthStatus` enum も同時に孤児化したため削除（ASP.NET の同名型と衝突する shadowing 面も縮小）
+- エンドツーエンド検証: `scripts/validate-system.sh` 全10チェックを実起動インスタンスへ実行 — 全 PASS（/health・/health/ready・api3系・/metrics・/・webhook 405・SignalR negotiate）
+
+### Improved (全環境の結合設定に起動時バリデータを適用するテストを追加 — 293→297)
+
+- `ConfigOverlayValidationTests`：appsettings.json + 各環境オーバーレイ（base/Development/Production/Container）の結合結果に、Startup.cs が ValidateOnStart で適用する全バリデーション（Collaboration・MemoryMonitor/PerformanceOptimizer の DataAnnotations・EventCorrelation・Compliance・RemediationPolicy の5バリデータ）を適用
+- 環境オーバーレイのドリフトが起動時検証を壊す問題を、フラグ有効化やデプロイ後ではなくテスト時点で検出可能に
+- 併せて `OptionsBindingTests` の Production InlineData が `optional:true` で空振りしていた問題を解消 — Production/Container オーバーレイをテスト出力へコピー（従来はファイル不在でベース設定を二度テストしていた）
+
+### Removed (環境別 appsettings オーバーレイの重複キー除去 — マージ後の結果不変・ドリフト経路を閉塞)
+
+- .NET 設定バインダは index マージのため、base と同一値のオーバーレイ要素は将来の base 更新を静的にマスクするドリフト経路となる（例: base の CommandAllowlist 0-6 番要素更新が Production の同一コピーで上書きされる）
+- Production/Development/Container の全3オーバーレイから base と完全同一のキーを機械的に除去（配列はバインド index 保持のため trailing のみ削除）— マージ後の結合結果をシミュレーション等値で検証済み
+- 残るのは真の環境差分のみ: Production `MaxConcurrency:8`・Serilog 上書き・AllowedHosts・Kestrel Https、Development の高速化ノブ、Container の Kestrel http://+:80 等
+- 検証: Development 環境で実起動 — deduped オーバーレイで全サービス正常バインド・HTTP listen 確認
+
+### Fixed (テレメトリの計装バージョンが固定値 "2.0.0" — バイナリの実バージョンと乖離)
+
+- `PotionMetrics.Meter` / `PotionActivitySource.Source` のバージョン引数がリテラル "2.0.0" — `InformationalVersion`（dev ビルドでは "2.0.0-dev"）や今後のリリース番号と無関係に固定されるドリフト源
+- `AssemblyInformationalVersionAttribute` から動的取得（フォールバック: AssemblyVersion → "0.0.0"）へ — OTel scope.version が実バイナリを正確に報告
+
+### Fixed (詳細フィルタパネルが初回クリックで開かなかった)
+
+- `#advanced-search-panel` は `u-hidden` クラスで非表示開始だが `toggleAdvancedSearch` は inline `style.display` で状態判定 — 初回は `'' === 'none'` が false で `display:none` をセットするだけで視覚変化なし（2回目でやっと開く）
+- `classList.toggle('u-hidden')` へ変更し既存の u-hidden 規約に揃え — 初回クリックで正しく開閉
+
+### Fixed (高度検索の結果クリックが何も遷移しないスタブ実装だった)
+
+- `navigateToResult` は `hideAdvancedSearch` + "Navigated to result" 通知のみで実際の遷移なし — 検索結果をクリックしても目的セクションへ辿れない行き止まり UI
+- `url`（`#alerts`/`#logs`/`#performance`）からセクション名を解決し `showSection` へ — 該当セクション要素が実在する場合のみ遷移（未知 URL は静かに無視）
+
+### Fixed (PR #62 Devin Review 対応 — 通知権限リスナーのワンショット消費を修正)
+
+- dashboard.js: `prepareNotificationPermission` の3件の指摘を修正 — (1) init 末尾（最初の `await` の後）での登録のため初回フェッチ中の操作を取りこぼす → `await` 前に移動、(2) `{once:true}` の keydown が Escape・修飾キー等の非アクティベーション押下で消費される → `NON_ACTIVATING_KEYS` 除外 + 手動 disarm、(3) 保存ボタンの pointerdown が保存処理より先に発火し非 browser 選択後もプロンプトが出る → `click`（バブル後段で新設定を再読込）に変更
+- 追加の指摘を修正: 設定モーダル内の操作（ラジオ選択・保存/キャンセルボタン・Enter キー）は未保存の下書き状態でプロンプトが発火し得た → `#advanced-settings-modal` 内のジェスチャは無視しリスナーを武装したまま保持（保存ボタン経由の opt-in は `saveAdvancedSettings` が自前で権限要求する経路が既存）
+
+### Fixed (回復試行上限到達後に毎分エラーログが永続し回復も永久停止していた)
+
+- `AutoRecoveryManager.AttemptRecoveryAsync` の失敗カウンタは飽和後リセットされず、**不健康が続くコンポーネントに対して毎分「Maximum recovery attempts exceeded」をエラー出力し続け、かつ状況が改善しても回復が二度と試行されなかった** — 他のループ（AlertCooldown/CorrelationCooldown/ScheduleCooldown）と同じバックオフ方式へ統一：上限到達で30分サイレンス後にカウンタを再武装し、エラーではなく警告1件で通知
+
+### Fixed (メモリリーク警告の恒常誤発火を増加検知へ)
+
+- `CheckMemoryLeaksAsync` が絶対量（private 500MB 超 / WS 1GB 超）だけで「リークの兆候」を発火していた — ブラウザや AV が常時該当し、実環境では15分毎に警告が出続けていた → 大型 **かつ** 前回チェックから private bytes が10%以上増加したプロセスのみを兆候として扱う（前回スナップショットを PID 毎に保持）
+
+### Fixed (MemoryMonitor が自プロセスの定常サイズを誤判定し強制 GC ストームを5分毎に自傷していた)
+
+- `ShouldOptimizeMemory` が自プロセス絶対量（PrivateMemory>256MB or WorkingSet>512MB）だけで `OptimizeMemoryAsync` を起動 — .NET は GC 予約で常時 256MB 超のため、定常プロセスでもクールダウン(300s)毎に「強制 Gen2 GC×2 + WaitForPendingFinalizers + SetProcessWorkingSetSize(-1,-1) による全ページ退避（Windows）/ malloc_trim + 追加 GC×2」を永久繰返し、監視対象のサービス自身を周期的にストールさせていた
+- 自プロセス発火条件を「閾値超過 AND エピソード基線から+10%成長」へ変更（#85 のリーク判定と同一の成長シグナル規約・緩慢な単調リークも捕捉）; システムメモリ圧（>80%）は絶対条件として維持
+- テスト +5（293 → 298）: 絶対系圧・定常不発・成長発火+再武装・緩慢成長捕捉・閾値割れリセット
+
+### Fixed (イベントログカードの「Warnings」タイルが常に `undefined` 表示だった)
+
+- `updateEventsOverview` は `metrics.windowsEvents.warningEventCount` を読むが `WindowsEventMetrics` に該当フィールドが存在せず、ダッシュボードに文字通り "undefined" と表示
+- `WarningEventCount` をエンドツーエンドで実装: Windows EventLog `Level==3` (Warning) カウント・journald "warn"/"warning" マーカー解析・レコード/タプル/キャッシュ拡張 → API が実測値を返しタイルが実データ表示に
+
+### Fixed (メモリ統計取得失敗時にパフォーマンススコアが NaN になっていた)
+
+- `CalculatePerformanceScore` が `MemoryUsageBytes / (Available + MemoryUsage)` をそのまま除算しており、WMI クエリ失敗で (0,0) が返ると `0/0 = NaN` となり `Math.Max(0, NaN)` も NaN を伝播させて**最適化結果のスコアが NaN になっていた** — 閾値判定（`memoryPercentBefore`）と同じ「合計0なら圧力なし」の規約で分岐し NaN を解消
+
+### Fixed (パターン異常の誤検知閾値を3σへ)
+
+- `AnomalyDetector` のパターン逸脱判定が z-score `> 0.5` で動作していた — 正規分布の62%の通常サンプルで発火し、ウォームアップ後は3分毎にダッシュボードへ anomaly アラートを broadcast していた → `3.0σ` に修正
+
+### Fixed (トレンド異常の閾値をメトリクス単位非依存へ正規化)
+
+- `IsTrendAnomaly` の閾値が生メトリクス単位の固定値 `0.3` だった — bytes/sec 系（大スケール）では常時発火、cpu% 系ではノイズで誤発火 → スロープ算出と同一 last-10 ウィンドウの**変化前**半分の σ で正規化（3σ超で発火・完全フラット系列では非ゼロ反転を検知）。フルウィンドウの σ を使うとスパイク自身が σ を膨らませて検知を潜るため変化前半分を使用
+
+### Fixed (パフォーマンス最適化が運用者のシステム設定を定期上書きしていた)
+
+- `RunAdditionalOptimizationsAsync` が最適化発火のたびに `netsh interface tcp set global autotuninglevel=normal` と `powercfg /setactive <Balanced>` を無条件実行していた — メモリ閾値（4GB）は実環境で常時超過するため**既定で5分毎に運用者の TCP チューニングと電源プラン選択を黙って巻き戻していた**。他の Optimize* メソッドと同じ「外部干渉は行わず報告する」方針へ統一（自動変更を止め、確認コマンドを案内する記録に置換）
+
+### Fixed (定期修復ポリシー `RemediationPolicy:Tasks` が一度も実行されない)
+
+- `RunEveryMinutes`・`MaintenanceWindowTag`・`MaxRetries`・`RetryBackoffSeconds`・`StopOnFailure`・`RequiresElevation`・`MaxConcurrency`・`SchedulerIntervalSeconds`・`ScheduleJitterSeconds` が起動時検証のみで消費者不在 — `FeatureFlags:RepairExecutionEnabled=true` でも出荷ポリシーの定期修復（sfc/dism/cleanmgr/ngen）は静かに未実行だった
+- `RemediationScheduler` にポリシーディスパッチループを追加： SchedulerIntervalSeconds 毎に各タスクの期限を評価 → メンテナンスウィンドウ内ならジッター付きで `IRemediationTaskExecutor` へディスパッチ（MaxConcurrency ゲート・リトライ・昇格要件を適用）
+- 未解決ウィンドウタグを参照する有効タスクを起動時に拒否する `MaintenanceWindowReferencesAreValid` バリデータ追加（実行時もフェイルクローズで非実行+警告）
+- テスト +6（293 → 299）: ウィンドウ境界・深夜帯ラップ・未解決タグ閉塞・バリデータ
+
+### Fixed (リソーストレンドチャートが永久に空 — サンプル記録時に再描画されていなかった)
+
+- `recordChartSample` は各ポーリングで `chartData` に実サンプルを追加していたが、`renderResourceTrendsChart` は初期化時（データ0件）とレンジ切替時にのみ呼出し — キャンバスは起動時の空描画のまま永久に更新されなかった
+- サンプル記録後に再描画を呼び出し、また `filteredData.length===1` で `chartWidth/0` → NaN 座標で唯一の点が描画されない問題を `stepX` ガードで修正
+
+### Fixed (SignalR ライブアラートが常に "System alert"/warning に化けていた)
+
+- ハブのペイロードは SignalR 固有シリアライザ（PascalCase + 数値 enum）だが JS は `alert.data.severity`/`alert.message`（camelCase）で読んでいた — `alert.data` が常に undefined で実メッセージ・実 severity が届かず、Critical でも常に warning 通知 + 汎用文言のみ
+- `data/Data`・`severity/Severity` の両 shape + 数値/文字列 enum の両方を解釈する堅牢読取へ — Critical/Error が正しく error 通知され実メッセージが表示される
+
+### Fixed (ConfigTool の generate テンプレートが出荷設定と乖離 — 生成設定が起動時検証で拒否される実バグ)
+
+- `BuildDefaultConfig` の `disk_cleanup` が `cleanmgr.exe /sagerun:1` を生成 — 出荷 `CommandArgumentAllowlist` は `/verylowdisk` のみ許容のため、生成設定を配置すると `ArgumentsAreAllowlisted` 起動時検証でサービス起動不能に
+- `CommandArgumentAllowlist` 自体がテンプレートから欠落 + `MaxConcurrency` 2→4、`sfc`/`dism`/`cleanmgr` の TimeoutSeconds・RetryBackoffSeconds・MaxRetries・StopOnFailure も出荷値と不一致
+- `generate` 出力の RemediationPolicy が出荷 appsettings.json と完全一致するようテンプレートを同期（`generate`→`validate` 往復・フィールド一致をローカル検証済み）
+
+### Fixed (アラート CSV エクスポートがクォート未エスケープ — 引用符含むメッセージで CSV 破損＋スプレッドシート式インジェクション)
+
+- `exportAlerts` は各フィールドを `"…"` ラップするだけで内部 `"` をエスケープせず、引用符を含むメッセージで CSV が破損
+- `csvField` ヘルパーで `"` → `""` の正規エスケープ + 先頭 `=`/`+`/`-`/`@`/タブ/CR に `'` 前置（Excel/LibreOffice 式評価の中立化 — CSV インジェクション対策）
+
+### Fixed (インストールした Windows サービスが証明書不在で起動不能だった — 実バグ)
+
+- `appsettings.Production.json` の `Kestrel:Endpoints:Https` は `C:\ProgramData\Potion\certs\certificate.pfx` を必須とするが、全3インストール経路（deploy-windows.ps1・package-installer.ps1・Potion.wxs MSI）とも証明書を提供しない → 起動時に Kestrel が証明書未検出で例外・サービスが crash-loop していた（k8s/compose で実証済みの「`Kestrel:Endpoints` は `ASPNETCORE_URLS` に優先」ルールにより、サービス登録時の `ASPNETCORE_URLS` 上書きは無効だった — 以前の対策は機能していなかった）
+- Production 既定から `Https` エンドポイントを除去し HTTP:5000 のみバインド（**設定変更** — 証明書必須の HTTPS は起動不能を引き起こすため既定から除外）。HTTPS 化は運用者が証明書配置後、運用設定ファイル `ProgramData\Potion\config\appsettings.json` に `Kestrel:Endpoints:Https` ブロックを追加する経路に変更 — 全3インストーラの案内・コメントを実機構に合わせて修正
+
+### Security (CSP に `frame-ancestors 'none'` を追加 — クリックジャッキング対策の現代側を完備)
+
+- `X-Frame-Options: DENY` は既存だがレガシー側のみ → CSP `frame-ancestors 'none'` を併記しモダンブラウザのエンベッドも構造的に拒否（XFO は旧ブラウザ向けに残置）
+- 併せて監査: セキュリティヘッダ一式（nosniff・DENY・no-referrer・Permissions-Policy・strict CSP・条件付き HSTS）・`UseExceptionHandler` の problem+json（詳細非流出・traceId のみ）・`UseRateLimiter` の配置（ルーティング後・エンドポイント単位適用で SignalR/ポーリング非影響）・全プローブ — 他にドリフトなし
+
+### Fixed (ConfigTool の generate/restore がライブ設定を非アトミック書込み — 書込み途中の中断で起動不能設定を残し得た)
+
+- `generate`（`File.WriteAllText`）と `restore`（`File.Copy` 直接上書き）はライブ設定パスを非アトミックに更新 — プロセス中断で部分書込み JSON が残り、次回起動時の設定パースでサービス起動不能に
+- 同一ディレクトリ temp + `File.Move`（上書き rename）へ変更 — POSIX/Windows とも rename は atomic。失敗時は staged ファイルを確実に除去
+
+### Docs (運用設定レイヤー `{Base}/config/appsettings.json` を文書化 — 最高優先度だが未記述だった)
+
+- `Program.cs` は `ServicePaths.ConfigurationFile` を全設定源の最後（appsettings・環境変数より上位の優先度）に `reloadOnChange` で読み込む — アップグレードで消えない外部オーバーライド層だがドキュメント未記載だった
+- パス解決（CommonApplicationData → LocalApplicationData → アプリ直下のフォールバック）・ホットリロードセマンティクス・HTTPS 有効化や ConfigTool（generate/validate/backup/restore）の書込み先であることを README に明記
+- 補完監査: `ServicePaths`（ACL 強化・フォールバック）・`PotionMetrics` 全359行（全 Record*/Update* に実呼出しあり・死メトリクスなし）・install.cmd/License.rtf・.github 全体 — 整合確認
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
 
-||||||| parent of c28a5f0 (docs: audit health probe semantics and deployment wiring — all consistent)
 ### Fixed (イベント駆動 webhook の `HttpResponseMessage` リーク)
 
 - `SendWebhookAsync` がレスポンスを未破棄のまま返していた — アラート発火毎にコネクションプールの接続が GC まで占有され、継続発火で枯渇し得た → `using var` 追加
 
-<<<<<<< HEAD
-||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of c28a5f0 (docs: audit health probe semantics and deployment wiring — all consistent)
-=======
-||||||| parent of 7b8b6db (docs: audit health probe semantics and deployment wiring — all consistent)
->>>>>>> c28a5f0 (docs: audit health probe semantics and deployment wiring — all consistent)
 ### Fixed (子プロセスプローブのタイムアウトが実質無効・監視ポーリング全体をハングさせ得た)
 
 - `systemctl`/`launchctl`/`journalctl`/`defaults` 系プローブ5箇所が `ReadToEnd()` を同期ブロッキングした後に `WaitForExit(timeout)` していた — 子プロセスがハングすると stdout EOF が来ずタイムアウトに到達しないため、**監視ポーリング全体が無期限に固まった**。さらに `RedirectStandardError=true` かつ未読のため stderr パイプ満杯で子がデッドロックし得た
 - `RunProbe` ヘルパーへ統一： stdout/stderr を並行 drain・真のタイムアウト適用・期限超過時は `Kill()` で子を回収し、パースは終了確認時のみ実行
 
-<<<<<<< HEAD
-||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-<<<<<<< HEAD
-||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-=======
-||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
->>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of c28a5f0 (docs: audit health probe semantics and deployment wiring — all consistent)
-=======
-||||||| parent of 7b8b6db (docs: audit health probe semantics and deployment wiring — all consistent)
-=======
-||||||| parent of b8176db (docs: audit health probe semantics and deployment wiring — all consistent)
->>>>>>> 7b8b6db (docs: audit health probe semantics and deployment wiring — all consistent)
->>>>>>> c28a5f0 (docs: audit health probe semantics and deployment wiring — all consistent)
 ### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
 
 - `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
 - `Kestrel__Endpoints__*` 上書き規則と `ASPNETCORE_URLS` 無効化の注意も追記
 - テスト数の記載を実値へ更新（287 → 293）
 
-<<<<<<< HEAD
-||||||| parent of 865c388 (fix: bound OS probes for real — hung systemctl/journalctl could freeze the whole monitoring poll)
-<<<<<<< HEAD
-||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-=======
-||||||| parent of be8fd6d (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
->>>>>>> 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-<<<<<<< HEAD
-||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-=======
-||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-=======
-||||||| parent of 61cb9c5 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
->>>>>>> 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
->>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of c28a5f0 (docs: audit health probe semantics and deployment wiring — all consistent)
-=======
-||||||| parent of 7b8b6db (docs: audit health probe semantics and deployment wiring — all consistent)
-=======
-||||||| parent of b8176db (docs: audit health probe semantics and deployment wiring — all consistent)
-=======
-||||||| parent of 840f8fb (docs: audit health probe semantics and deployment wiring — all consistent)
->>>>>>> b8176db (docs: audit health probe semantics and deployment wiring — all consistent)
->>>>>>> 7b8b6db (docs: audit health probe semantics and deployment wiring — all consistent)
->>>>>>> c28a5f0 (docs: audit health probe semantics and deployment wiring — all consistent)
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
 - `SubscribeToAlerts`/`UnsubscribeFromAlerts` の `alertType` に上限64文字を追加 — 匿名クライアントが無制限にグループ参加してメモリを増殖させる DoS 面を閉塞
 - テスト: room テスト削除（消した API のもの）+ 上限超過は黙って無視されることを検証するテスト追加（293 維持、main マージ後）
 
-<<<<<<< HEAD
-||||||| parent of 2d0b5b0 (docs: document env-var knobs (POTION_PROCESS_MAX_MEMORY_MB, Kestrel__Endpoints__*) + fix test count)
-||||||| parent of 840f8fb (docs: audit health probe semantics and deployment wiring — all consistent)
-=======
-||||||| parent of 3d3fa5d (docs: audit health probe semantics and deployment wiring — all consistent)
->>>>>>> 840f8fb (docs: audit health probe semantics and deployment wiring — all consistent)
 ### Fixed (`ProcessRunner` の2つの実バグ — 呼出し側 `WorkingDirectory` の上書きと空行の消失)
 
 - `WorkingDirectory` が常に `Path.GetDirectoryName(FileName)` で上書きされ、呼出し側の指定値を黙って捨てていた → 未指定時のみ導出し、指定値を尊重するように
 - `AppendWithLimit` が `IsNullOrEmpty` で空行をドロップ → 子プロセス出力の空行が `StandardOutput` から消えていた（`ipconfig` 等の空行を含む出力で不整合）→ 空行も捕捉
 - テスト2件追加（291 → 293）: 空行保持・呼出し側 WorkingDirectory 尊重を Unix/Windows 双方で検証
 
-<<<<<<< HEAD
-||||||| parent of c8c0ec6 (security: tighten hub surface — remove dead JoinRoom/LeaveRoom, bound alertType)
-||||||| parent of 3d3fa5d (docs: audit health probe semantics and deployment wiring — all consistent)
-=======
-||||||| parent of 7f09bb5 (docs: audit health probe semantics and deployment wiring — all consistent)
->>>>>>> 3d3fa5d (docs: audit health probe semantics and deployment wiring — all consistent)
 ### Improved (`ResiliencePipelines` にユニットテスト追加 — 唯一未テストだったコアのポリシー面を固定)
 
 - 現行セマンティクスをピン: 成功パススルー（1回のみ）、トランジェント exit code 5 で初回+3リトライ=4回、非トランジェント exit code 1 はリトライなし、連続3失敗でサーキットブレーカー open → `BrokenCircuitException` で実行拒否
 - 監査: Infrastructure 全18クラス×テストファイル照合 — 未テストは ResiliencePipelines のみ（PotionEventSource は ETW で実質 assert 不可）
 - 287 → 291 テスト（4追加・全パス）
 
-||||||| parent of 71ec528 (docs: audit health probe semantics and deployment wiring — all consistent)
 ### Fixed (`dotnet run` が Development でなく Production として起動し cert クラッシュしていた — launchSettings.json 追加 + Serilog ベースパスのポータブル化)
 
 - `Properties/launchSettings.json` が存在しなかったため `dotnet run` は `DOTNET_ENVIRONMENT` 未設定のまま Production 環境で起動 → `appsettings.Production.json` の証明書必須 HTTPS エンドポイントで起動不能・`C:\ProgramData\...` リテラル名のディレクトリを非 Windows 開発環境に撒き散らしていた → `DOTNET_ENVIRONMENT`/`ASPNETCORE_ENVIRONMENT` 共に Development のプロファイルを追加し golden path で Development 起動に
@@ -1752,7 +1845,6 @@
 - DI 回帰テスト更新 — フラグ ON で `PredictiveRemediationService`・`IRemediationScheduler`→`RemediationScheduler` の解決を検証
 - 検証: 0警告0エラー・131/131テスト・フラグ ON 実起動で全5ホステッドサービス（スケジューラ含む）の起動ログ確認
 
-||||||| parent of d913619 (chore: delete unreachable self-referencing service cluster (16 files))
 ### Removed (到達不能の自己参照クラスタ — 16ファイル・約7,000行)
 
 - 厳密なアンカー解析（Startup・Program・テスト起点＋ライブサービスの推移参照）で到達不能確定の16ファイルを削除。クラスタ内部で相互参照するだけで、DI 登録・テスト・稼働中サービスのいずれからも消費されていなかった:
@@ -1761,7 +1853,6 @@
 - `AutoRecoveryManager` の死パスを簡素化 — `GetService(typeof(ISecurityAuditor))`/`GetService(typeof(IConfigurationManager))` のオプショナル動的参照は実装も登録も存在せず常に null だった（削除対象型）。`CheckSecurityHealth` は `return true`、`ResetConfigurationAsync` は warning ログ付き `return false` に等価固定し、`GenerateDefaultConfiguration`・未使用 `_serviceProvider` 依存を除去
 - 削除後検証: 0警告0エラー・131/131テスト — 実行時動作への影響なし（全て未到達パス）
 
-||||||| parent of 475edd9 (chore: remove last consumer-less registration (hot-reload service) and dead flag keys)
 ### Removed (最後の消費者ゼロ登録 — ConfigurationHotReloadService + 死フラグキー)
 
 - `IConfigurationHotReloadService`/`ConfigurationHotReloadService` の登録と実装（241行）を削除 — API 全6メンバ（`GetFeatureFlagAsync`/`SetFeatureFlagAsync`/`IsFeatureEnabledAsync`/`GetAllFeatureFlagsAsync`/`GetConfigurationSnapshotAsync`/`OnConfigurationChanged`）に呼出元ゼロ。30秒タイマーで設定変更を監視していたが、イベント購読者も存在しない「動いているが誰も見ていない」最後の死登録
@@ -1769,7 +1860,6 @@
 - `appsettings.simple.json` を削除 — `appsettings.{Environment}.json` の環境命名規約にも `AddJsonFile` にも合致しない未ロード設定残滓（内部の `Potion:` セクションも未バインド）
 - 検証: 0警告0エラー・131/131テスト
 
-||||||| parent of b980600 (fix: wire Serilog so configured sinks/enrichers actually run)
 ### Fixed (Serilog の実配線 — 宣言のみだった構造化ログの有効化)
 
 - `Program.cs` に `.UseSerilog((ctx, cfg) => cfg.ReadFrom.Configuration(ctx.Configuration))` を追加 — Serilog パッケージと `Serilog` 設定セクションは存在したが `UseSerilog` が未呼出で、全てのログは Serilog を経由していなかった（wwwroot と同型の「設定済み・未配信」）。Console/File/EventLog シンク・エンリッチャー・`ServiceVersion` プロパティが全て初めて動作

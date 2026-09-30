@@ -167,7 +167,7 @@ class Program
         {
             RemediationPolicy = new
             {
-                MaxConcurrency = 2,
+                MaxConcurrency = 4,
                 SchedulerIntervalSeconds = 300,
                 ScheduleJitterSeconds = 60,
                 // Keep this list in sync with the shipped appsettings.json —
@@ -177,6 +177,15 @@ class Program
                 {
                     "sfc.exe", "dism.exe", "cleanmgr.exe", "chkdsk.exe", "ngen.exe",
                     "powercfg.exe", "netsh.exe"
+                },
+                // Mirrors the shipped CommandArgumentAllowlist — arguments not
+                // listed here are rejected by ArgumentsAreAllowlisted at startup.
+                CommandArgumentAllowlist = new Dictionary<string, string[]>
+                {
+                    ["sfc.exe"] = new[] { "/scannow" },
+                    ["dism.exe"] = new[] { "/Online /Cleanup-Image /RestoreHealth" },
+                    ["cleanmgr.exe"] = new[] { "/verylowdisk" },
+                    ["ngen.exe"] = new[] { "update /force" }
                 },
                 MaintenanceWindows = new[]
                 {
@@ -204,11 +213,11 @@ class Program
                         Command = "sfc.exe",
                         Arguments = "/scannow",
                         RunEveryMinutes = 10080,
-                        TimeoutSeconds = 7200,
+                        TimeoutSeconds = 1800,
                         RequiresElevation = true,
                         Enabled = true,
                         MaxRetries = 1,
-                        RetryBackoffSeconds = 1800,
+                        RetryBackoffSeconds = 900,
                         StopOnFailure = false,
                         MaintenanceWindowTag = "overnight",
                         AllowedExitCodes = new[] { 0 }
@@ -220,11 +229,11 @@ class Program
                         Command = "dism.exe",
                         Arguments = "/Online /Cleanup-Image /RestoreHealth",
                         RunEveryMinutes = 10080,
-                        TimeoutSeconds = 10800,
+                        TimeoutSeconds = 3600,
                         RequiresElevation = true,
                         Enabled = true,
                         MaxRetries = 1,
-                        RetryBackoffSeconds = 3600,
+                        RetryBackoffSeconds = 1800,
                         StopOnFailure = false,
                         MaintenanceWindowTag = "overnight",
                         AllowedExitCodes = new[] { 0 }
@@ -234,14 +243,14 @@ class Program
                         Name = "disk_cleanup",
                         DisplayName = "Disk Cleanup",
                         Command = "cleanmgr.exe",
-                        Arguments = "/sagerun:1",
+                        Arguments = "/verylowdisk",
                         RunEveryMinutes = 1440,
                         TimeoutSeconds = 3600,
                         RequiresElevation = true,
                         Enabled = true,
-                        MaxRetries = 2,
+                        MaxRetries = 1,
                         RetryBackoffSeconds = 900,
-                        StopOnFailure = true,
+                        StopOnFailure = false,
                         MaintenanceWindowTag = "business_hours",
                         AllowedExitCodes = new[] { 0 }
                     },
@@ -306,7 +315,7 @@ class Program
                 WriteIndented = true
             });
 
-            File.WriteAllText(configPath, json);
+            WriteAllTextAtomic(configPath, json);
             Console.WriteLine($"✓ Default configuration generated at: {configPath}");
             return 0;
         }
@@ -374,6 +383,26 @@ class Program
         }
     }
 
+    // A partial write to the live config path (crash mid-write) leaves the
+    // service unable to parse appsettings.json at next boot — write to a
+    // same-directory temp and rename atomically instead.
+    static void WriteAllTextAtomic(string path, string contents)
+    {
+        var staged = $"{path}.tmp-{Guid.NewGuid():N}";
+        try
+        {
+            File.WriteAllText(staged, contents);
+            File.Move(staged, path, true);
+        }
+        finally
+        {
+            if (File.Exists(staged))
+            {
+                File.Delete(staged);
+            }
+        }
+    }
+
     static int RestoreConfiguration(string backupPath, string configPath)
     {
         Console.WriteLine($"Restoring configuration from: {backupPath}");
@@ -409,7 +438,19 @@ class Program
                 Console.WriteLine($"  Current config preserved to: {preRestore}");
             }
 
-            File.Copy(backupPath, configPath, true);
+            var staged = $"{configPath}.tmp-{Guid.NewGuid():N}";
+            try
+            {
+                File.Copy(backupPath, staged);
+                File.Move(staged, configPath, true);
+            }
+            finally
+            {
+                if (File.Exists(staged))
+                {
+                    File.Delete(staged);
+                }
+            }
 
             Console.WriteLine($"✓ Configuration restored to: {configPath}");
             Console.WriteLine("Note: Please restart the Potion service to apply the restored configuration:");
