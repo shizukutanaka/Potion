@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (パフォーマンス最適化が運用者のシステム設定を定期上書きしていた)
+
+- `RunAdditionalOptimizationsAsync` が最適化発火のたびに `netsh interface tcp set global autotuninglevel=normal` と `powercfg /setactive <Balanced>` を無条件実行していた — メモリ閾値（4GB）は実環境で常時超過するため**既定で5分毎に運用者の TCP チューニングと電源プラン選択を黙って巻き戻していた**。他の Optimize* メソッドと同じ「外部干渉は行わず報告する」方針へ統一（自動変更を止め、確認コマンドを案内する記録に置換）
+
 ### Fixed (定期修復ポリシー `RemediationPolicy:Tasks` が一度も実行されない)
 
 - `RunEveryMinutes`・`MaintenanceWindowTag`・`MaxRetries`・`RetryBackoffSeconds`・`StopOnFailure`・`RequiresElevation`・`MaxConcurrency`・`SchedulerIntervalSeconds`・`ScheduleJitterSeconds` が起動時検証のみで消費者不在 — `FeatureFlags:RepairExecutionEnabled=true` でも出荷ポリシーの定期修復（sfc/dism/cleanmgr/ngen）は静かに未実行だった
