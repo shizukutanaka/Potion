@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Fixed (ConfigTool の generate テンプレートが出荷設定と乖離 — 生成設定が起動時検証で拒否される実バグ)
+
+- `BuildDefaultConfig` の `disk_cleanup` が `cleanmgr.exe /sagerun:1` を生成 — 出荷 `CommandArgumentAllowlist` は `/verylowdisk` のみ許容のため、生成設定を配置すると `ArgumentsAreAllowlisted` 起動時検証でサービス起動不能に
+- `CommandArgumentAllowlist` 自体がテンプレートから欠落 + `MaxConcurrency` 2→4、`sfc`/`dism`/`cleanmgr` の TimeoutSeconds・RetryBackoffSeconds・MaxRetries・StopOnFailure も出荷値と不一致
+- `generate` 出力の RemediationPolicy が出荷 appsettings.json と完全一致するようテンプレートを同期（`generate`→`validate` 往復・フィールド一致をローカル検証済み）
+
 ### Fixed (アラート CSV エクスポートがクォート未エスケープ — 引用符含むメッセージで CSV 破損＋スプレッドシート式インジェクション)
 
 - `exportAlerts` は各フィールドを `"…"` ラップするだけで内部 `"` をエスケープせず、引用符を含むメッセージで CSV が破損
