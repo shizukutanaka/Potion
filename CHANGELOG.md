@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (パフォーマンス最適化が運用者のシステム設定を定期上書きしていた)
+
+- `RunAdditionalOptimizationsAsync` が最適化発火のたびに `netsh interface tcp set global autotuninglevel=normal` と `powercfg /setactive <Balanced>` を無条件実行していた — メモリ閾値（4GB）は実環境で常時超過するため**既定で5分毎に運用者の TCP チューニングと電源プラン選択を黙って巻き戻していた**。他の Optimize* メソッドと同じ「外部干渉は行わず報告する」方針へ統一（自動変更を止め、確認コマンドを案内する記録に置換）
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
