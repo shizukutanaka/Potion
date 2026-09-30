@@ -7,21 +7,26 @@
 - `X-Frame-Options: DENY` は既存だがレガシー側のみ → CSP `frame-ancestors 'none'` を併記しモダンブラウザのエンベッドも構造的に拒否（XFO は旧ブラウザ向けに残置）
 - 併せて監査: セキュリティヘッダ一式（nosniff・DENY・no-referrer・Permissions-Policy・strict CSP・条件付き HSTS）・`UseExceptionHandler` の problem+json（詳細非流出・traceId のみ）・`UseRateLimiter` の配置（ルーティング後・エンドポイント単位適用で SignalR/ポーリング非影響）・全プローブ — 他にドリフトなし
 
+### Fixed (ConfigTool の generate/restore がライブ設定を非アトミック書込み — 書込み途中の中断で起動不能設定を残し得た)
+
+- `generate`（`File.WriteAllText`）と `restore`（`File.Copy` 直接上書き）はライブ設定パスを非アトミックに更新 — プロセス中断で部分書込み JSON が残り、次回起動時の設定パースでサービス起動不能に
+- 同一ディレクトリ temp + `File.Move`（上書き rename）へ変更 — POSIX/Windows とも rename は atomic。失敗時は staged ファイルを確実に除去
+
+### Docs (運用設定レイヤー `{Base}/config/appsettings.json` を文書化 — 最高優先度だが未記述だった)
+
+- `Program.cs` は `ServicePaths.ConfigurationFile` を全設定源の最後（appsettings・環境変数より上位の優先度）に `reloadOnChange` で読み込む — アップグレードで消えない外部オーバーライド層だがドキュメント未記載だった
+- パス解決（CommonApplicationData → LocalApplicationData → アプリ直下のフォールバック）・ホットリロードセマンティクス・HTTPS 有効化や ConfigTool（generate/validate/backup/restore）の書込み先であることを README に明記
+- 補完監査: `ServicePaths`（ACL 強化・フォールバック）・`PotionMetrics` 全359行（全 Record*/Update* に実呼出しあり・死メトリクスなし）・install.cmd/License.rtf・.github 全体 — 整合確認
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
 
-||||||| parent of 0a27d76 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
 ### Fixed (イベント駆動 webhook の `HttpResponseMessage` リーク)
 
 - `SendWebhookAsync` がレスポンスを未破棄のまま返していた — アラート発火毎にコネクションプールの接続が GC まで占有され、継続発火で枯渇し得た → `using var` 追加
 
-<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of 0a27d76 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
-=======
-||||||| parent of 9e73f71 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
->>>>>>> 0a27d76 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
 ### Fixed (子プロセスプローブのタイムアウトが実質無効・監視ポーリング全体をハングさせ得た)
 
 - `systemctl`/`launchctl`/`journalctl`/`defaults` 系プローブ5箇所が `ReadToEnd()` を同期ブロッキングした後に `WaitForExit(timeout)` していた — 子プロセスがハングすると stdout EOF が来ずタイムアウトに到達しないため、**監視ポーリング全体が無期限に固まった**。さらに `RedirectStandardError=true` かつ未読のため stderr パイプ満杯で子がデッドロックし得た
@@ -29,18 +34,10 @@
 
 <<<<<<< HEAD
 ||||||| parent of 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 =======
 ||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of 0a27d76 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
-=======
-||||||| parent of 9e73f71 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
-=======
-||||||| parent of 475cf50 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
->>>>>>> 9e73f71 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
->>>>>>> 0a27d76 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
 ### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
 
 - `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
@@ -54,7 +51,6 @@
 =======
 ||||||| parent of be8fd6d (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
 >>>>>>> 8d1b5cc (fix: dispose webhook HttpResponseMessage — connection-pool leak per alert fire)
-<<<<<<< HEAD
 ||||||| parent of 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 =======
 ||||||| parent of 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
@@ -62,47 +58,26 @@
 ||||||| parent of 61cb9c5 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 4b172e4 (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
 >>>>>>> 5a0d55c (docs: remove phantom ETW event declarations — only 6 of 31 documented IDs were implemented)
-||||||| parent of 0a27d76 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
-=======
-||||||| parent of 9e73f71 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
-=======
-||||||| parent of 475cf50 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
-=======
-||||||| parent of 5d876a6 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
->>>>>>> 475cf50 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
->>>>>>> 9e73f71 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
->>>>>>> 0a27d76 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
 - `SubscribeToAlerts`/`UnsubscribeFromAlerts` の `alertType` に上限64文字を追加 — 匿名クライアントが無制限にグループ参加してメモリを増殖させる DoS 面を閉塞
 - テスト: room テスト削除（消した API のもの）+ 上限超過は黙って無視されることを検証するテスト追加（293 維持、main マージ後）
 
-<<<<<<< HEAD
 ||||||| parent of 2d0b5b0 (docs: document env-var knobs (POTION_PROCESS_MAX_MEMORY_MB, Kestrel__Endpoints__*) + fix test count)
-||||||| parent of 5d876a6 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
-=======
-||||||| parent of 591f4bd (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
->>>>>>> 5d876a6 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
 ### Fixed (`ProcessRunner` の2つの実バグ — 呼出し側 `WorkingDirectory` の上書きと空行の消失)
 
 - `WorkingDirectory` が常に `Path.GetDirectoryName(FileName)` で上書きされ、呼出し側の指定値を黙って捨てていた → 未指定時のみ導出し、指定値を尊重するように
 - `AppendWithLimit` が `IsNullOrEmpty` で空行をドロップ → 子プロセス出力の空行が `StandardOutput` から消えていた（`ipconfig` 等の空行を含む出力で不整合）→ 空行も捕捉
 - テスト2件追加（291 → 293）: 空行保持・呼出し側 WorkingDirectory 尊重を Unix/Windows 双方で検証
 
-<<<<<<< HEAD
 ||||||| parent of c8c0ec6 (security: tighten hub surface — remove dead JoinRoom/LeaveRoom, bound alertType)
-||||||| parent of 591f4bd (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
-=======
-||||||| parent of 51f5f19 (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
->>>>>>> 591f4bd (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
 ### Improved (`ResiliencePipelines` にユニットテスト追加 — 唯一未テストだったコアのポリシー面を固定)
 
 - 現行セマンティクスをピン: 成功パススルー（1回のみ）、トランジェント exit code 5 で初回+3リトライ=4回、非トランジェント exit code 1 はリトライなし、連続3失敗でサーキットブレーカー open → `BrokenCircuitException` で実行拒否
 - 監査: Infrastructure 全18クラス×テストファイル照合 — 未テストは ResiliencePipelines のみ（PotionEventSource は ETW で実質 assert 不可）
 - 287 → 291 テスト（4追加・全パス）
 
-||||||| parent of 1ffa30c (security: add frame-ancestors 'none' to CSP — completes clickjacking protection)
 ### Fixed (`dotnet run` が Development でなく Production として起動し cert クラッシュしていた — launchSettings.json 追加 + Serilog ベースパスのポータブル化)
 
 - `Properties/launchSettings.json` が存在しなかったため `dotnet run` は `DOTNET_ENVIRONMENT` 未設定のまま Production 環境で起動 → `appsettings.Production.json` の証明書必須 HTTPS エンドポイントで起動不能・`C:\ProgramData\...` リテラル名のディレクトリを非 Windows 開発環境に撒き散らしていた → `DOTNET_ENVIRONMENT`/`ASPNETCORE_ENVIRONMENT` 共に Development のプロファイルを追加し golden path で Development 起動に
