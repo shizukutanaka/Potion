@@ -111,6 +111,7 @@ public sealed record NetworkMetrics(
 public sealed record WindowsEventMetrics(
     int TotalEvents,
     int ErrorEventCount,
+    int WarningEventCount,
     int SecurityEventCount,
     int CriticalEventCount,
     DateTimeOffset LastEventAt);
@@ -326,7 +327,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor, IDisposable
         var security = _sampler.SecurityState();
         var inventory = _sampler.MachineInventory();
         var elevated = _sampler.IsElevated();
-        var (evtTotal, evtErrors, evtSecurity, evtCritical, evtLast) = _sampler.WindowsEventCounts();
+        var (evtTotal, evtErrors, evtWarnings, evtSecurity, evtCritical, evtLast) = _sampler.WindowsEventCounts();
         var restorePoint = _sampler.RestorePointAvailable();
         var pendingRepairs = _sampler.PendingRepairCount();
         var ioOpsRate = _sampler.IoOpsRate();
@@ -341,7 +342,7 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor, IDisposable
             new MemoryMetrics(usedPercent, availableBytes, totalMemory, osUsedBytes, managedMemory, cachedBytes),
             new DiskMetrics(diskUsedPercent, diskFreeBytes, diskTotalBytes, diskReadRate, diskWriteRate),
             new NetworkMetrics(netRxRate, netTxRate, activeConnections),
-            new WindowsEventMetrics(evtTotal, evtErrors, evtSecurity, evtCritical, evtLast),
+            new WindowsEventMetrics(evtTotal, evtErrors, evtWarnings, evtSecurity, evtCritical, evtLast),
             new ServiceMetrics(services.Total, services.Running, services.Stopped, services.Failed, services.FailedNames),
             new SecurityMetrics(security.Defender, security.Firewall, security.ActiveThreats, security.SecureBoot, security.LastScan),
             new SystemIntegrityMetrics(pendingRepairs == 0, pendingRepairs, (int)_remediationStats.SucceededCount, restorePoint, now),
@@ -408,7 +409,7 @@ internal sealed class SystemMetricsSampler : IDisposable
     private static readonly TimeSpan SpawnedProbeTtl = TimeSpan.FromSeconds(30);
     private (int Total, int Running, int Stopped, int Failed, IReadOnlyList<string> FailedNames)? _serviceCountsCache;
     private DateTimeOffset _serviceCountsAt;
-    private (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt)? _eventCountsCache;
+    private (int Total, int Errors, int Warnings, int Security, int Critical, DateTimeOffset LastAt)? _eventCountsCache;
     private DateTimeOffset _eventCountsAt;
     private bool? _firewallCache;
     private DateTimeOffset _firewallAt;
@@ -1320,7 +1321,7 @@ internal sealed class SystemMetricsSampler : IDisposable
     private const int MaxEventsToScan = 5000;
     private static readonly TimeSpan EventWindow = TimeSpan.FromHours(24);
 
-    public (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) WindowsEventCounts()
+    public (int Total, int Errors, int Warnings, int Security, int Critical, DateTimeOffset LastAt) WindowsEventCounts()
     {
         if (OperatingSystem.IsLinux())
         {
@@ -1336,27 +1337,27 @@ internal sealed class SystemMetricsSampler : IDisposable
 
         if (!OperatingSystem.IsWindows())
         {
-            return (0, 0, 0, 0, DateTimeOffset.MinValue);
+            return (0, 0, 0, 0, 0, DateTimeOffset.MinValue);
         }
 
         try
         {
-            var (total, errors, critical, lastAt) = CountEvents("System");
-            var (secTotal, secErrors, secCritical, secLast) = CountEvents("Security");
-            return (total + secTotal, errors + secErrors, secTotal, critical + secCritical,
-                lastAt > secLast ? lastAt : secLast);
+            var (total, errors, warnings, critical, lastAt) = CountEvents("System");
+            var (secTotal, secErrors, secWarnings, secCritical, secLast) = CountEvents("Security");
+            return (total + secTotal, errors + secErrors, warnings + secWarnings, secTotal,
+                critical + secCritical, lastAt > secLast ? lastAt : secLast);
         }
         catch
         {
-            return (0, 0, 0, 0, DateTimeOffset.MinValue);
+            return (0, 0, 0, 0, 0, DateTimeOffset.MinValue);
         }
     }
 
     // journald is the Linux event log — one `journalctl` call over the same
     // 24h window yields entries tagged with their syslog priority. Priority
-    // 0-2 (emerg/alert/crit) = Critical, 3 (err) = Errors; Security counts
-    // entries from auth/security units (sudo/sshd/polkit/auditd).
-    private static (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) LinuxEventCounts()
+    // 0-2 (emerg/alert/crit) = Critical, 3 (err) = Errors, 4 = Warnings;
+    // Security counts entries from auth/security units (sudo/sshd/polkit/auditd).
+    private static (int Total, int Errors, int Warnings, int Security, int Critical, DateTimeOffset LastAt) LinuxEventCounts()
     {
         try
         {
@@ -1370,21 +1371,22 @@ internal sealed class SystemMetricsSampler : IDisposable
                 CreateNoWindow = true,
             };
             var (output, exited, _) = RunProbe(startInfo, 15000);
-            return exited ? ParseJournalLines(output ?? string.Empty) : (0, 0, 0, 0, DateTimeOffset.MinValue);
+            return exited ? ParseJournalLines(output ?? string.Empty) : (0, 0, 0, 0, 0, DateTimeOffset.MinValue);
         }
         catch
         {
-            return (0, 0, 0, 0, DateTimeOffset.MinValue);
+            return (0, 0, 0, 0, 0, DateTimeOffset.MinValue);
         }
     }
 
     // short-iso rows: "2026-09-22T07:30:00+0000 host unit[pid]: message"
     // journalctl does not emit the numeric priority in this format —
     // error severity is inferred from well-known markers instead.
-    internal static (int Total, int Errors, int Security, int Critical, DateTimeOffset LastAt) ParseJournalLines(string output)
+    internal static (int Total, int Errors, int Warnings, int Security, int Critical, DateTimeOffset LastAt) ParseJournalLines(string output)
     {
         var total = 0;
         var errors = 0;
+        var warnings = 0;
         var security = 0;
         var critical = 0;
         var lastAt = DateTimeOffset.MinValue;
@@ -1410,6 +1412,11 @@ internal sealed class SystemMetricsSampler : IDisposable
             {
                 errors++;
             }
+            else if (body.Contains("warning", StringComparison.OrdinalIgnoreCase) ||
+                body.Contains("warn", StringComparison.OrdinalIgnoreCase))
+            {
+                warnings++;
+            }
             if (fields[2].Contains("sudo", StringComparison.OrdinalIgnoreCase) ||
                 fields[2].Contains("sshd", StringComparison.OrdinalIgnoreCase) ||
                 fields[2].Contains("polkit", StringComparison.OrdinalIgnoreCase) ||
@@ -1422,16 +1429,19 @@ internal sealed class SystemMetricsSampler : IDisposable
                 lastAt = at;
             }
         }
-        return (total, errors, security, critical, lastAt);
+        return (total, errors, warnings, security, critical, lastAt);
     }
 
-    private static (int Total, int Errors, int Critical, DateTimeOffset LastAt) CountEvents(string logName)
+    // Windows event log levels: 1 = Critical, 2 = Error, 3 = Warning
+    // (4 = Information, 0/5 = other — not counted).
+    private static (int Total, int Errors, int Warnings, int Critical, DateTimeOffset LastAt) CountEvents(string logName)
     {
         var xpath = $"*[System[TimeCreated[timediff(@SystemTime) <= {(long)EventWindow.TotalMilliseconds}]]]";
         var query = new EventLogQuery(logName, PathType.LogName, xpath);
         using var reader = new EventLogReader(query);
         var total = 0;
         var errors = 0;
+        var warnings = 0;
         var critical = 0;
         var lastAt = DateTimeOffset.MinValue;
 
@@ -1449,6 +1459,10 @@ internal sealed class SystemMetricsSampler : IDisposable
                 {
                     errors++;
                 }
+                else if (record.Level == 3)
+                {
+                    warnings++;
+                }
                 if (record.TimeCreated is { } created && created > lastAt)
                 {
                     lastAt = created;
@@ -1456,7 +1470,7 @@ internal sealed class SystemMetricsSampler : IDisposable
             }
         }
 
-        return (total, errors, critical, lastAt);
+        return (total, errors, warnings, critical, lastAt);
     }
 
     private (long Ops, DateTimeOffset At)? _lastIoSample;
