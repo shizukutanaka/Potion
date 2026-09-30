@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed (回復試行上限到達後に毎分エラーログが永続し回復も永久停止していた)
+
+- `AutoRecoveryManager.AttemptRecoveryAsync` の失敗カウンタは飽和後リセットされず、**不健康が続くコンポーネントに対して毎分「Maximum recovery attempts exceeded」をエラー出力し続け、かつ状況が改善しても回復が二度と試行されなかった** — 他のループ（AlertCooldown/CorrelationCooldown/ScheduleCooldown）と同じバックオフ方式へ統一：上限到達で30分サイレンス後にカウンタを再武装し、エラーではなく警告1件で通知
+
 ### Fixed (メモリリーク警告の恒常誤発火を増加検知へ)
 
 - `CheckMemoryLeaksAsync` が絶対量（private 500MB 超 / WS 1GB 超）だけで「リークの兆候」を発火していた — ブラウザや AV が常時該当し、実環境では15分毎に警告が出続けていた → 大型 **かつ** 前回チェックから private bytes が10%以上増加したプロセスのみを兆候として扱う（前回スナップショットを PID 毎に保持）
