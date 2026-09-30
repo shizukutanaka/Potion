@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -320,6 +321,38 @@ public class ProcessRunnerTests : IDisposable
 
         await Assert.ThrowsAnyAsync<OperationCanceledException>(() => runTask);
         Assert.True(sw.Elapsed < TimeSpan.FromSeconds(10), $"took {sw.Elapsed}");
+    }
+
+    [Fact]
+    public async Task RunAsync_BlankLines_ArePreservedInCapturedOutput()
+    {
+        var startInfo = TestEnvironment.IsWindows
+            ? new ProcessStartInfo { FileName = "cmd.exe", Arguments = "/c echo a&echo.&echo b" }
+            : new ProcessStartInfo { FileName = "/bin/sh", Arguments = "-c \"printf 'a\\n\\nb\\n'\"" };
+
+        var result = await _processRunner.RunAsync(startInfo, TimeSpan.FromSeconds(10), CancellationToken.None);
+
+        Assert.Equal(0, result.ExitCode);
+        var lines = result.StandardOutput.Split('\n');
+        Assert.True(lines.Length >= 3, $"expected >=3 lines, got: '{result.StandardOutput}'");
+        Assert.Equal("a", lines[0].Trim());
+        Assert.Equal("", lines[1].Trim());
+        Assert.Equal("b", lines[2].Trim());
+    }
+
+    [Fact]
+    public async Task RunAsync_CallerWorkingDirectory_IsHonored()
+    {
+        // pwd reports the physical path — the current dir has no symlink hops.
+        var workingDir = Directory.GetCurrentDirectory();
+        var startInfo = TestEnvironment.IsWindows
+            ? new ProcessStartInfo { FileName = "cmd.exe", Arguments = "/c cd", WorkingDirectory = workingDir }
+            : new ProcessStartInfo { FileName = "/bin/pwd", WorkingDirectory = workingDir };
+
+        var result = await _processRunner.RunAsync(startInfo, TimeSpan.FromSeconds(10), CancellationToken.None);
+
+        Assert.Equal(0, result.ExitCode);
+        Assert.Equal(workingDir, result.StandardOutput.Trim());
     }
 
     [Fact]
