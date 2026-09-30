@@ -934,14 +934,8 @@ internal sealed class SystemMetricsSampler : IDisposable
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            using var proc = Process.Start(startInfo);
-            if (proc is null)
-            {
-                return (0, 0, 0, 0, Array.Empty<string>());
-            }
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(10000);
-            return ParseSystemctlServiceLines(output);
+            var (output, exited, _) = RunProbe(startInfo, 10000);
+            return exited ? ParseSystemctlServiceLines(output ?? string.Empty) : (0, 0, 0, 0, Array.Empty<string>());
         }
         catch
         {
@@ -980,6 +974,45 @@ internal sealed class SystemMetricsSampler : IDisposable
         return (total, running, stopped, failedNames.Count, failedNames);
     }
 
+    // Spawns a short-lived OS probe with a real bound: stdout and stderr are
+    // drained concurrently (a child that fills its stderr pipe would otherwise
+    // deadlock while we read only stdout), the wait is bounded by timeoutMs,
+    // and a child that has not exited by then is killed rather than left
+    // running. `Output` is null when the probe could not be started or did not
+    // exit in time.
+    private static (string? Output, bool Exited, int ExitCode) RunProbe(ProcessStartInfo startInfo, int timeoutMs)
+    {
+        using var proc = Process.Start(startInfo);
+        if (proc is null)
+        {
+            return (null, false, -1);
+        }
+
+        var stdoutTask = startInfo.RedirectStandardOutput
+            ? proc.StandardOutput.ReadToEndAsync()
+            : Task.FromResult(string.Empty);
+        if (startInfo.RedirectStandardError)
+        {
+            _ = proc.StandardError.ReadToEndAsync(); // drain to prevent pipe deadlock; output unused
+        }
+
+        if (!proc.WaitForExit(timeoutMs))
+        {
+            try
+            {
+                proc.Kill();
+            }
+            catch
+            {
+            }
+
+            return (null, false, -1);
+        }
+
+        // The process has exited; the stdout drain completes once the pipe closes.
+        return (stdoutTask.Result, true, proc.ExitCode);
+    }
+
     // launchd is the macOS service manager — `launchctl list` prints one row
     // per loaded job: "PID\tLastExitStatus\tLabel". A numeric PID means the
     // job is running; "-" status means stopped cleanly; a numeric status is
@@ -997,14 +1030,8 @@ internal sealed class SystemMetricsSampler : IDisposable
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            using var proc = Process.Start(startInfo);
-            if (proc is null)
-            {
-                return (0, 0, 0, 0, Array.Empty<string>());
-            }
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(10000);
-            return ParseLaunchctlServiceLines(output);
+            var (output, exited, _) = RunProbe(startInfo, 10000);
+            return exited ? ParseLaunchctlServiceLines(output ?? string.Empty) : (0, 0, 0, 0, Array.Empty<string>());
         }
         catch
         {
@@ -1155,12 +1182,8 @@ internal sealed class SystemMetricsSampler : IDisposable
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            using var proc = Process.Start(startInfo);
-            if (proc is null)
-            {
-                return false;
-            }
-            return proc.WaitForExit(5000) && proc.ExitCode == 0;
+            var (_, exited, exitCode) = RunProbe(startInfo, 5000);
+            return exited && exitCode == 0;
         }
         catch
         {
@@ -1196,14 +1219,8 @@ internal sealed class SystemMetricsSampler : IDisposable
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            using var proc = Process.Start(startInfo);
-            if (proc is null)
-            {
-                return false;
-            }
-            var output = proc.StandardOutput.ReadToEnd().Trim();
-            proc.WaitForExit(5000);
-            return output is "1" or "2";
+            var (output, exited, _) = RunProbe(startInfo, 5000);
+            return exited && output!.Trim() is "1" or "2";
         }
         catch
         {
@@ -1352,14 +1369,8 @@ internal sealed class SystemMetricsSampler : IDisposable
                 UseShellExecute = false,
                 CreateNoWindow = true,
             };
-            using var proc = Process.Start(startInfo);
-            if (proc is null)
-            {
-                return (0, 0, 0, 0, DateTimeOffset.MinValue);
-            }
-            var output = proc.StandardOutput.ReadToEnd();
-            proc.WaitForExit(15000);
-            return ParseJournalLines(output);
+            var (output, exited, _) = RunProbe(startInfo, 15000);
+            return exited ? ParseJournalLines(output ?? string.Empty) : (0, 0, 0, 0, DateTimeOffset.MinValue);
         }
         catch
         {

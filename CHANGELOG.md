@@ -2,12 +2,18 @@
 
 ## Unreleased
 
+### Fixed (子プロセスプローブのタイムアウトが実質無効・監視ポーリング全体をハングさせ得た)
+
+- `systemctl`/`launchctl`/`journalctl`/`defaults` 系プローブ5箇所が `ReadToEnd()` を同期ブロッキングした後に `WaitForExit(timeout)` していた — 子プロセスがハングすると stdout EOF が来ずタイムアウトに到達しないため、**監視ポーリング全体が無期限に固まった**。さらに `RedirectStandardError=true` かつ未読のため stderr パイプ満杯で子がデッドロックし得た
+- `RunProbe` ヘルパーへ統一： stdout/stderr を並行 drain・真のタイムアウト適用・期限超過時は `Kill()` で子を回収し、パースは終了確認時のみ実行
+
 ### Docs (README に環境変数セクション追加 — 発見不能だった唯一のコード側ノブを文書化)
 
 - `POTION_PROCESS_MAX_MEMORY_MB`（既定768・128–4096MB クランプ・Windows は Job Object で強制）を文書化 — コード内 grep しないと辿り着けなかった
 - `Kestrel__Endpoints__*` 上書き規則と `ASPNETCORE_URLS` 無効化の注意も追記
 - テスト数の記載を実値へ更新（287 → 293）
 
+||||||| parent of 865c388 (fix: bound OS probes for real — hung systemctl/journalctl could freeze the whole monitoring poll)
 ### Security (SignalR ハブの入力面を締める — 死メソッド削除 + グループ名の境界)
 
 - `JoinRoom`/`LeaveRoom` を削除 — サーバ側の broadcast は `alerts-*`/`system-monitors`/全体のみで、room グループ宛ての送信者が存在しない死んだ公開面（**API変更**: ハブメソッド2件削除 — リポジトリ内の唯一のクライアント dashboard.js から呼出しなし・room 宛て送信者なしを確認済み）
