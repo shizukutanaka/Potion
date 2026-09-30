@@ -66,6 +66,9 @@ public sealed class MemoryMonitor : BackgroundService
     private readonly ConcurrentDictionary<DateTimeOffset, MemoryStatistics> _memoryHistory = new();
     private DateTimeOffset _lastOptimizationAt = DateTimeOffset.MinValue;
     private DateTimeOffset _lastLeakCheckAt = DateTimeOffset.MinValue;
+    // Per-PID private-byte snapshot from the previous leak check; a leak signal
+    // needs growth over time, not merely a large resident process.
+    private IReadOnlyDictionary<int, long> _previousPrivateBytes = new Dictionary<int, long>();
 
     public MemoryMonitor(
         ILogger<MemoryMonitor> logger,
@@ -308,10 +311,20 @@ public sealed class MemoryMonitor : BackgroundService
 
             suspiciousProcesses.AddRange(processes);
 
-            // メモリリークの兆候をチェック
+            // メモリリークの兆候をチェック。「大きい」だけではリークではない —
+            // ブラウザ/AV/IDE は常時 500MB 超のため絶対量だけでは毎回発火し警告が
+            // 恒常ノイズになる。大型 AND 前回チェックから10%以上増加している
+            // プロセスのみを兆候として扱う（初回スナップショットは履歴なしの
+            // ため発火しない）。
+            var previous = _previousPrivateBytes;
+            _previousPrivateBytes = suspiciousProcesses.ToDictionary(
+                p => p.ProcessId, p => p.PrivateMemoryBytes);
+
             var hasPotentialLeaks = suspiciousProcesses.Any(p =>
-                p.PrivateMemoryBytes > 500 * 1024 * 1024 || // 500MB以上
-                p.WorkingSetBytes > 1000 * 1024 * 1024); // 1GB以上
+                (p.PrivateMemoryBytes > 500 * 1024 * 1024 || // 500MB以上
+                 p.WorkingSetBytes > 1000 * 1024 * 1024) && // 1GB以上
+                previous.TryGetValue(p.ProcessId, out var prev) &&
+                p.PrivateMemoryBytes > prev + prev / 10);
 
             if (hasPotentialLeaks)
             {
