@@ -17,6 +17,7 @@ public class CollaborationOptions
 public class CollaborationHub : Hub
 {
     private const int MaxMessageLength = 2000;
+    private const int MaxAlertTypeLength = 64;
 
     private readonly ILogger<CollaborationHub> _logger;
     private readonly CollaborationService _collaborationService;
@@ -54,12 +55,22 @@ public class CollaborationHub : Hub
 
     public async Task SubscribeToAlerts(string alertType)
     {
+        // Anonymous clients can join arbitrary alert groups; bound the name so
+        // one connection cannot accumulate an unbounded set of memberships.
+        if (string.IsNullOrWhiteSpace(alertType) || alertType.Length > MaxAlertTypeLength)
+        {
+            return;
+        }
         await Groups.AddToGroupAsync(Context.ConnectionId, $"alerts-{alertType}");
         await Clients.Caller.SendAsync("Subscribed", alertType);
     }
 
     public async Task UnsubscribeFromAlerts(string alertType)
     {
+        if (string.IsNullOrWhiteSpace(alertType) || alertType.Length > MaxAlertTypeLength)
+        {
+            return;
+        }
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"alerts-{alertType}");
         await Clients.Caller.SendAsync("Unsubscribed", alertType);
     }
@@ -77,17 +88,6 @@ public class CollaborationHub : Hub
         await _collaborationService.BroadcastMessageAsync(userId, message);
     }
 
-    public async Task JoinRoom(string roomId)
-    {
-        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
-        await Clients.Caller.SendAsync("JoinedRoom", roomId);
-    }
-
-    public async Task LeaveRoom(string roomId)
-    {
-        await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
-        await Clients.Caller.SendAsync("LeftRoom", roomId);
-    }
 }
 
 public class CollaborationService : IDisposable, IAsyncDisposable
