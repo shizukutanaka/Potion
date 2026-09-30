@@ -212,12 +212,20 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor, IDisposable
 
     public event EventHandler<SystemHealthAlert>? HealthAlert = delegate { };
 
+    // HTTP handlers and background loops call in concurrently, while the
+    // sampler keeps mutable state (perf counters, rate deltas, probe caches).
+    // Serialize each snapshot+alert evaluation into one atomic pass.
+    private readonly object _samplerGate = new();
+
     public Task<SystemHealthSnapshot> GetCurrentHealthAsync(CancellationToken cancellationToken)
     {
         using var activity = PotionActivitySource.StartHealthCheckActivity();
-        var metrics = CreateMetrics();
-        var snapshot = new SystemHealthSnapshot(metrics, EvaluatePressureAlerts(metrics));
-        return Task.FromResult(snapshot);
+        lock (_samplerGate)
+        {
+            var metrics = CreateMetrics();
+            var snapshot = new SystemHealthSnapshot(metrics, EvaluatePressureAlerts(metrics));
+            return Task.FromResult(snapshot);
+        }
     }
 
     private static readonly TimeSpan AlertCooldown = TimeSpan.FromMinutes(15);
@@ -293,7 +301,11 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor, IDisposable
 
     public Task<IReadOnlyDictionary<string, double>> GetCurrentMetricsAsync()
     {
-        var metrics = CreateMetrics();
+        SystemMetrics metrics;
+        lock (_samplerGate)
+        {
+            metrics = CreateMetrics();
+        }
         IReadOnlyDictionary<string, double> values = new Dictionary<string, double>
         {
             ["CpuUsage"] = metrics.Cpu.UsagePercent,
@@ -307,7 +319,13 @@ public sealed class SystemHealthMonitor : ISystemHealthMonitor, IDisposable
 
     private readonly SystemMetricsSampler _sampler = new();
 
-    public void Dispose() => _sampler.Dispose();
+    public void Dispose()
+    {
+        lock (_samplerGate)
+        {
+            _sampler.Dispose();
+        }
+    }
 
     private SystemMetrics CreateMetrics()
     {
