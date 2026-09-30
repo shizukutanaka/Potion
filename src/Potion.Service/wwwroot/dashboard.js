@@ -129,6 +129,14 @@ class PotionDashboard {
                 PotionDashboard.NON_ACTIVATING_KEYS.has(event.key)) {
                 return;
             }
+            // Gestures inside the settings modal are mid-configuration: draft
+            // choices aren't persisted, so prompting now would fire against
+            // stale prefs (and the save click handles opt-in itself via
+            // saveAdvancedSettings). Leave the listeners armed.
+            if (event.target instanceof Element &&
+                event.target.closest('#advanced-settings-modal')) {
+                return;
+            }
             disarm();
             // 'click' bubbles after target handlers, so prefs saved by the
             // click that fired this are already visible — a save switching
