@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Audit (ラインカバレッジ監査 — 65.3%、残ギャップは全てプラットフォーム／フラグ依存)
+
+- `dotnet test --collect:"XPlat Code Coverage"` で現行コードの実測カバレッジを取得: 2,528/3,870 行 (65.3%)
+- 0% クラスは5件のみで全て説明可能: `Program`(エントリポイント)・`PerformanceOptimizer`/`PredictiveRemediationService` の `ExecuteAsync`(フラグOFFで未起動)・SignalR broadcast 内部(ライブ HubContext 必須)
+- 最大ギャップは `SystemHealthMonitoring`(25%) — Windows WMI/P-Invoke・Job Object 等の OS 専用プローブはこのプラットフォームでは実行不能なため到達不能、パーサ部は `SystemMetricsSamplerParseTests` で固定済み
+- `Startup`(34%) は DI パイプライン全体が対象 — ホスト統合テストは `Microsoft.AspNetCore.Mvc.Testing` 新規依存を要しライブラリ追加制約上見送り
+- **dead code なし**: 本プラットフォームで単体テスト可能な経路は全て実行済み。低カバレッジは未テストではなく「テスト不能な OS/機能依存面」であることを確認
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
