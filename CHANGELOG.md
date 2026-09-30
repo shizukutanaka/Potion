@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Improved (CollaborationService の SignalR broadcast 経路をテスト固定)
+
+- `BroadcastSystemHealthAsync` → `system-monitors` グループへの `SystemHealthUpdate` 送信、`NotifyAnomalyDetectedAsync` → `alerts-anomaly` グループへの `Alert` 送信(実時間アラート無効時は送信しない)、`DisposeAsync` → ループ停止後も同期 `Dispose` が安全なフォールバックとして機能すること、Hub `UnsubscribeFromAlerts` の不正 `alertType` 無視をモック `IHubContext`/`IGroupManager` で固定
+- 293 → 298 テスト
+
 ### Removed (独自 `HealthCheckResult` の死メンバー削除 — 4引数 ctor・未読プロパティ・孤児 enum)
 
 - 4引数コンストラクタ `(status, description, error, details)` は呼出しゼロ、`Status`/`Description`/`Error`/`Details`/`Timestamp`/`Components` は読取りゼロ — 消費者は `IsHealthy`・`ComponentHealth`・`CheckedAt` のみ
