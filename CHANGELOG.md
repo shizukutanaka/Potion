@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Audit (NuGet 依存の脆弱性・鮮度監査 — 脆弱性ゼロを確認)
+
+- `dotnet list package --vulnerable`: 全3プロジェクト（Service/Tests/ConfigTool）で既知脆弱性ゼロ
+- `--outdated` の残差分は全て意図的な保留: FluentAssertions 6.x 留保（7.x+ は再ライセンス）、Serilog.Sinks.File 6→7（判断保留中）、`.NET 10` 系パッケージ（net8 ターゲットにメジャー追従不要）、OTel beta/rc（stable 未供給）、テスト基盤メジャー更新（xunit runner 4・Test SDK 18 等はリターンに見合わず）
+
 ### Audit (ラインカバレッジ監査 — 65.3%、残ギャップは全てプラットフォーム／フラグ依存)
 
 - `dotnet test --collect:"XPlat Code Coverage"` で現行コードの実測カバレッジを取得: 2,528/3,870 行 (65.3%)
