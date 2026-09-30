@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+### Fixed (起動失敗が完全に無痕跡だった — Serilog bootstrap logger 追加)
+
+- `Program.cs` の `Log.Logger` は `builder.Build()` 内の UseSerilog が成功するまで未割当て → Build 内の例外（DI 検証失敗・運用設定 JSON の構文破損・sink アセンブリ不整合など）で `Log.Fatal` が SilentLogger へ消え、Windows サービスでは一切の記録なく終了していた → `CreateBootstrapLogger`（Console + Windows のみ EventLog source "Potion Self-Healing Service"・Warning+）を Build 前に設定。壊れた運用設定ファイルでの実機検証: `[FTL] Host terminated unexpectedly` が従来ゼロ出力だった箇所で出力されることを確認
+- 挙動観察: `ServicePaths.ConfigurationFile`（運用上書き設定）は `optional` だが JSON 構文破損では例外 → 起動不能。fail-fast は ValidateOnStart 方針と一致するため維持（ConfigTool `validate` で事前検出可能）— bootstrap logger により少なくとも可視化された
+
+### Fixed (`dotnet run` が Development でなく Production として起動し cert クラッシュしていた — launchSettings.json 追加 + Serilog ベースパスのポータブル化)
+
+- `Properties/launchSettings.json` が存在しなかったため `dotnet run` は `DOTNET_ENVIRONMENT` 未設定のまま Production 環境で起動 → `appsettings.Production.json` の証明書必須 HTTPS エンドポイントで起動不能・`C:\ProgramData\...` リテラル名のディレクトリを非 Windows 開発環境に撒き散らしていた → `DOTNET_ENVIRONMENT`/`ASPNETCORE_ENVIRONMENT` 共に Development のプロファイルを追加し golden path で Development 起動に
+- `appsettings.json` の Serilog File シンクが `C:/ProgramData/Potion/logs/` 絶対パスだった → `logs/` 相対化（Production/Development/Container の各環境ファイルは独自パスを持つため Windows 本番動作は不変・ベース設定がクロスプラットフォームで有効になる）
+- monitoring 契約の実機検証: `/metrics` の実エクスポート名は単位 suffix 付き（`potion_system_disk_available_gigabytes` 等）で `monitoring/rules.yml` の4アラートが全て実在シリーズを参照 — ドリフトなし。compose スクレイプ `potion-service:80`・alertmanager webhook `api/health/alerts/webhook` も登録ルートと一致
+
 ### Fixed (`Observability:OtlpEndpoint` がトレースに適用されない非対称 — メトリクスのみ有効だった)
 
 - Startup の OTel 設定で metrics エクスポーターのみ `Observability:OtlpEndpoint` を読み、tracing は無引数 `AddOtlpExporter()`（env var/`localhost:4317` 既定）のままだった → 運用者がエンドポイントを設定してもトレースは黙ってローカルへ送信され続けていた → 同一 `otlpEndpoint` を両エクスポーターへ適用
