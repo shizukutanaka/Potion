@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+### Improved (PotionActivitySource のタグ付き Activity 生成をテスト固定)
+
+- `ActivityListener` 登録下で `StartRemediationActivity`/`StartHealthCheckActivity`/`StartSelfHealingActivity` が非 null の Activity を返し、`task.name`/`issue.type`/`span.kind` タグと OperationName が正しいことを固定（リスナー無しでは StartActivity が null を返す仕様のため、本番=リスナー有りの契約をピン留め）
+- `EventCorrelationService` の `<`/`>=`/`<=` 演算子アームは未カバーだが意図的（組込みルール3件は `>`/`count` のみ・`_rules` は外部注入不可 — 将来のルール語彙として保持と判断）
+- 293 → 297 テスト
+
 ### Improved (ETW `PotionEventSource` の幻イベント宣言を整理)
 
 - メソッド実体のない「Event ID 4–6・9–20・22–31」の `<summary>` コメント25件を削除 — 実装済みは ID 1,2,3,7,8,21 の6件のみで、残りはマニフェストを偽る死んだ宣言だった（ID 番号自体は ETW 互換性のため維持）
