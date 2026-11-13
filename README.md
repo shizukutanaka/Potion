@@ -84,7 +84,3 @@ See CONTRIBUTING.md for guidelines
 ## Support
 
 For issues and questions, please open a GitHub issue
-
-## Information Sources
-
-For research, posts on X (formerly Twitter) are also retrieved via fxtwitter (post text is fetched as JSON from `https://api.fxtwitter.com/{username}/status/{postId}`).
