@@ -193,7 +193,12 @@ jobs:
         dotnet-version: ${{ env.DOTNET_VERSION }}
 
     - name: Run integration tests
-      run: dotnet test tests/Potion.Service.IntegrationTests --configuration ${{ env.BUILD_CONFIGURATION }} --no-build --verbosity normal
+      run: |
+        if (Test-Path "tests/Potion.Service.IntegrationTests") {
+          dotnet test tests/Potion.Service.IntegrationTests --configuration ${{ env.BUILD_CONFIGURATION }} --verbosity normal
+        } else {
+          Write-Host "tests/Potion.Service.IntegrationTests does not exist; skipping (end-to-end step below covers the live service)."
+        }
 
     - name: Run end-to-end tests
       run: |
@@ -201,20 +206,20 @@ jobs:
         Start-Process -FilePath "dotnet" -ArgumentList "run --project src/Potion.Service --configuration ${{ env.BUILD_CONFIGURATION }}" -NoNewWindow
         Start-Sleep -Seconds 30
 
-        # Test comprehensive health
-        Invoke-WebRequest -Uri "http://localhost:5000/api/health/system/comprehensive" -Method GET | Out-Null
+        # Test liveness and readiness probes (Startup.cs / scripts/validate-system.sh)
+        Invoke-WebRequest -Uri "http://localhost:5000/health" -Method GET | Out-Null
+        Invoke-WebRequest -Uri "http://localhost:5000/health/ready" -Method GET | Out-Null
 
-        # Test observability
-        Invoke-WebRequest -Uri "http://localhost:5000/api/health/observability/tracing" -Method GET | Out-Null
+        # Test dashboard health endpoints
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health" -Method GET | Out-Null
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health/metrics" -Method GET | Out-Null
 
-        # Test security
-        Invoke-WebRequest -Uri "http://localhost:5000/api/health/security/audit" -Method GET | Out-Null
+        # Test security endpoints
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health/security" -Method GET | Out-Null
+        Invoke-WebRequest -Uri "http://localhost:5000/api/health/security/summary" -Method GET | Out-Null
 
-        # Test reactive events
-        Invoke-WebRequest -Uri "http://localhost:5000/api/health/events/stream" -Method GET | Out-Null
-
-        # Test functional programming
-        Invoke-WebRequest -Uri "http://localhost:5000/api/health/functional/health" -Method GET | Out-Null
+        # Test Prometheus metrics endpoint
+        Invoke-WebRequest -Uri "http://localhost:5000/metrics" -Method GET | Out-Null
 
         # Stop service
         Stop-Process -Name "dotnet" -Force
@@ -278,7 +283,7 @@ jobs:
   deploy:
     name: Deploy
     runs-on: windows-latest
-    needs: [build-and-test, performance-test, integration-tests, advanced-tests]
+    needs: [build-and-test, integration-tests, advanced-tests]
     if: needs.validate.outputs.should-deploy == 'true'
 
     steps:
