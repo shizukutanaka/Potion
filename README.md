@@ -70,7 +70,7 @@ Operator config layer (highest precedence — loaded last, after appsettings + e
 ## Tests
 
 ```powershell
-dotnet test Potion.sln   # 293/293 tests
+dotnet test Potion.sln   # 318/318 tests
 ```
 
 ## License
