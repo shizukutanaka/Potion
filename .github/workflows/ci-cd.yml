@@ -54,6 +54,9 @@ jobs:
     name: Security Scan
     runs-on: windows-latest
     needs: validate
+    outputs:
+      vulnerabilities-found: ${{ steps.audit-eval.outputs.vulnerabilities-found }}
+      vulnerability-details: ${{ steps.audit-eval.outputs.vulnerability-details }}
 
     steps:
     - name: Checkout code
@@ -68,11 +71,65 @@ jobs:
       run: dotnet list package --vulnerable --format json | Out-File -FilePath nuget-audit.json
       continue-on-error: true
 
+    # NuGet Audit の出力は SARIF 形式ではないため、upload-sarif には渡さない
+    # （形式不一致でステップが失敗し、security-scan 全体が失敗扱いになっていた）。
+    # 結果はアーティファクトとして保存する。
     - name: Upload NuGet Audit results
-      uses: github/codeql-action/upload-sarif@v3
+      uses: actions/upload-artifact@v4
       with:
-        sarif_file: nuget-audit.json
+        name: nuget-audit-results
+        path: nuget-audit.json
+        if-no-files-found: warn
       if: always()
+
+    # 監査結果を実際に解析し、「脆弱性が検出されたか」をジョブ出力にする。
+    # notification ジョブはこの出力が true のときだけ Issue を作成する。
+    - name: Evaluate NuGet Audit results
+      id: audit-eval
+      if: always()
+      run: |
+        $found = 'false'
+        $details = ''
+        if (Test-Path 'nuget-audit.json') {
+          try {
+            $audit = Get-Content 'nuget-audit.json' -Raw | ConvertFrom-Json
+            $vulns = @()
+            foreach ($project in $audit.projects) {
+              foreach ($framework in $project.frameworks) {
+                $packages = @()
+                if ($framework.topLevelPackages) { $packages += $framework.topLevelPackages }
+                if ($framework.transitivePackages) { $packages += $framework.transitivePackages }
+                foreach ($pkg in $packages) {
+                  if ($pkg.vulnerabilities) {
+                    foreach ($v in $pkg.vulnerabilities) {
+                      $vulns += "- $($pkg.id) $($pkg.resolvedVersion): severity $($v.severity) ($($v.advisoryurl))"
+                    }
+                  }
+                }
+              }
+            }
+            if ($vulns.Count -gt 0) {
+              $found = 'true'
+              $details = ($vulns | Select-Object -First 20) -join "`n"
+              Write-Host "NuGet Audit: $($vulns.Count) vulnerable package occurrence(s) detected."
+              $vulns | ForEach-Object { Write-Host $_ }
+              "## NuGet Audit: $($vulns.Count) vulnerable package occurrence(s) detected" >> $env:GITHUB_STEP_SUMMARY
+              $vulns | ForEach-Object { $_ >> $env:GITHUB_STEP_SUMMARY }
+            } else {
+              Write-Host "NuGet Audit: no vulnerable packages detected."
+              "## NuGet Audit: no vulnerable packages detected" >> $env:GITHUB_STEP_SUMMARY
+            }
+          } catch {
+            Write-Warning "Could not parse nuget-audit.json: $_"
+          }
+        } else {
+          Write-Warning "nuget-audit.json not found; audit results unavailable."
+        }
+        echo "vulnerabilities-found=$found" >> $env:GITHUB_OUTPUT
+        $delimiter = [guid]::NewGuid().ToString()
+        echo "vulnerability-details<<$delimiter" >> $env:GITHUB_OUTPUT
+        echo "$details" >> $env:GITHUB_OUTPUT
+        echo "$delimiter" >> $env:GITHUB_OUTPUT
 
     - name: Run CodeQL Analysis
       uses: github/codeql-action/init@v3
@@ -342,7 +399,7 @@ jobs:
     name: Notification
     runs-on: windows-latest
     needs: [security-scan, code-quality, build-and-test, integration-tests, advanced-tests, deploy]
-    if: always() && (needs.security-scan.result != 'success' || needs.code-quality.result != 'success' || needs.build-and-test.result != 'success' || needs.integration-tests.result != 'success' || needs.advanced-tests.result != 'success')
+    if: always() && (needs.security-scan.outputs.vulnerabilities-found == 'true' || needs.security-scan.result != 'success' || needs.code-quality.result != 'success' || needs.build-and-test.result != 'success' || needs.integration-tests.result != 'success' || needs.advanced-tests.result != 'success')
 
     steps:
     - name: Notify on failure
@@ -350,15 +407,40 @@ jobs:
         echo "Build failed - check logs for details"
       if: failure()
 
+    # Issue は「実際に脆弱性が検出されたとき」だけ作成する。
+    # security-scan の失敗（ツール側のエラー等）では作成しない。
+    # 同じタイトルの open Issue が既にある場合は重複作成しない。
     - name: Create issue on security vulnerability
       uses: actions/github-script@v7
       with:
         script: |
-          github.rest.issues.create({
+          const title = 'Security Vulnerability Detected in CI/CD';
+          const openIssues = await github.rest.issues.listForRepo({
             owner: context.repo.owner,
             repo: context.repo.repo,
-            title: 'Security Vulnerability Detected in CI/CD',
-            body: 'Security scan detected vulnerabilities. Please review the security scan results.',
+            state: 'open',
+            per_page: 100
+          });
+          const alreadyOpen = openIssues.data.some(
+            issue => !issue.pull_request && issue.title === title
+          );
+          if (alreadyOpen) {
+            console.log('An open issue with the same title already exists; skipping creation.');
+            return;
+          }
+          const details = ${{ toJSON(needs.security-scan.outputs.vulnerability-details) }};
+          const runUrl = `${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`;
+          await github.rest.issues.create({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            title: title,
+            body: [
+              'NuGet Audit detected vulnerable packages in the CI/CD security scan.',
+              '',
+              details ? `Detected:\n${details}` : 'See the Security Scan job summary and the nuget-audit-results artifact for details.',
+              '',
+              `Workflow run: ${runUrl}`
+            ].join('\n'),
             labels: ['security', 'urgent']
-          })
-      if: needs.security-scan.result != 'success'
+          });
+      if: needs.security-scan.outputs.vulnerabilities-found == 'true'
