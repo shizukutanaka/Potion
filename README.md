@@ -1,6 +1,6 @@
 # Potion - Windows Self-Healing Service
 
-A production-grade Windows system automation and monitoring service with autonomous remediation capabilities.
+A production-grade Windows system monitoring service with deliberately restrained remediation: repair execution is **off by default**, and when an operator enables it, only allowlisted OS repair commands (sfc/dism/cleanmgr/chkdsk/ngen/powercfg/netsh) can run, behind argument sanitization and rate limiting. Potion runs entirely on your own machine: no vendor cloud, no account, no per-endpoint fee, and the only telemetry destination is an observability endpoint you configure yourself.
 
 ## Features
 
